@@ -6,6 +6,7 @@ import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.fragment.app.FragmentActivity
 import androidx.navigation.NavHostController
+import androidx.navigation.compose.composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.navOptions
 import io.homeassistant.companion.android.automotive.navigation.carAppActivity
@@ -110,7 +111,7 @@ internal fun HANavHost(
             }
             // STEVORA: the authenticated frontend destination is rendered by Compose,
             // not by Home Assistant's WebView frontend.
-            androidx.navigation.compose.composable<FrontendRoute> {
+            composable<FrontendRoute> {
                 io.homeassistant.companion.android.stevora.StevoraLivePanel()
             }
             changelogScreen(
