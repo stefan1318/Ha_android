@@ -13,4 +13,16 @@
     <string name="stevora_connect_title">Connect to STEVORA</string>
     <string name="stevora_voice_title">STEVORA Voice</string>
     <string name="stevora_settings_title">STEVORA Settings</string>
+    <string name="stevora_voice_entry">STEVORA Voice</string>
+    <string name="stevora_voice_entry_summary">Wake phrase and personal preferences</string>
+    <string name="stevora_voice_model_ready">Wake-word model is available</string>
+    <string name="stevora_voice_model_pending">Wake-word model is not installed. Manual Assist remains available.</string>
+    <string name="stevora_voice_activation">Voice activation</string>
+    <string name="stevora_voice_activation_summary">Requires a validated Hey Stevora model</string>
+    <string name="stevora_voice_sensitivity">Detection sensitivity</string>
+    <string name="stevora_voice_sensitivity_summary">Stored on this device</string>
+    <string name="stevora_voice_calibration">Personal calibration</string>
+    <string name="stevora_voice_calibration_pending">Available after the wake-word model and calibration engine are installed</string>
+    <string name="stevora_voice_privacy">Privacy</string>
+    <string name="stevora_voice_privacy_summary">This setup does not record, save, or upload audio</string>
 </resources>
