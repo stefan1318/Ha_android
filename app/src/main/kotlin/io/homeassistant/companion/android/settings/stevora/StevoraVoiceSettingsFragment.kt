@@ -1,7 +1,6 @@
 package io.homeassistant.companion.android.settings.stevora
 
 import android.os.Bundle
-import android.content.Intent
 import io.homeassistant.companion.android.settings.SettingsActivity
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
