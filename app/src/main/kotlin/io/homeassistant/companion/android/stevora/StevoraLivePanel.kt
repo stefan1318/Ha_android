@@ -198,7 +198,7 @@ internal fun StevoraLivePanel() {
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize().background(bg)) {
         val wide = maxWidth >= 700.dp
-        val columns = if (wide) 3 else 1
+        val columns = if (wide) 2 else 1
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
                 .padding(horizontal = if (wide) 28.dp else 16.dp, vertical = 20.dp),
@@ -350,7 +350,7 @@ internal fun StevoraLivePanel() {
                                     val setpoint = target.toFloat().roundToInt().coerceIn(minTemp, maxTemp)
                                     val canSet = mode in setOf("heat", "cool", "heat_cool") &&
                                         busy != entity.entityId && maxTemp > minTemp
-                                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                    Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                         OutlinedButton(
                                             onClick = {
                                                 execute(entity, "set_temperature",
