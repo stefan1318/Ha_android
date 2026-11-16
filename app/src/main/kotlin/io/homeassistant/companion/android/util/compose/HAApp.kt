@@ -32,6 +32,7 @@ import io.homeassistant.companion.android.settings.SettingsActivity
 import io.homeassistant.companion.android.frontend.navigation.FrontendTarget
 import io.homeassistant.companion.android.frontend.navigation.navigateToFrontend
 import io.homeassistant.companion.android.stevora.StevoraPremiumHome
+import io.homeassistant.companion.android.stevora.StevoraAiHome
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
@@ -69,6 +70,7 @@ internal fun HAApp(
 ) {
     val context = LocalContext.current
     var showPremiumHome by remember { mutableStateOf(true) }
+    var showAiHome by remember { mutableStateOf(false) }
     val currentEntry by navController.currentBackStackEntryAsState()
     val onFrontend = currentEntry?.destination?.hasRoute<FrontendRoute>() == true
     val showPremiumNavigation = onFrontend && startDestination != null
@@ -80,12 +82,13 @@ internal fun HAApp(
         bottomBar = {
             if (showPremiumNavigation) {
                 NavigationBar {
-                    NavigationBarItem(selected = showPremiumHome, onClick = { showPremiumHome = true }, icon = { Text("⌂") }, label = { Text(stringResource(R.string.stevora_nav_home)) })
-                    NavigationBarItem(selected = !showPremiumHome, onClick = {
+                    NavigationBarItem(selected = showPremiumHome, onClick = { showPremiumHome = true; showAiHome = false }, icon = { Text("⌂") }, label = { Text(stringResource(R.string.stevora_nav_home)) })
+                    NavigationBarItem(selected = !showPremiumHome && !showAiHome, onClick = {
                         showPremiumHome = false
+                        showAiHome = false
                         navController.navigateToFrontend(FrontendTarget.Path("/stevora"))
                     }, icon = { Text("▦") }, label = { Text(stringResource(R.string.stevora_nav_panel)) })
-                    NavigationBarItem(selected = false, onClick = { context.startActivity(AssistActivity.newInstance(context)) }, icon = { Text("●") }, label = { Text(stringResource(R.string.stevora_nav_ai)) })
+                    NavigationBarItem(selected = showAiHome, onClick = { showPremiumHome = false; showAiHome = true }, icon = { Text("●") }, label = { Text(stringResource(R.string.stevora_nav_ai)) })
                     NavigationBarItem(selected = false, onClick = { context.startActivity(SettingsActivity.newInstance(context)) }, icon = { Text("⚙") }, label = { Text(stringResource(R.string.stevora_nav_settings)) })
                 }
             }
@@ -122,12 +125,20 @@ internal fun HAApp(
                         snackbarHostState.showSnackbar(message, action, duration = SnackbarDuration.Short) == ActionPerformed
                     },
                 )
+                if (showPremiumNavigation && showAiHome) {
+                    StevoraAiHome(
+                        onStartConversation = { context.startActivity(AssistActivity.newInstance(context)) },
+                        onConfigurePipeline = { context.startActivity(SettingsActivity.newInstance(context, SettingsActivity.Deeplink.AssistSettings)) },
+                        onBack = { showAiHome = false; showPremiumHome = true },
+                    )
+                }
                 if (showPremiumNavigation && showPremiumHome) StevoraPremiumHome(
                     onOpenPanel = {
                         showPremiumHome = false
+                        showAiHome = false
                         navController.navigateToFrontend(FrontendTarget.Path("/stevora"))
                     },
-                    onOpenVoice = { context.startActivity(AssistActivity.newInstance(context)) },
+                    onOpenVoice = { showPremiumHome = false; showAiHome = true },
                     onOpenSettings = { context.startActivity(SettingsActivity.newInstance(context)) },
                     onOpenOnboarding = {
                         context.startActivity(
