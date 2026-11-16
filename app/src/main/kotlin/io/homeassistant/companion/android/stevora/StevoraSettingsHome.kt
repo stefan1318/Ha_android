@@ -14,6 +14,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Slider
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,6 +57,10 @@ internal fun StevoraSettingsHome(
     var admin by remember { mutableStateOf(false) }
     var checked by remember { mutableStateOf(false) }
     var accountName by remember { mutableStateOf("—") }
+    val voicePrefs = remember(context) { StevoraVoicePreferences(context) }
+    var voiceEnabled by remember { mutableStateOf(voicePrefs.enabled) }
+    var sensitivity by remember { mutableStateOf(voicePrefs.sensitivity) }
+    var voiceExpanded by remember { mutableStateOf(false) }
     LaunchedEffect(manager) {
         try {
             val user = if (manager.getServer() != null) manager.webSocketRepository().getCurrentUser() else null
@@ -87,14 +94,61 @@ internal fun StevoraSettingsHome(
             SettingsInfo("Automation Studio", "Awaiting secure automation editor")
             SettingsInfo("Climate Analytics", "Historical HomePod charts in development")
             SettingsEntry("Home Hub", "Server connection and authentication", "⌂", onServerSettings)
-            SettingsEntry("STEVORA AI", "Voice pipeline and wake word preferences", "✦", onVoiceSettings)
+            SettingsEntry("STEVORA AI", "Personal voice and Assist preferences", "✦", { voiceExpanded = !voiceExpanded })
             SettingsEntry("Device & privacy", "Companion permissions and advanced settings", "◈", onSystemSettings)
         } else if (checked) {
             Text("STEVORA PERSONAL", fontSize = 12.sp, color = accent)
             Text("Device control, climate statistics and the personalized voice assistant.",
                 fontSize = 14.sp, color = muted)
             SettingsInfo("Climate Analytics", "Historical HomePod charts in development")
-            SettingsInfo("Voice Assistant", "Use the AI tab to start STEVORA Assist")
+            SettingsEntry("Voice Assistant", "Personal Assist and microphone settings", "✦", { voiceExpanded = !voiceExpanded })
+        }
+        if (checked && voiceExpanded) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = surface),
+            ) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("PERSONAL VOICE SETTINGS", color = accent, fontSize = 13.sp)
+                    Text(
+                        "Your Assist pipeline is selected automatically by your Home Assistant account. " +
+                            "These options affect only this device.",
+                        color = muted, fontSize = 12.sp,
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Enable Hey STEVORA preference", modifier = Modifier.weight(1f), color = foreground)
+                        Switch(
+                            checked = voiceEnabled,
+                            onCheckedChange = {
+                                voiceEnabled = it
+                                voicePrefs.enabled = it
+                            },
+                        )
+                    }
+                    Text(
+                        "Wake-word listening requires an installed compatible model and microphone permission. " +
+                            "This preference alone does not start listening.",
+                        color = muted, fontSize = 12.sp,
+                    )
+                    Text("Wake-word sensitivity: " + (sensitivity * 100).toInt() + "%", color = foreground)
+                    Slider(
+                        value = sensitivity,
+                        onValueChange = {
+                            sensitivity = it
+                            voicePrefs.sensitivity = it
+                        },
+                        valueRange = 0f..1f,
+                    )
+                    OutlinedButton(onClick = onVoiceSettings, modifier = Modifier.fillMaxWidth()) {
+                        Text("Microphone & Assist setup")
+                    }
+                    Text(
+                        "Voice settings are personal. Home Hub, AI agents and server configuration remain admin-managed.",
+                        color = muted, fontSize = 12.sp,
+                    )
+                }
+            }
         }
         SettingsEntry("Back to home", "Return to your command center", "‹", onBack)
         Text("STEVORA Companion 2.0 • Preview", fontSize = 12.sp, color = muted)
