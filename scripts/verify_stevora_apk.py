@@ -21,6 +21,7 @@ for apk in apks:
             sys.exit(f"Missing STEVORA logo in {apk.name}")
         required = [f"res/mipmap-{d}-v4/ic_launcher.png" for d in ("mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi")]
         required += [f"res/mipmap-{d}-v4/ic_launcher_round.png" for d in ("mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi")]
+        required.append("res/mipmap-xhdpi-v4/ic_banner.png")
         for entry in [logo, *required]:
             if entry not in entries:
                 sys.exit(f"Missing brand asset: {entry}")
