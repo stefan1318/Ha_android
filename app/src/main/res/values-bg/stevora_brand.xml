@@ -33,4 +33,8 @@
     <string name="stevora_nav_panel">Панел</string>
     <string name="stevora_nav_ai">AI</string>
     <string name="stevora_nav_settings">Настройки</string>
+    <string name="stevora_ai_intro">Говори или пиши чрез настроения Assist pipeline на Home Hub.</string>
+    <string name="stevora_ai_start">Започни разговор</string>
+    <string name="stevora_ai_pipeline">Настрой Assist pipeline</string>
+    <string name="stevora_ai_note">Разговорите използват свързания сървър. Hey Stevora изисква отделен проверен гласов модел.</string>
 </resources>
