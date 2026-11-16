@@ -8,6 +8,9 @@ import androidx.annotation.VisibleForTesting
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -30,6 +33,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import io.homeassistant.companion.android.R
 import io.homeassistant.companion.android.common.compose.theme.HAThemeForPreview
 import io.homeassistant.companion.android.common.compose.theme.LocalHAColorScheme
@@ -127,6 +134,31 @@ internal fun ConnectionScreen(
             ErrorPlaceholder()
         }
 
+        if (!isError && !isLoading) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                    .background(Color(0xFF08131F))
+                    .padding(horizontal = 20.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Image(
+                    imageVector = ImageVector.vectorResource(R.drawable.ic_launcher_foreground),
+                    contentDescription = "STEVORA",
+                    modifier = Modifier.size(34.dp),
+                )
+                Column(Modifier.padding(start = 12.dp)) {
+                    Text("STEVORA", color = Color.White, fontSize = 18.sp, letterSpacing = 2.sp)
+                    Text(
+                        if (LocalConfiguration.current.locales[0].language == "bg") "Сигурен вход в Home Hub" else "Secure Home Hub sign in",
+                        color = Color(0xFF27B9F5),
+                        fontSize = 11.sp,
+                    )
+                }
+            }
+        }
         if (isLoading) {
             LoadingScreen(modifier = Modifier.fillMaxSize())
         }
