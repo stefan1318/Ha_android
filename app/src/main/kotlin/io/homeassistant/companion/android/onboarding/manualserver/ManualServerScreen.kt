@@ -24,6 +24,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -122,13 +125,15 @@ private fun ManualServerContent(
             modifier = Modifier
                 .padding(top = HADimens.SPACE6),
             // Use painterResource instead of vector resource for API < 24 since it has gradients
-            painter = painterResource(R.drawable.ic_manual_server),
+            painter = painterResource(R.drawable.stevora_splash),
             contentDescription = null,
         )
         Text(
-            text = stringResource(commonR.string.manual_server_title),
+            text = "STEVORA HOME HUB",
             style = HATextStyle.Headline,
         )
+
+        Text(if (LocalConfiguration.current.locales[0].language == "bg") "Въведете адреса на вашия Home Hub" else "Enter your Home Hub address", color = Color(0xFF27B9F5), fontSize = 14.sp)
 
         ServerUrlTextField(
             serverUrl = serverUrl,
@@ -140,7 +145,7 @@ private fun ManualServerContent(
         Spacer(modifier = Modifier.weight(1f))
 
         HAAccentButton(
-            text = stringResource(commonR.string.manual_server_connect),
+            text = if (LocalConfiguration.current.locales[0].language == "bg") "Продължи" else "Continue",
             onClick = onConnectClick,
             enabled = isServerUrlValid,
             modifier = Modifier
