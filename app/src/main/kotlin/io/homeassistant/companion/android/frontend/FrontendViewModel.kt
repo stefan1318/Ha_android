@@ -219,11 +219,7 @@ internal class FrontendViewModel @VisibleForTesting constructor(
     private val _viewState = ViewStateManager(
         FrontendViewState.LoadServer(
             serverId = initialServerId,
-            target = if (initialTarget == io.homeassistant.companion.android.frontend.navigation.FrontendTarget.Default) {
-                io.homeassistant.companion.android.frontend.navigation.FrontendTarget.Path(io.homeassistant.companion.android.stevora.StevoraConfiguration.HOME_PANEL_PATH)
-            } else {
-                initialTarget
-            },
+            target = initialTarget,
         ),
     )
     val viewState: StateFlow<FrontendViewState> = _viewState
