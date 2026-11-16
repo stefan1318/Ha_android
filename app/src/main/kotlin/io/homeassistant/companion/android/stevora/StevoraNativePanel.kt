@@ -13,17 +13,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.AcUnit
-import androidx.compose.material.icons.filled.Devices
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -76,7 +69,7 @@ internal fun StevoraNativePanel(
                     colors = ButtonDefaults.buttonColors(containerColor = primary, contentColor = background),
                 ) {
                     Text(stringResource(R.string.stevora_native_open_devices))
-                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.padding(start = 8.dp))
+                    Text("›", modifier = Modifier.padding(start = 8.dp))
                 }
             }
         }
@@ -84,25 +77,25 @@ internal fun StevoraNativePanel(
         NativeSection(
             title = stringResource(R.string.stevora_native_climate),
             subtitle = stringResource(R.string.stevora_native_climate_description),
-            icon = { Icon(Icons.Filled.AcUnit, contentDescription = null, tint = primary) },
+            icon = { Text("❄", color = primary) },
             onClick = onOpenDevices,
         )
         NativeSection(
             title = stringResource(R.string.stevora_native_lights),
             subtitle = stringResource(R.string.stevora_native_lights_description),
-            icon = { Icon(Icons.Filled.Lightbulb, contentDescription = null, tint = primary) },
+            icon = { Text("●", color = primary) },
             onClick = onOpenDevices,
         )
         NativeSection(
             title = stringResource(R.string.stevora_native_devices),
             subtitle = stringResource(R.string.stevora_native_devices_description),
-            icon = { Icon(Icons.Filled.Devices, contentDescription = null, tint = primary) },
+            icon = { Text("▦", color = primary) },
             onClick = onOpenDevices,
         )
         NativeSection(
             title = "STEVORA AI",
             subtitle = stringResource(R.string.stevora_ai_summary),
-            icon = { Icon(Icons.Filled.Security, contentDescription = null, tint = primary) },
+            icon = { Text("✦", color = primary) },
             onClick = onOpenAssistant,
         )
         Text(
@@ -139,7 +132,7 @@ private fun NativeSection(
                 Text(title, color = foreground, fontSize = 17.sp)
                 Text(subtitle, color = muted, fontSize = 12.sp)
             }
-            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = muted)
+            Text("›", color = muted)
         }
     }
 }
