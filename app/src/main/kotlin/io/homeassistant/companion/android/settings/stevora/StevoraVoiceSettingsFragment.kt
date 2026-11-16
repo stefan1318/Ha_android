@@ -1,6 +1,8 @@
 package io.homeassistant.companion.android.settings.stevora
 
 import android.os.Bundle
+import android.content.Intent
+import io.homeassistant.companion.android.settings.SettingsActivity
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
@@ -23,6 +25,21 @@ class StevoraVoiceSettingsFragment : PreferenceFragmentCompat() {
             title = getString(io.homeassistant.companion.android.R.string.stevora_voice_title)
         }
         root.addPreference(section)
+
+        section.addPreference(Preference(requireContext()).apply {
+            title = getString(io.homeassistant.companion.android.R.string.stevora_voice_assist_setup)
+            summary = getString(io.homeassistant.companion.android.R.string.stevora_voice_assist_setup_summary)
+            setOnPreferenceClickListener {
+                startActivity(SettingsActivity.newInstance(requireContext(), SettingsActivity.Deeplink.AssistSettings))
+                true
+            }
+        })
+
+        section.addPreference(Preference(requireContext()).apply {
+            title = getString(io.homeassistant.companion.android.R.string.stevora_voice_server_info)
+            summary = getString(io.homeassistant.companion.android.R.string.stevora_voice_server_info_summary)
+            isSelectable = false
+        })
 
         section.addPreference(Preference(requireContext()).apply {
             title = "Hey Stevora"
