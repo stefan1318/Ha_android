@@ -23,6 +23,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import android.content.Intent
+import io.homeassistant.companion.android.launch.LaunchActivity.DeepLink
 import io.homeassistant.companion.android.launch.LaunchActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -92,7 +93,7 @@ internal fun StevoraSettingsHome(
         AlertDialog(
             onDismissRequest = { if (!loggingOut) confirmLogout = false },
             title = { Text("Sign out of STEVORA?") },
-            text = { Text("This removes the active Home Assistant account and its locally stored credentials from this device. Other accounts on your Home Hub are unaffected.") },
+            text = { Text("Sign out and return directly to the saved Home Hub login address.") },
             confirmButton = {
                 Button(
                     enabled = !loggingOut,
@@ -110,9 +111,19 @@ internal fun StevoraSettingsHome(
                                 } catch (_: Exception) {
                                     // Remote revocation can fail offline; local credential removal remains mandatory.
                                 }
+                                val loginUrl = active.connection.externalUrl
+                                    ?: active.connection.internalUrl
+                                    ?: error("No saved Home Hub address available")
                                 manager.removeServer(active.id)
                                 context.startActivity(
-                                    Intent(context, LaunchActivity::class.java).apply {
+                                    LaunchActivity.newInstance(
+                                        context,
+                                        DeepLink.OpenOnboarding(
+                                            urlToOnboard = loginUrl,
+                                            hideExistingServers = false,
+                                            skipWelcome = true,
+                                        ),
+                                    ).apply {
                                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                                     },
                                 )
