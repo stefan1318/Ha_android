@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 
 /**
@@ -156,8 +157,17 @@ internal class LaunchViewModel @VisibleForTesting constructor(
 
     init {
         viewModelScope.launch {
-            cleanupServers()
-            handleInitialState(initialDeepLink)
+            // Never trap the user behind the Android splash while network discovery,
+            // migration, or a previously paired server is unresponsive.
+            val initialized = withTimeoutOrNull(20_000L) {
+                cleanupServers()
+                handleInitialState(initialDeepLink)
+                true
+            }
+            if (initialized == null && _uiState.value is LaunchUiState.Loading) {
+                Timber.w("STEVORA startup timed out; showing recovery onboarding")
+                navigateToOnboarding()
+            }
         }
     }
 
