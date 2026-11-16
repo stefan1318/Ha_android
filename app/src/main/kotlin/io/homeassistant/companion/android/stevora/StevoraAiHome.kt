@@ -56,21 +56,34 @@ internal fun StevoraAiHome(
     var input by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var pipelineId by remember { mutableStateOf<String?>(null) }
-    var pipelineStatus by remember { mutableStateOf("Checking panels pipeline…") }
+    var pipelineStatus by remember { mutableStateOf("Checking account and Assist pipeline…") }
     var conversationId by remember { mutableStateOf<String?>(null) }
     var messages by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
 
     LaunchedEffect(manager) {
         try {
-            val pipelines = if (manager.getServer() != null) manager.webSocketRepository().getAssistPipelines() else null
-            // Fail closed: do not route private panel conversations to a different agent.
-            val panels = pipelines?.pipelines?.firstOrNull {
-                it.name.equals("panels", ignoreCase = true) ||
-                    it.name.contains("panels", ignoreCase = true)
+            val socket = if (manager.getServer() != null) manager.webSocketRepository() else null
+            val user = socket?.getCurrentUser()
+            // Do not guess a role when authentication fails.
+            if (user == null) {
+                pipelineId = null
+                pipelineStatus = "Unable to verify Home Assistant account"
+            } else {
+                val admin = user.isAdmin || user.isOwner
+                val requiredName = if (admin) "OpenAI Conversion" else "OpenAI Conversion for Panels"
+                val pipelines = socket.getAssistPipelines()
+                // Exact name matching prevents accidental routing to the wrong agent.
+                val selected = pipelines?.pipelines?.firstOrNull {
+                    it.name.trim().equals(requiredName, ignoreCase = true)
+                }
+                pipelineId = selected?.id
+                pipelineStatus = if (selected == null) {
+                    "$requiredName not found in Assist pipelines"
+                } else {
+                    "● " + selected.name + if (admin) " • ADMIN" else " • USER / PANEL"
+                }
+                conversationId = null
             }
-            pipelineId = panels?.id
-            pipelineStatus = if (panels == null) "panels pipeline not found — configure it on Home Hub"
-                else "● " + panels.name
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
