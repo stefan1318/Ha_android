@@ -2,6 +2,13 @@ package io.homeassistant.companion.android.onboarding
 
 import android.app.Activity
 import android.net.Uri
+import dagger.hilt.android.EntryPointAccessors
+import io.homeassistant.companion.android.stevora.StevoraServerEntryPoint
+import io.homeassistant.companion.android.stevora.StevoraHubSession
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import timber.log.Timber
 import androidx.annotation.VisibleForTesting
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
@@ -162,7 +169,20 @@ internal fun NavGraphBuilder.onboarding(
         nameYourDeviceScreen(
             onBackClick = navController::popBackStack,
             onDeviceNamed = { serverId, hasPlainTextAccess, isPubliclyAccessible ->
-                navController.navigateAfterDeviceRegistration(
+                CoroutineScope(Dispatchers.Main).launch {
+                    try {
+                        val context = navController.context.applicationContext
+                        val manager = EntryPointAccessors.fromApplication(
+                            context,
+                            StevoraServerEntryPoint::class.java,
+                        ).serverManager()
+                        StevoraHubSession.restoreIfMatching(context, manager, serverId)
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Timber.e(e, "STEVORA Home Hub settings restore failed")
+                    }
+                    navController.navigateAfterDeviceRegistration(
                     serverId = serverId,
                     hasPlainTextAccess = hasPlainTextAccess,
                     isPubliclyAccessible = isPubliclyAccessible,
@@ -175,7 +195,8 @@ internal fun NavGraphBuilder.onboarding(
                         }
                     },
                     onOnboardingDone = onOnboardingDone,
-                )
+                    )
+                }
             },
             onShowSnackbar = onShowSnackbar,
             onHelpClick = {
