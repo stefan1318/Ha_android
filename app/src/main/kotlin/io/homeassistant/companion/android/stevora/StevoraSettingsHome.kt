@@ -65,9 +65,6 @@ internal fun StevoraSettingsHome(
     var admin by remember { mutableStateOf(false) }
     var checked by remember { mutableStateOf(false) }
     var accountName by remember { mutableStateOf("—") }
-    val voicePrefs = remember(context) { StevoraVoicePreferences(context) }
-    var voiceEnabled by remember { mutableStateOf(voicePrefs.enabled) }
-    var sensitivity by remember { mutableStateOf(voicePrefs.sensitivity) }
     var voiceExpanded by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
     var loggingOut by remember { mutableStateOf(false) }
@@ -169,7 +166,7 @@ internal fun StevoraSettingsHome(
             Text("STEVORA PERSONAL", fontSize = 12.sp, color = accent)
             Text("Device control, climate statistics and the personalized voice assistant.",
                 fontSize = 14.sp, color = muted)
-            SettingsInfo("Climate Analytics", "Historical HomePod charts in development")
+            SettingsInfo("Climate Analytics", "Recorder history integration pending — not yet available")
             SettingsEntry("Voice Assistant", "Assist pipeline and microphone settings", "✦", { voiceExpanded = !voiceExpanded })
         }
         if (checked && accountVerified && voiceExpanded) {
@@ -218,7 +215,7 @@ internal fun StevoraSettingsHome(
         }
         logoutError?.let { Text(it, color = Color(0xFFFFA76B), fontSize = 12.sp) }
         SettingsEntry("Back to home", "Return to your command center", "‹", onBack)
-        Text("STEVORA Companion 2.0 • Preview", fontSize = 12.sp, color = muted)
+        Text("STEVORA Companion 2.0 • Release Candidate", fontSize = 12.sp, color = muted)
     }
 }
 
