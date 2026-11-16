@@ -29,8 +29,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Verify Android SDK on hosted runner
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          test -d "$ANDROID_HOME"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --version || true
       - name: Gradle
         uses: gradle/actions/setup-gradle@v4
       - name: Build debug APK
