@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Parcelable
+import android.os.SystemClock
 import android.view.ViewTreeObserver
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
@@ -181,8 +182,12 @@ class LaunchActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         val splashScreen = installSplashScreen()
 
+        // Independent safety limit: a blocked startup must not keep the system splash
+        // permanently visible. The ViewModel also recovers to onboarding after timeout.
+        val splashStartedAt = SystemClock.elapsedRealtime()
         splashScreen.setKeepOnScreenCondition {
-            viewModel.shouldShowSplashScreen()
+            viewModel.shouldShowSplashScreen() &&
+                SystemClock.elapsedRealtime() - splashStartedAt < 8_000L
         }
 
         // Skip the system's default splash exit animation for a seamless transition to
