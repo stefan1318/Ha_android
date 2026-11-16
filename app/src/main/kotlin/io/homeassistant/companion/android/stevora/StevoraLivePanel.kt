@@ -399,6 +399,7 @@ internal fun StevoraLivePanel() {
                         }
                                 }
                             }
+                            }
                             repeat(columns - group.size) {
                                 Spacer(Modifier.weight(1f))
                             }
