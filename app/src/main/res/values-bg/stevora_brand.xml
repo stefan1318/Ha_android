@@ -15,4 +15,8 @@
     <string name="stevora_voice_calibration_pending">Достъпно след инсталиране на гласов модел и механизъм за калибриране</string>
     <string name="stevora_voice_privacy">Поверителност</string>
     <string name="stevora_voice_privacy_summary">Тази настройка не записва, съхранява или изпраща аудио</string>
+    <string name="stevora_voice_assist_setup">Настрой работещия Android Assist</string>
+    <string name="stevora_voice_assist_setup_summary">Избери свързания STEVORA сървър, гласовия pipeline и налична локална фраза за събуждане</string>
+    <string name="stevora_voice_server_info">OpenAI и гласово събуждане</string>
+    <string name="stevora_voice_server_info_summary">OpenAI обработва командите на сървъра, но не инсталира модел за Hey Stevora на телефона. До добавяне на проверен модел избери налична фраза в настройките на Android Assist.</string>
 </resources>
