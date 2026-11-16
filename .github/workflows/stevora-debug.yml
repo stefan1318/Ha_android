@@ -1,0 +1,44 @@
+name: STEVORA Android debug build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/stevora-companion
+    paths:
+      - 'app/**'
+      - 'common/**'
+      - 'build-logic/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/stevora-debug.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Build debug APK
+        run: ./gradlew :app:assembleMinimalDebug --stacktrace
+      - name: Upload unsigned test APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stevora-debug-apk
+          path: app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
