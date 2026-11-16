@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="stevora_connect_title">Свързване със STEVORA</string>
+    <string name="stevora_voice_title">STEVORA гласов асистент</string>
+    <string name="stevora_settings_title">Настройки на STEVORA</string>
+</resources>
