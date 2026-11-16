@@ -15,12 +15,11 @@ internal class StevoraVoicePreferences(context: Context) {
     )
 
     var enabled: Boolean
-        get() = StevoraConfiguration.WAKE_WORD_MODEL_AVAILABLE &&
-            prefs.getBoolean(KEY_ENABLED, false)
+        get() = prefs.getBoolean(KEY_ENABLED, false)
         set(value) {
             prefs.edit().putBoolean(
                 KEY_ENABLED,
-                value && StevoraConfiguration.WAKE_WORD_MODEL_AVAILABLE,
+                value,
             ).apply()
         }
 
