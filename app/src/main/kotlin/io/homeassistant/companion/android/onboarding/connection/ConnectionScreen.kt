@@ -8,18 +8,14 @@ import androidx.annotation.VisibleForTesting
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -42,7 +38,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import io.homeassistant.companion.android.R
 import io.homeassistant.companion.android.common.compose.theme.HAThemeForPreview
-import io.homeassistant.companion.android.common.compose.theme.LocalHAColorScheme
 import io.homeassistant.companion.android.frontend.filechooser.FileChooserEffect
 import io.homeassistant.companion.android.frontend.filechooser.FileChooserRequest
 import io.homeassistant.companion.android.frontend.permissions.PendingPermissionHandler
@@ -102,15 +97,10 @@ internal fun ConnectionScreen(
     FileChooserEffect(pendingRequest = pendingFileChooser)
     PendingPermissionHandler(pendingRequest = pendingPermissionRequest)
 
-    Box(modifier = modifier.fillMaxSize().background(Color(0xFF08131F)).testTag(CONNECTION_SCREEN_TAG)) {
-        Spacer(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(
-                    WindowInsets.safeDrawing.asPaddingValues().calculateTopPadding(),
-                )
-                .background(LocalHAColorScheme.current.colorSurfaceDefault),
-        )
+    BoxWithConstraints(modifier = modifier.fillMaxSize().background(Color(0xFF08131F)).testTag(CONNECTION_SCREEN_TAG)) {
+        val compact = maxHeight < 600.dp
+        val headerHeight = if (compact) 66.dp else 120.dp
+        val footerHeight = if (compact) 48.dp else 64.dp
         if (!isError) {
             url?.let {
                 var webView by remember { mutableStateOf<WebView?>(null) }
@@ -118,7 +108,7 @@ internal fun ConnectionScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .windowInsetsPadding(WindowInsets.safeDrawing)
-                        .padding(top = 120.dp, bottom = 64.dp, start = 16.dp, end = 16.dp),
+                        .padding(top = headerHeight, bottom = footerHeight, start = 16.dp, end = 16.dp),
                     configure = {
                         this.webChromeClient = webChromeClient
                         webView = this
@@ -150,9 +140,9 @@ internal fun ConnectionScreen(
                 Image(
                     imageVector = ImageVector.vectorResource(R.drawable.ic_launcher_foreground),
                     contentDescription = "STEVORA",
-                    modifier = Modifier.size(48.dp),
+                    modifier = Modifier.size(if (compact) 22.dp else 48.dp),
                 )
-                Text("STEVORA", color = Color.White, fontSize = 24.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
+                Text("STEVORA", color = Color.White, fontSize = if (compact) 16.sp else 24.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
                 Text(
                     if (LocalConfiguration.current.locales[0].language == "bg") "СИГУРЕН ВХОД В HOME HUB" else "SECURE HOME HUB SIGN IN",
                     color = Color(0xFF27B9F5),
