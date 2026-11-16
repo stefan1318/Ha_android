@@ -9,7 +9,7 @@ Status: **dataset preparation only**. No trained or validated TFLite model is in
 - Target runtime: existing Android microWakeWord streaming inference, then Home Assistant Assist pipeline with the user's configured STEVORA conversation agent.
 
 ## Dataset collection
-Use `prepare_dataset.py` to validate and normalize WAV recordings and build speaker-disjoint splits. Organize input WAV files as:
+Install `numpy` and `scipy` in a dedicated Python environment. Use `prepare_dataset.py` to validate and normalize WAV recordings and build speaker-disjoint splits. Organize input WAV files as:
 
 ```
 training/hey_stevora/raw/
