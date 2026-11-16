@@ -1,4 +1,5 @@
 name: STEVORA signed installable APK
+# Signing setup validation after GitHub Secrets configuration
 
 on:
   workflow_dispatch:
