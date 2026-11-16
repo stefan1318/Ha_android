@@ -42,6 +42,16 @@ android {
     }
 }
 
+/*
+ * STEVORA debug builds may run before Firebase is provisioned.
+ * Missing config is a warning only; FCM push will not function without
+ * a real google-services.json registered for the applicationId.
+ * Release builds must be validated with the real Firebase configuration.
+ */
+googleServices {
+    missingGoogleServicesStrategy = com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy.WARN
+}
+
 aboutLibraries {
     collect {
         // Third-party assets that are not Gradle dependencies (e.g. the Assist listening chime)
