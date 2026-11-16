@@ -179,8 +179,10 @@ class LaunchActivity : AppCompatActivity() {
             setShowWhenLocked(true)
         }
 
-        super.onCreate(savedInstanceState)
+        // AndroidX SplashScreen must be installed before super.onCreate(), especially on API 31+.
+        // Installing it afterwards can leave the launch window visible over onboarding.
         val splashScreen = installSplashScreen()
+        super.onCreate(savedInstanceState)
 
         // Independent safety limit: a blocked startup must not keep the system splash
         // permanently visible. The ViewModel also recovers to onboarding after timeout.
