@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- STEVORA product design tokens; integration with upstream themes is next. -->
+    <color name="stevora_background">#08131F</color>
+    <color name="stevora_surface">#122437</color>
+    <color name="stevora_primary">#27B9F5</color>
+    <color name="stevora_accent">#13D8E9</color>
+    <color name="stevora_text">#F4FAFF</color>
+    <color name="stevora_secondary_text">#A6BCCD</color>
+    <string name="stevora_product_name" translatable="false">STEVORA</string>
+    <string name="stevora_companion_name" translatable="false">STEVORA Companion</string>
+    <string name="stevora_voice_wake_phrase" translatable="false">Hey Stevora</string>
+    <string name="stevora_connect_title">Connect to STEVORA</string>
+    <string name="stevora_voice_title">STEVORA Voice</string>
+    <string name="stevora_settings_title">STEVORA Settings</string>
+</resources>
