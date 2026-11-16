@@ -1,11 +1,15 @@
 package io.homeassistant.companion.android.stevora
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -26,6 +30,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
@@ -46,6 +51,7 @@ import kotlin.math.roundToInt
 
 private val bg = Color(0xFF08131F)
 private val tile = Color(0xFF122437)
+private val panelBorder = Color(0xFF29455A)
 private val cyan = Color(0xFF27B9F5)
 private val white = Color(0xFFF4FAFF)
 private val secondary = Color(0xFFA6BCCD)
@@ -119,6 +125,7 @@ internal fun StevoraLivePanel() {
     var entities by remember { mutableStateOf<List<Entity>>(emptyList()) }
     var status by remember { mutableStateOf(localized(bgLanguage, "Свързване със STEVORA…", "Connecting to STEVORA…")) }
     var busy by remember { mutableStateOf<String?>(null) }
+    var selectedRoom by remember { mutableStateOf("all") }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(manager) {
@@ -183,31 +190,89 @@ internal fun StevoraLivePanel() {
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().background(bg).verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Text("STEVORA", fontSize = 30.sp, color = white, letterSpacing = 2.sp)
-        Text(localized(bgLanguage, "УПРАВЛЕНИЕ НА ДОМА", "NATIVE HOME CONTROL"),
-            fontSize = 12.sp, color = cyan, letterSpacing = 2.sp)
-        Text(status, color = secondary, fontSize = 13.sp)
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().background(bg)) {
+        val wide = maxWidth >= 700.dp
+        val columns = if (wide) 3 else 1
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                .padding(horizontal = if (wide) 28.dp else 16.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column {
+                    Text("STEVORA", fontSize = 28.sp, color = white, letterSpacing = 3.sp)
+                    Text(localized(bgLanguage, "HOME • КОНТРОЛЕН ЦЕНТЪР", "HOME • COMMAND CENTER"),
+                        fontSize = 11.sp, color = cyan, letterSpacing = 1.sp)
+                }
+                Text(if (status.startsWith("Connected") || status.startsWith("Свързано")) "● ONLINE" else "● OFFLINE",
+                    color = if (status.startsWith("Connected") || status.startsWith("Свързано")) Color(0xFF4CE0B3) else secondary,
+                    fontSize = 12.sp)
+            }
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = tile),
+                shape = RoundedCornerShape(18.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text(localized(bgLanguage, "Моят дом", "My Home"), color = white, fontSize = 22.sp)
+                        Text(status, color = secondary, fontSize = 12.sp)
+                    }
+                    Text("⌂", color = cyan, fontSize = 38.sp)
+                }
+            }
+            Text(localized(bgLanguage, "ПОМЕЩЕНИЯ", "ROOMS"), color = secondary,
+                fontSize = 12.sp, letterSpacing = 2.sp)
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                (listOf("all") + roomOrder).forEach { room ->
+                    val title = if (room == "all") localized(bgLanguage, "Всички", "All rooms")
+                        else roomNames[room]?.let { if (bgLanguage) it.first else it.second } ?: room
+                    val active = selectedRoom == room
+                    Card(
+                        modifier = Modifier.clickable { selectedRoom = room },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = if (active) cyan else tile),
+                    ) {
+                        Text(title, modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp),
+                            color = if (active) bg else white, fontSize = 13.sp)
+                    }
+                }
+            }
+            (if (selectedRoom == "all") roomOrder else listOf(selectedRoom)).forEach { room ->
+                val items = panelControls
+                    .filter { it.room == room }
+                    .mapNotNull { control ->
+                        entities.firstOrNull { it.entityId == control.id }?.let { control to it }
+                    }
+                if (items.isNotEmpty()) {
+                    val names = requireNotNull(roomNames[room])
+                    Text(if (bgLanguage) names.first else names.second, color = white, fontSize = 21.sp)
+                    items.chunked(columns).forEach { group ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            group.forEach { (control, entity) ->
+                                androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
 
-        roomOrder.forEach { room ->
-            val items = panelControls
-                .filter { it.room == room }
-                .mapNotNull { control -> entities.firstOrNull { it.entityId == control.id }?.let { control to it } }
-            if (items.isNotEmpty()) {
-                val names = requireNotNull(roomNames[room])
-                Text(if (bgLanguage) names.first else names.second, color = cyan, fontSize = 20.sp)
-                items.forEach { (control, entity) ->
                     Card(
                         colors = CardDefaults.cardColors(containerColor = tile),
                         shape = RoundedCornerShape(20.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Column(
-                            Modifier.padding(16.dp),
+                            Modifier.padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             Text(if (bgLanguage) control.labelBg else control.labelEn,
@@ -234,9 +299,9 @@ internal fun StevoraLivePanel() {
                                         val selected = supportedMode == mode
                                         Button(
                                             onClick = {
-                                                execute(entity, "set_hvac_mode", mapOf("hvac_mode" to supportedMode))
+                                                if (!selected) execute(entity, "set_hvac_mode", mapOf("hvac_mode" to supportedMode))
                                             },
-                                            enabled = busy != entity.entityId && !selected,
+                                            enabled = busy != entity.entityId,
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = if (selected) cyan else Color(0xFF254158),
                                                 contentColor = if (selected) bg else white,
@@ -332,15 +397,21 @@ internal fun StevoraLivePanel() {
                                 }
                             }
                         }
+                                }
+                            }
+                            repeat(columns - group.size) {
+                                Spacer(Modifier.weight(1f))
+                            }
+                        }
                     }
                 }
             }
-        }
-        if (entities.isEmpty()) {
-            Text(localized(bgLanguage,
-                "Няма активни STEVORA контроли. Проверете връзката и настройките на панела.",
-                "No STEVORA controls available. Check the connection and panel configuration."),
-                color = secondary)
+            if (entities.isEmpty()) {
+                Text(localized(bgLanguage,
+                    "Няма активни STEVORA контроли. Проверете връзката и настройките на панела.",
+                    "No STEVORA controls available. Check the connection and panel configuration."),
+                    color = secondary)
+            }
         }
     }
 }
