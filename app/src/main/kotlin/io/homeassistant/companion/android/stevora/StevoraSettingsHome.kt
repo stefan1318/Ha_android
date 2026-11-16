@@ -17,6 +17,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Slider
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import android.content.Intent
+import io.homeassistant.companion.android.launch.LaunchActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -61,18 +69,68 @@ internal fun StevoraSettingsHome(
     var voiceEnabled by remember { mutableStateOf(voicePrefs.enabled) }
     var sensitivity by remember { mutableStateOf(voicePrefs.sensitivity) }
     var voiceExpanded by remember { mutableStateOf(false) }
+    var confirmLogout by remember { mutableStateOf(false) }
+    var loggingOut by remember { mutableStateOf(false) }
+    var logoutError by remember { mutableStateOf<String?>(null) }
+    var accountVerified by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     LaunchedEffect(manager) {
         try {
             val user = if (manager.getServer() != null) manager.webSocketRepository().getCurrentUser() else null
             admin = user?.isAdmin == true || user?.isOwner == true
+            accountVerified = user != null
             accountName = user?.name ?: "—"
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             admin = false
+            accountVerified = false
         } finally {
             checked = true
         }
+    }
+    if (confirmLogout) {
+        AlertDialog(
+            onDismissRequest = { if (!loggingOut) confirmLogout = false },
+            title = { Text("Sign out of STEVORA?") },
+            text = { Text("This removes the active Home Assistant account and its locally stored credentials from this device. Other accounts on your Home Hub are unaffected.") },
+            confirmButton = {
+                Button(
+                    enabled = !loggingOut,
+                    onClick = {
+                        confirmLogout = false
+                        loggingOut = true
+                        logoutError = null
+                        scope.launch {
+                            try {
+                                val active = manager.getServer() ?: error("No active Home Hub account")
+                                try {
+                                    manager.authenticationRepository(active.id).revokeSession()
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (_: Exception) {
+                                    // Remote revocation can fail offline; local credential removal remains mandatory.
+                                }
+                                manager.removeServer(active.id)
+                                context.startActivity(
+                                    Intent(context, LaunchActivity::class.java).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                                    },
+                                )
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                logoutError = "Sign out failed: " + (e.message ?: "Unknown error")
+                                loggingOut = false
+                            }
+                        }
+                    },
+                ) { Text("Sign out") }
+            },
+            dismissButton = {
+                OutlinedButton(enabled = !loggingOut, onClick = { confirmLogout = false }) { Text("Cancel") }
+            },
+        )
     }
     Column(
         modifier = Modifier.fillMaxSize().background(background)
@@ -83,10 +141,10 @@ internal fun StevoraSettingsHome(
         Text("SETTINGS • CONTROL CENTER", fontSize = 12.sp, color = accent)
         Text(
             if (!checked) "Checking account permissions…"
-            else "Account: $accountName • " + (if (admin) "ADMIN" else "USER / PANEL"),
+            else if (!accountVerified) "Account verification unavailable" else "Account: $accountName • " + (if (admin) "ADMIN" else "USER / PANEL"),
             fontSize = 14.sp, color = muted,
         )
-        if (checked && admin) {
+        if (checked && accountVerified && admin) {
             Text("ADMIN CONTROL CENTER", fontSize = 12.sp, color = accent)
             // These entries remain informational until STEVORA's protected
             // memory and automation API contracts are verified and implemented.
@@ -96,14 +154,14 @@ internal fun StevoraSettingsHome(
             SettingsEntry("Home Hub", "Server connection and authentication", "⌂", onServerSettings)
             SettingsEntry("STEVORA AI", "Personal voice and Assist preferences", "✦", { voiceExpanded = !voiceExpanded })
             SettingsEntry("Device & privacy", "Companion permissions and advanced settings", "◈", onSystemSettings)
-        } else if (checked) {
+        } else if (checked && accountVerified) {
             Text("STEVORA PERSONAL", fontSize = 12.sp, color = accent)
             Text("Device control, climate statistics and the personalized voice assistant.",
                 fontSize = 14.sp, color = muted)
             SettingsInfo("Climate Analytics", "Historical HomePod charts in development")
             SettingsEntry("Voice Assistant", "Personal Assist and microphone settings", "✦", { voiceExpanded = !voiceExpanded })
         }
-        if (checked && voiceExpanded) {
+        if (checked && accountVerified && voiceExpanded) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp),
@@ -150,6 +208,23 @@ internal fun StevoraSettingsHome(
                 }
             }
         }
+        if (checked && accountVerified) {
+            Text("ACCOUNT & SECURITY", fontSize = 12.sp, color = accent)
+            SettingsEntry("Signed in as $accountName", if (admin) "Administrator account" else "Personal account", "◉", {})
+            SettingsEntry(
+                "Sign out",
+                "Remove this Home Hub account from the app",
+                "⇥",
+                { confirmLogout = true },
+            )
+        }
+        if (loggingOut) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                CircularProgressIndicator()
+                Text("Signing out…", color = muted)
+            }
+        }
+        logoutError?.let { Text(it, color = Color(0xFFFFA76B), fontSize = 12.sp) }
         SettingsEntry("Back to home", "Return to your command center", "‹", onBack)
         Text("STEVORA Companion 2.0 • Preview", fontSize = 12.sp, color = muted)
     }
