@@ -114,6 +114,7 @@ internal fun StevoraSettingsHome(
                                 val loginUrl = active.connection.externalUrl
                                     ?: active.connection.internalUrl
                                     ?: error("No saved Home Hub address available")
+                                StevoraHubSession.remember(context, active)
                                 manager.removeServer(active.id)
                                 context.startActivity(
                                     LaunchActivity.newInstance(
@@ -223,7 +224,7 @@ internal fun StevoraSettingsHome(
             SettingsInfo("Signed in as $accountName", if (admin) "Administrator account" else "Personal account")
             SettingsEntry(
                 "Sign out",
-                "Remove this Home Hub account from the app",
+                "Sign out while keeping your Home Hub connection settings",
                 "⇥",
                 { confirmLogout = true },
             )
