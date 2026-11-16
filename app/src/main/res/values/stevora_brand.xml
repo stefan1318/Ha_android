@@ -29,4 +29,18 @@
     <string name="stevora_voice_assist_setup_summary">Select the connected STEVORA server, voice pipeline and any supported on-device wake word</string>
     <string name="stevora_voice_server_info">OpenAI and wake-word detection</string>
     <string name="stevora_voice_server_info_summary">OpenAI processes requests on the server. It does not install a Hey Stevora wake-word model on this phone. Choose an available wake word in Android Assist settings until a validated Hey Stevora model is supplied.</string>
+    <string name="stevora_home_subtitle">Your home. Your control.</string>
+    <string name="stevora_home_hub">Home Hub</string>
+    <string name="stevora_home_hub_summary">Open your authenticated STEVORA panel</string>
+    <string name="stevora_open_panel">Open panel</string>
+    <string name="stevora_ai_summary">Voice and text via the configured Assist pipeline</string>
+    <string name="stevora_open_assistant">Open assistant</string>
+    <string name="stevora_personalize">Personalize</string>
+    <string name="stevora_personalize_summary">Configure voice, notifications and your server</string>
+    <string name="stevora_add_hub">Manage hubs</string>
+    <string name="stevora_home_disclaimer">Devices and automations are managed by your connected STEVORA server.</string>
+    <string name="stevora_nav_home">Home</string>
+    <string name="stevora_nav_panel">Panel</string>
+    <string name="stevora_nav_ai">AI</string>
+    <string name="stevora_nav_settings">Settings</string>
 </resources>
