@@ -86,6 +86,7 @@ private val panelControls = listOf(
     StevoraControl("light.wifi_bel_2gang_switch_2", "kitchen", "Осветление", "Kitchen light"),
     StevoraControl("light.terrace_switch_1", "hall", "Осветление", "Hall light"),
     StevoraControl("light.bathroom_switch_2", "bathroom", "Осветление", "Bathroom light"),
+    StevoraControl("fan.bathroom_switch_1", "bathroom", "Вентилатор", "Bathroom fan"),
     StevoraControl("light.wifi_bel_2gang_switch_1", "terrace", "Осветление", "Terrace light"),
 )
 private val controlById = panelControls.associateBy { it.id }
@@ -372,7 +373,7 @@ internal fun StevoraLivePanel() {
                                         ) { Text("+", fontSize = 23.sp) }
                                     }
                                 }
-                            } else if (entity.domain == "light") {
+                            } else if (entity.domain == "light" || entity.domain == "fan") {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -390,6 +391,7 @@ internal fun StevoraLivePanel() {
                                         },
                                     )
                                 }
+                                // Fan uses only supported on/off services; no invented speed control.
                                 // The RGB strip is the only color/brightness control.
                                 if (entity.entityId == "light.rgb_cct" && entity.state == "on") {
                                     val brightness = (entity.attributes["brightness"] as? Number)?.toInt()
