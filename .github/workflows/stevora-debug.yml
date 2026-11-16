@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Validate STEVORA localized Android resources
+        run: python3 scripts/check_stevora_resources.py
       - name: Validate STEVORA logo and prepare Android launcher icons
         run: |
           python3 -m pip install --user Pillow==11.3.0
