@@ -11,7 +11,6 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SeekBarPreference
-import androidx.preference.SwitchPreferenceCompat
 import io.homeassistant.companion.android.stevora.StevoraConfiguration
 import io.homeassistant.companion.android.stevora.StevoraVoicePreferences
 
@@ -54,13 +53,8 @@ class StevoraVoiceSettingsFragment : PreferenceFragmentCompat() {
         }
         section.addPreference(modelStatus)
 
-        section.addPreference(SwitchPreferenceCompat(requireContext()).apply {
-            key = "stevora_voice_enabled_ui"
+        section.addPreference(Preference(requireContext()).apply {
             title = getString(io.homeassistant.companion.android.R.string.stevora_voice_activation)
-            summary = getString(io.homeassistant.companion.android.R.string.stevora_voice_activation_summary)
-            isPersistent = false
-            isEnabled = false
-            isChecked = prefs.enabled
             summary = getString(io.homeassistant.companion.android.R.string.stevora_voice_activation_summary)
             setOnPreferenceClickListener {
                 startActivity(SettingsActivity.newInstance(requireContext(), SettingsActivity.Deeplink.AssistSettings))
