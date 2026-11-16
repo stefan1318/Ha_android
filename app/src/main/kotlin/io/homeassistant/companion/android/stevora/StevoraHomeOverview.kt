@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -19,6 +21,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -160,6 +163,18 @@ internal fun StevoraHomeOverview(
                 }
             }
         }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.weight(1f)) {
+                HomeMetric(if (bg) "Температура" else "Temperature", if (temperature == "—") "—" else "$temperature°C")
+            }
+            Box(Modifier.weight(1f)) {
+                HomeMetric(if (bg) "Влажност" else "Humidity", if (humidity == "—") "—" else "$humidity%")
+            }
+        }
         Text(if (bg) "СЪСТОЯНИЕ" else "STATUS", color = homeMuted, fontSize = 12.sp, letterSpacing = 2.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.weight(1f)) {
@@ -169,17 +184,29 @@ internal fun StevoraHomeOverview(
                 HomeMetric(if (bg) "Вентилатор" else "Bathroom fan", bathroomFan)
             }
         }
-        Button(
+        Text(if (bg) "БЪРЗ ДОСТЪП" else "QUICK ACCESS", color = homeMuted, fontSize = 12.sp, letterSpacing = 2.sp)
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            onClick = onRooms,
-            colors = ButtonDefaults.buttonColors(containerColor = homeAccent, contentColor = homeBg),
-        ) { Text(if (bg) "Управление на помещенията" else "Control rooms") }
-        Button(modifier = Modifier.fillMaxWidth(), onClick = onAi) {
-            Text(if (bg) "STEVORA AI асистент" else "STEVORA AI Assistant")
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Button(
+                modifier = Modifier.weight(1f).height(54.dp),
+                shape = RoundedCornerShape(18.dp),
+                onClick = onRooms,
+                colors = ButtonDefaults.buttonColors(containerColor = homeAccent, contentColor = homeBg),
+            ) { Text(if (bg) "Помещения" else "Rooms") }
+            Button(
+                modifier = Modifier.weight(1f).height(54.dp),
+                shape = RoundedCornerShape(18.dp),
+                onClick = onAi,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B3C61), contentColor = homeText),
+            ) { Text("✦ STEVORA AI") }
         }
-        Button(modifier = Modifier.fillMaxWidth(), onClick = onSystem) {
-            Text(if (bg) "Състояние на системата" else "System status")
-        }
+        OutlinedButton(
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(16.dp),
+            onClick = onSystem,
+        ) { Text(if (bg) "Диагностика на Home Hub" else "Home Hub diagnostics") }
     }
 }
 
