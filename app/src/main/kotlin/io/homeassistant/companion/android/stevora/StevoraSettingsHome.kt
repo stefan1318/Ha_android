@@ -20,7 +20,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import android.content.Intent
@@ -210,7 +209,7 @@ internal fun StevoraSettingsHome(
         }
         if (checked && accountVerified) {
             Text("ACCOUNT & SECURITY", fontSize = 12.sp, color = accent)
-            SettingsEntry("Signed in as $accountName", if (admin) "Administrator account" else "Personal account", "◉", {})
+            SettingsInfo("Signed in as $accountName", if (admin) "Administrator account" else "Personal account")
             SettingsEntry(
                 "Sign out",
                 "Remove this Home Hub account from the app",
