@@ -21,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.material3.NavigationBar
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.ui.platform.LocalContext
@@ -74,14 +75,17 @@ internal fun HAApp(
     val currentEntry by navController.currentBackStackEntryAsState()
     val onFrontend = currentEntry?.destination?.hasRoute<FrontendRoute>() == true
     val showPremiumNavigation = onFrontend && startDestination != null
+    // The Home Assistant frontend owns its navigation while its web panel is visible.
+    // Only show native STEVORA tabs on the native Home / AI surfaces.
+    val showNativeTabs = showPremiumNavigation && (showPremiumHome || showAiHome)
     Scaffold(
         modifier = modifier,
         containerColor = LocalHAColorScheme.current.colorSurfaceDefault,
         // Delegate the insets handling to content
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            if (showPremiumNavigation) {
-                NavigationBar {
+            if (showNativeTabs) {
+                NavigationBar(containerColor = Color(0xFF122437), contentColor = Color(0xFFF4FAFF)) {
                     NavigationBarItem(selected = showPremiumHome, onClick = { showPremiumHome = true; showAiHome = false }, icon = { Text("⌂") }, label = { Text(stringResource(R.string.stevora_nav_home)) })
                     NavigationBarItem(selected = !showPremiumHome && !showAiHome, onClick = {
                         showPremiumHome = false
