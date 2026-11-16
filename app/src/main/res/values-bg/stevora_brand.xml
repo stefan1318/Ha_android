@@ -3,4 +3,16 @@
     <string name="stevora_connect_title">Свързване със STEVORA</string>
     <string name="stevora_voice_title">STEVORA гласов асистент</string>
     <string name="stevora_settings_title">Настройки на STEVORA</string>
+    <string name="stevora_voice_entry">STEVORA глас</string>
+    <string name="stevora_voice_entry_summary">Фраза за събуждане и лични настройки</string>
+    <string name="stevora_voice_model_ready">Гласовият модел е наличен</string>
+    <string name="stevora_voice_model_pending">Гласовият модел още не е инсталиран. Ръчният Assist работи.</string>
+    <string name="stevora_voice_activation">Гласово активиране</string>
+    <string name="stevora_voice_activation_summary">Изисква проверен модел Hey Stevora</string>
+    <string name="stevora_voice_sensitivity">Чувствителност на разпознаването</string>
+    <string name="stevora_voice_sensitivity_summary">Запазва се на това устройство</string>
+    <string name="stevora_voice_calibration">Персонално калибриране</string>
+    <string name="stevora_voice_calibration_pending">Достъпно след инсталиране на гласов модел и механизъм за калибриране</string>
+    <string name="stevora_voice_privacy">Поверителност</string>
+    <string name="stevora_voice_privacy_summary">Тази настройка не записва, съхранява или изпраща аудио</string>
 </resources>
