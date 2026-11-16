@@ -1,5 +1,6 @@
 package io.homeassistant.companion.android.util.compose
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -27,9 +28,7 @@ import io.homeassistant.companion.android.assist.AssistActivity
 import io.homeassistant.companion.android.settings.SettingsActivity
 import io.homeassistant.companion.android.frontend.navigation.FrontendTarget
 import io.homeassistant.companion.android.frontend.navigation.navigateToFrontend
-import io.homeassistant.companion.android.onboarding.OnboardingRoute
 import io.homeassistant.companion.android.stevora.StevoraPremiumHome
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
@@ -110,29 +109,27 @@ internal fun HAApp(
                     },
                 ),
         ) {
-            if (showPremiumNavigation && showPremiumHome) {
-                StevoraPremiumHome(
+            Box(Modifier.fillMaxSize()) {
+                HANavHost(
+                    navController = navController,
+                    startDestination = startDestination,
+                    onRequestFullscreen = onRequestFullscreen,
+                    onPipReadinessChanged = onPipReadinessChanged,
+                    onShowSnackbar = { message, action ->
+                        snackbarHostState.showSnackbar(message, action, duration = SnackbarDuration.Short) == ActionPerformed
+                    },
+                )
+                if (showPremiumNavigation && showPremiumHome) StevoraPremiumHome(
                     onOpenPanel = {
                         showPremiumHome = false
                         navController.navigateToFrontend(FrontendTarget.Path("/stevora"))
                     },
                     onOpenVoice = { context.startActivity(AssistActivity.newInstance(context)) },
                     onOpenSettings = { context.startActivity(SettingsActivity.newInstance(context)) },
-                    onOpenOnboarding = { navController.navigate(OnboardingRoute()) },
+                    onOpenOnboarding = { context.startActivity(SettingsActivity.newInstance(context)) },
                 )
-            } else HANavHost(
-                navController = navController,
-                startDestination = startDestination,
-                onRequestFullscreen = onRequestFullscreen,
-                onPipReadinessChanged = onPipReadinessChanged,
-                onShowSnackbar = { message, action ->
-                    snackbarHostState.showSnackbar(
-                        message,
-                        action,
-                        duration = SnackbarDuration.Short,
-                    ) == ActionPerformed
-                },
-            )
+            }
+
         }
     }
 }
