@@ -16,6 +16,20 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult.ActionPerformed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Text
+import androidx.compose.ui.platform.LocalContext
+import io.homeassistant.companion.android.assist.AssistActivity
+import io.homeassistant.companion.android.settings.SettingsActivity
+import io.homeassistant.companion.android.frontend.navigation.FrontendTarget
+import io.homeassistant.companion.android.frontend.navigation.navigateToFrontend
+import io.homeassistant.companion.android.onboarding.OnboardingRoute
+import io.homeassistant.companion.android.stevora.StevoraPremiumHome
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
@@ -51,11 +65,29 @@ internal fun HAApp(
     onRequestFullscreen: (Boolean) -> Unit = {},
     onPipReadinessChanged: (PipReadiness?) -> Unit = {},
 ) {
+    val context = LocalContext.current
+    var showPremiumHome by remember { mutableStateOf(true) }
+    val currentEntry by navController.currentBackStackEntryAsState()
+    val onFrontend = currentEntry?.destination?.hasRoute<FrontendRoute>() == true
+    val showPremiumNavigation = onFrontend && startDestination != null
     Scaffold(
         modifier = modifier,
         containerColor = LocalHAColorScheme.current.colorSurfaceDefault,
         // Delegate the insets handling to content
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        bottomBar = {
+            if (showPremiumNavigation) {
+                NavigationBar {
+                    NavigationBarItem(selected = showPremiumHome, onClick = { showPremiumHome = true }, icon = { Text("⌂") }, label = { Text("Home") })
+                    NavigationBarItem(selected = !showPremiumHome, onClick = {
+                        showPremiumHome = false
+                        navController.navigateToFrontend(FrontendTarget.Path("/stevora"))
+                    }, icon = { Text("▦") }, label = { Text("Panel") })
+                    NavigationBarItem(selected = false, onClick = { context.startActivity(AssistActivity.newInstance(context)) }, icon = { Text("●") }, label = { Text("AI") })
+                    NavigationBarItem(selected = false, onClick = { context.startActivity(SettingsActivity.newInstance(context)) }, icon = { Text("⚙") }, label = { Text("Settings") })
+                }
+            }
+        },
         snackbarHost = {
             SnackbarHost(
                 hostState = snackbarHostState,
@@ -78,7 +110,17 @@ internal fun HAApp(
                     },
                 ),
         ) {
-            HANavHost(
+            if (showPremiumNavigation && showPremiumHome) {
+                StevoraPremiumHome(
+                    onOpenPanel = {
+                        showPremiumHome = false
+                        navController.navigateToFrontend(FrontendTarget.Path("/stevora"))
+                    },
+                    onOpenVoice = { context.startActivity(AssistActivity.newInstance(context)) },
+                    onOpenSettings = { context.startActivity(SettingsActivity.newInstance(context)) },
+                    onOpenOnboarding = { navController.navigate(OnboardingRoute()) },
+                )
+            } else HANavHost(
                 navController = navController,
                 startDestination = startDestination,
                 onRequestFullscreen = onRequestFullscreen,
