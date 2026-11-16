@@ -254,7 +254,7 @@ internal fun StevoraLivePanel() {
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                                 Text(label.uppercase(), color = secondary, fontSize = 11.sp, letterSpacing = 1.sp)
                                 val state = sensor?.state?.takeUnless { it == "unknown" || it == "unavailable" }
-                                Text(if (state == null) "—" else "$"+"{state} $"+"unit", color = white, fontSize = 24.sp)
+                                Text(if (state == null) "—" else "$state $unit", color = white, fontSize = 24.sp)
                                 Text("HomePod", color = cyan, fontSize = 11.sp)
                             }
                         }
