@@ -125,7 +125,7 @@ private fun ManualServerContent(
             modifier = Modifier
                 .padding(top = HADimens.SPACE6),
             // Use painterResource instead of vector resource for API < 24 since it has gradients
-            painter = painterResource(R.drawable.stevora_splash),
+            painter = painterResource(R.drawable.ic_launcher_foreground),
             contentDescription = null,
         )
         Text(
