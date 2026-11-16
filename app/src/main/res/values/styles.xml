@@ -39,9 +39,11 @@
         <item name="android:windowLightNavigationBar">false</item>
     </style>
 
-    <style name="Theme.HomeAssistant.Config" parent="Theme.HomeAssistant">
-        <item name="android:statusBarColor">@color/colorBackground</item>
-        <item name="android:windowLightStatusBar">@bool/isLightMode</item>
+    <style name="Theme.HomeAssistant.Config" parent="Theme.Stevora">
+        <item name="android:statusBarColor">@color/stevora_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">@color/stevora_background</item>
+        <item name="android:windowLightNavigationBar">false</item>
     </style>
 
     <style name="Theme.HomeAssistant.TranslucentOverlay" parent="Theme.HomeAssistant" >
