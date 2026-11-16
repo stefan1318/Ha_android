@@ -98,7 +98,7 @@ internal fun HAApp(
                     "system" -> StevoraSystemHome(onBack = { section = "home" })
                     "settings" -> StevoraSettingsHome(
                         onServerSettings = { context.startActivity(SettingsActivity.newInstance(context)) },
-                        onVoiceSettings = { context.startActivity(SettingsActivity.newInstance(context)) },
+                        onVoiceSettings = { context.startActivity(SettingsActivity.newInstance(context, SettingsActivity.Deeplink.AssistSettings)) },
                         onSystemSettings = { context.startActivity(SettingsActivity.newInstance(context)) },
                         onBack = { section = "home" },
                     )
