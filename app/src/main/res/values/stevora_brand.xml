@@ -43,4 +43,8 @@
     <string name="stevora_nav_panel">Panel</string>
     <string name="stevora_nav_ai">AI</string>
     <string name="stevora_nav_settings">Settings</string>
+    <string name="stevora_ai_intro">Speak or type with the configured Home Hub Assist pipeline.</string>
+    <string name="stevora_ai_start">Start conversation</string>
+    <string name="stevora_ai_pipeline">Configure Assist pipeline</string>
+    <string name="stevora_ai_note">Conversations use your connected server. Hey Stevora wake word requires a separate validated model.</string>
 </resources>
