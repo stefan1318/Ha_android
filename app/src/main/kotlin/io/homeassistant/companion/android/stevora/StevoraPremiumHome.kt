@@ -20,6 +20,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import io.homeassistant.companion.android.R
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,15 +48,15 @@ internal fun StevoraPremiumHome(
         Spacer(Modifier.height(12.dp))
         Text("STEVORA", fontSize = 34.sp, color = Foreground)
         Text("HYBRID PREMIUM", fontSize = 13.sp, color = Accent)
-        Text("Your home. Your control.", color = Muted, fontSize = 15.sp)
+        Text(stringResource(R.string.stevora_home_subtitle), color = Muted, fontSize = 15.sp)
         Spacer(Modifier.height(8.dp))
-        PremiumTile("Home Hub", "Open your authenticated STEVORA panel", "Open panel", onOpenPanel)
-        PremiumTile("STEVORA AI", "Voice and text via the configured Assist pipeline", "Open assistant", onOpenVoice)
-        PremiumTile("Personalize", "Configure voice, notifications and your server", "Settings", onOpenSettings)
+        PremiumTile(stringResource(R.string.stevora_home_hub), stringResource(R.string.stevora_home_hub_summary), stringResource(R.string.stevora_open_panel), onOpenPanel)
+        PremiumTile("STEVORA AI", stringResource(R.string.stevora_ai_summary), stringResource(R.string.stevora_open_assistant), onOpenVoice)
+        PremiumTile(stringResource(R.string.stevora_personalize), stringResource(R.string.stevora_personalize_summary), stringResource(R.string.stevora_nav_settings), onOpenSettings)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = onOpenOnboarding) { Text("Add a hub") }
+            OutlinedButton(onClick = onOpenOnboarding) { Text(stringResource(R.string.stevora_add_hub)) }
         }
-        Text("Your devices and automations remain managed by your connected STEVORA server.", color = Muted, fontSize = 12.sp)
+        Text(stringResource(R.string.stevora_home_disclaimer), color = Muted, fontSize = 12.sp)
     }
 }
 
