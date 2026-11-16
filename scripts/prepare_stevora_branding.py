@@ -18,6 +18,14 @@ try:
         if logo.format != "JPEG" or logo.width < 64 or logo.height < 64:
             raise ValueError("Expected a valid STEVORA JPEG logo at least 64x64")
         logo = logo.convert("RGB")
+        # Adaptive launcher icons need a safe-zone foreground, not the inherited
+        # Home Assistant launcher artwork. Generated from the packaged STEVORA logo.
+        adaptive = Image.new("RGBA", (432, 432), (0, 0, 0, 0))
+        artwork = ImageOps.contain(logo, (288, 288), Image.Resampling.LANCZOS)
+        adaptive.paste(artwork, ((432 - artwork.width) // 2, (432 - artwork.height) // 2))
+        adaptive.save(RES / "drawable-nodpi/stevora_adaptive_foreground.png", format="PNG", optimize=True)
+        print("STEVORA adaptive launcher foreground OK")
+
         for density, size in [("mdpi", 48), ("hdpi", 72), ("xhdpi", 96), ("xxhdpi", 144), ("xxxhdpi", 192)]:
             canvas = Image.new("RGBA", (size, size), (8, 19, 31, 255))
             inset = round(size * 0.08)
