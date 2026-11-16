@@ -74,8 +74,16 @@ data class MicroWakeWordModelConfig(
                                 .use { it.readText() }
 
                             val model = kotlinJsonMapper.decodeFromString<MicroWakeWordModelConfig>(jsonContent)
-                            models.add(model)
-                            Timber.d("Loaded wake word model: ${model.wakeWord}")
+                            val validName = model.model.endsWith(".tflite") &&
+                                !model.model.contains('/') && !model.model.contains('\\\\') &&
+                                model.model != ".tflite"
+                            val modelPresent = validName && assetFiles.contains(model.model)
+                            if (modelPresent) {
+                                models.add(model)
+                                Timber.d("Loaded wake word model: ${model.wakeWord}")
+                            } else {
+                                Timber.w("Skipping wake word metadata without matching TFLite asset: $fileName")
+                            }
                         }
                     }
                 }
