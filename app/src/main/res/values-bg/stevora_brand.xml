@@ -19,4 +19,18 @@
     <string name="stevora_voice_assist_setup_summary">Избери свързания STEVORA сървър, гласовия pipeline и налична локална фраза за събуждане</string>
     <string name="stevora_voice_server_info">OpenAI и гласово събуждане</string>
     <string name="stevora_voice_server_info_summary">OpenAI обработва командите на сървъра, но не инсталира модел за Hey Stevora на телефона. До добавяне на проверен модел избери налична фраза в настройките на Android Assist.</string>
+    <string name="stevora_home_subtitle">Твоят дом. Твоят контрол.</string>
+    <string name="stevora_home_hub">Домашен хъб</string>
+    <string name="stevora_home_hub_summary">Отвори защитения STEVORA панел</string>
+    <string name="stevora_open_panel">Отвори панела</string>
+    <string name="stevora_ai_summary">Гласови и текстови команди през настроения Assist pipeline</string>
+    <string name="stevora_open_assistant">Отвори асистента</string>
+    <string name="stevora_personalize">Персонализация</string>
+    <string name="stevora_personalize_summary">Настрой глас, известия и сървър</string>
+    <string name="stevora_add_hub">Управление на хъбове</string>
+    <string name="stevora_home_disclaimer">Устройствата и автоматизациите се управляват от свързания STEVORA сървър.</string>
+    <string name="stevora_nav_home">Начало</string>
+    <string name="stevora_nav_panel">Панел</string>
+    <string name="stevora_nav_ai">AI</string>
+    <string name="stevora_nav_settings">Настройки</string>
 </resources>
