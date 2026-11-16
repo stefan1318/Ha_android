@@ -74,8 +74,11 @@ internal fun StevoraSettingsHome(
     ) {
         Text("STEVORA", fontSize = 28.sp, color = foreground, letterSpacing = 3.sp)
         Text("SETTINGS • CONTROL CENTER", fontSize = 12.sp, color = accent)
-        Text(if (checked) "Account: $accountName • " + if (admin) "ADMIN" else "USER / PANEL"
-            else "Checking account permissions…", fontSize = 14.sp, color = muted)
+        Text(
+            if (!checked) "Checking account permissions…"
+            else "Account: $accountName • " + (if (admin) "ADMIN" else "USER / PANEL"),
+            fontSize = 14.sp, color = muted,
+        )
         if (checked && admin) {
             Text("ADMIN CONTROL CENTER", fontSize = 12.sp, color = accent)
             // These entries remain informational until STEVORA's protected
