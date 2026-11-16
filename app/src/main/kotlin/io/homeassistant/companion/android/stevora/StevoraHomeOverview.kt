@@ -1,9 +1,13 @@
 package io.homeassistant.companion.android.stevora
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -22,7 +26,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -92,24 +100,75 @@ internal fun StevoraHomeOverview(
         }
     }
     Column(
-        modifier = Modifier.fillMaxSize().background(homeBg).verticalScroll(rememberScrollState())
+        modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF172F50), homeBg, Color(0xFF060D1B)))).verticalScroll(rememberScrollState())
             .padding(horizontal = 18.dp, vertical = 22.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text("STEVORA", color = homeText, fontSize = 30.sp, letterSpacing = 3.sp)
         Text(if (bg) "HOME • ОБЩ ПРЕГЛЕД" else "HOME • OVERVIEW", color = homeAccent, fontSize = 12.sp)
-        HomeMetric(if (bg) "Home Hub" else "Home Hub", if (online) "● ONLINE" else "● OFFLINE")
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            androidx.compose.foundation.layout.Box(Modifier.weight(1f)) {
-                HomeMetric(if (bg) "Температура" else "Temperature", if (temperature == "—") "—" else "$temperature °C")
-            }
-            androidx.compose.foundation.layout.Box(Modifier.weight(1f)) {
-                HomeMetric(if (bg) "Влажност" else "Humidity", if (humidity == "—") "—" else "$humidity %")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(if (bg) "МОЯТ ДОМ" else "MY HOME", color = homeMuted, fontSize = 12.sp, letterSpacing = 2.sp)
+            Text(if (online) "● ONLINE" else "● OFFLINE",
+                color = if (online) Color(0xFF4CE0B3) else Color(0xFFFFA76B), fontSize = 12.sp)
+        }
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            border = BorderStroke(1.dp, Color(0xFF365779)),
+            shape = RoundedCornerShape(26.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF132840)),
+        ) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("CLIMATE CENTER", color = homeText, fontSize = 20.sp)
+                Text(if (bg) "Дневна • комфорт в реално време" else "Living Room • real-time comfort",
+                    color = homeMuted, fontSize = 12.sp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        val value = temperature.toFloatOrNull()
+                        Canvas(modifier = Modifier.size(144.dp)) {
+                            drawArc(
+                                color = Color(0xFF29425E), startAngle = 135f, sweepAngle = 270f,
+                                useCenter = false, style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round),
+                            )
+                            if (value != null) {
+                                drawArc(
+                                    brush = Brush.sweepGradient(listOf(homeAccent, Color(0xFFFFAE70), homeAccent)),
+                                    startAngle = 135f,
+                                    sweepAngle = (270f * ((value - 10f) / 25f).coerceIn(0f, 1f)),
+                                    useCenter = false,
+                                    style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round),
+                                )
+                            }
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(if (temperature == "—") "—" else "$temperature°", color = homeText, fontSize = 35.sp)
+                            Text("ROOM TEMP", color = homeMuted, fontSize = 10.sp, letterSpacing = 1.sp)
+                        }
+                    }
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ClimateSmallMetric(if (bg) "Влажност" else "Humidity",
+                            if (humidity == "—") "—" else "$humidity %")
+                        ClimateSmallMetric(if (bg) "Режим" else "Mode", climate)
+                    }
+                }
             }
         }
-        HomeMetric(if (bg) "Включени светлини" else "Lights on", activeLights?.toString() ?: "—")
-        HomeMetric(if (bg) "Климатик" else "Climate", climate)
-        HomeMetric(if (bg) "Вентилатор баня" else "Bathroom fan", bathroomFan)
+        Text(if (bg) "СЪСТОЯНИЕ" else "STATUS", color = homeMuted, fontSize = 12.sp, letterSpacing = 2.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.weight(1f)) {
+                HomeMetric(if (bg) "Светлини ON" else "Lights ON", activeLights?.toString() ?: "—")
+            }
+            Box(Modifier.weight(1f)) {
+                HomeMetric(if (bg) "Вентилатор" else "Bathroom fan", bathroomFan)
+            }
+        }
         Button(
             modifier = Modifier.fillMaxWidth(),
             onClick = onRooms,
@@ -129,11 +188,27 @@ private fun HomeMetric(label: String, value: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, Color(0xFF29455A)),
         colors = CardDefaults.cardColors(containerColor = homeTile),
     ) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(label, color = homeMuted, fontSize = 12.sp)
             Text(value, color = homeText, fontSize = 22.sp)
+        }
+    }
+}
+
+@Composable
+private fun ClimateSmallMetric(label: String, value: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, Color(0xFF29455A)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF0D1C30)),
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(value, color = homeText, fontSize = 21.sp)
+            Text(label, color = homeMuted, fontSize = 11.sp)
         }
     }
 }
