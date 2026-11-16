@@ -96,6 +96,25 @@ class SettingsFragment(
 
         setPreferencesFromResource(R.xml.preferences, rootKey)
 
+        // STEVORA voice settings are intentionally available before the wake model ships.
+        // The screen explains which capabilities are pending instead of enabling a fake listener.
+        preferenceScreen.addPreference(Preference(requireContext()).apply {
+            key = "stevora_voice_settings"
+            title = "STEVORA Voice / Гласови настройки"
+            summary = "Hey Stevora · sensitivity / чувствителност"
+            setOnPreferenceClickListener {
+                parentFragmentManager.commit {
+                    replace(
+                        io.homeassistant.companion.android.R.id.content,
+                        io.homeassistant.companion.android.settings.stevora.StevoraVoiceSettingsFragment::class.java,
+                        null,
+                    )
+                    addToBackStack("stevora_voice")
+                }
+                true
+            }
+        })
+
         findPreference<Preference>("nfc_tags")?.let {
             val pm: PackageManager = requireContext().packageManager
             it.isVisible = pm.hasSystemFeature(PackageManager.FEATURE_NFC)
