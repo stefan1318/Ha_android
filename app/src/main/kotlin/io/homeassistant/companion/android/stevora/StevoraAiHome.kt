@@ -57,34 +57,46 @@ internal fun StevoraAiHome(
     var busy by remember { mutableStateOf(false) }
     var pipelineId by remember { mutableStateOf<String?>(null) }
     var pipelineHasStt by remember { mutableStateOf(false) }
+    var refreshPipelines by remember { mutableStateOf(0) }
+    var accountRole by remember { mutableStateOf("UNVERIFIED") }
     var pipelineStatus by remember { mutableStateOf("Checking account and Assist pipeline…") }
     var conversationId by remember { mutableStateOf<String?>(null) }
     var messages by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
 
-    LaunchedEffect(manager) {
+    LaunchedEffect(manager, refreshPipelines) {
         try {
+            pipelineId = null
+            pipelineHasStt = false
             val socket = if (manager.getServer() != null) manager.webSocketRepository() else null
             val user = socket?.getCurrentUser()
-            // Do not guess a role when authentication fails.
             if (user == null) {
-                pipelineId = null
+                accountRole = "UNVERIFIED"
                 pipelineStatus = "Unable to verify Home Assistant account"
             } else {
                 val admin = user.isAdmin || user.isOwner
-                val requiredName = if (admin) "OpenAI Conversion" else "OpenAI Conversion for Panels"
-                val pipelines = socket.getAssistPipelines()
-                // Exact name matching prevents accidental routing to the wrong agent.
-                val selected = pipelines?.pipelines?.firstOrNull {
-                    it.name.trim().equals(requiredName, ignoreCase = true)
+                accountRole = if (admin) "ADMIN" else "USER / PANEL"
+                val expectedEngine = if (admin) {
+                    "conversation.living_room_openai_conversation"
+                } else {
+                    "conversation.openai_conversation_for_panels"
                 }
+                val pipelines = socket.getAssistPipelines()
+                // Select by configured conversation agent, not the editable pipeline name.
+                // Never fall back to the preferred pipeline or the other role's agent.
+                val matches = pipelines?.pipelines?.filter {
+                    it.conversationEngine.equals(expectedEngine, ignoreCase = true)
+                }.orEmpty()
+                val selected = matches.singleOrNull()
                 pipelineId = selected?.id
                 pipelineHasStt = selected?.sttEngine != null
-                pipelineStatus = if (selected == null) {
-                    "$requiredName not found in Assist pipelines"
-                } else {
-                    "● " + selected.name + if (admin) " • ADMIN" else " • USER / PANEL"
+                pipelineStatus = when {
+                    selected != null -> "● " + selected.name + " • " + accountRole
+                    matches.size > 1 -> "Multiple pipelines use $expectedEngine — select one in Home Assistant"
+                    pipelines == null -> "Assist pipeline list unavailable"
+                    else -> "No Assist pipeline uses $expectedEngine"
                 }
                 conversationId = null
+                messages = emptyList()
             }
         } catch (e: CancellationException) {
             throw e
@@ -101,6 +113,7 @@ internal fun StevoraAiHome(
         Text("STEVORA AI", color = Color.White, fontSize = 28.sp)
         Text("NATIVE CONVERSATION • HOME HUB", color = aiCyan, fontSize = 11.sp)
         Text(pipelineStatus, color = Color(0xFFA6BCCD), fontSize = 12.sp)
+        OutlinedButton(onClick = { refreshPipelines++ }, enabled = !busy) { Text("Refresh AI connection") }
         Column(
             modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp),
