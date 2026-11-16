@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.platform.LocalConfiguration
+import io.homeassistant.companion.android.stevora.StevoraHomeOverview
 import io.homeassistant.companion.android.stevora.StevoraLivePanel
 import io.homeassistant.companion.android.stevora.StevoraAiHome
 import io.homeassistant.companion.android.stevora.StevoraSettingsHome
@@ -81,8 +82,13 @@ internal fun HAApp(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
-            if (onHome && section != "home") {
+            if (onHome) {
                 when (section) {
+                    "home" -> StevoraHomeOverview(
+                        onRooms = { section = "rooms" },
+                        onAi = { section = "ai" },
+                        onSystem = { section = "system" },
+                    )
                     "rooms" -> StevoraLivePanel(initialRoom = "living")
                     "ai" -> StevoraAiHome(
                         onStartConversation = { context.startActivity(AssistActivity.newInstance(context)) },
