@@ -37,4 +37,17 @@
     <string name="stevora_ai_start">Започни разговор</string>
     <string name="stevora_ai_pipeline">Настрой Assist pipeline</string>
     <string name="stevora_ai_note">Разговорите използват свързания сървър. Hey Stevora изисква отделен проверен гласов модел.</string>
+    <string name="stevora_native_welcome">Добре дошъл у дома</string>
+    <string name="stevora_native_subtitle">Твоят дом, интелигентно свързан.</string>
+    <string name="stevora_native_hub">STEVORA Home Hub</string>
+    <string name="stevora_native_hub_description">Управлението на реалните устройства остава в защитения Home Hub, докато разработваме нативната синхронизация.</string>
+    <string name="stevora_native_open_devices">Отвори управлението</string>
+    <string name="stevora_native_sections">Раздели</string>
+    <string name="stevora_native_climate">Климат</string>
+    <string name="stevora_native_climate_description">Отопление, охлаждане и комфорт</string>
+    <string name="stevora_native_lights">Осветление</string>
+    <string name="stevora_native_lights_description">Лампи, цветове и яркост</string>
+    <string name="stevora_native_devices">Устройства и стаи</string>
+    <string name="stevora_native_devices_description">Разгледай свързаните устройства</string>
+    <string name="stevora_native_notice">Нативен интерфейс в разработка. Управлението на реалните устройства засега отваря защитения Home Hub. Не се показват измислени данни.</string>
 </resources>
