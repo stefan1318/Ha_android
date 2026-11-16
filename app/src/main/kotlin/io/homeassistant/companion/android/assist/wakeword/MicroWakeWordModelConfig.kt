@@ -75,7 +75,7 @@ data class MicroWakeWordModelConfig(
 
                             val model = kotlinJsonMapper.decodeFromString<MicroWakeWordModelConfig>(jsonContent)
                             val validName = model.model.endsWith(".tflite") &&
-                                !model.model.contains('/') && !model.model.contains('\\\\') &&
+                                !model.model.contains('/') && !model.model.contains('\\') &&
                                 model.model != ".tflite"
                             val modelPresent = validName && assetFiles.contains(model.model)
                             if (modelPresent) {
