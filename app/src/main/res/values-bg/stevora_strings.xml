@@ -1,22 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="stevora_connect_title">Свързване със STEVORA</string>
-    <string name="stevora_voice_title">STEVORA Глас</string>
-    <string name="stevora_settings_title">Настройки на STEVORA</string>
-    <string name="stevora_voice_entry">STEVORA Глас</string>
-    <string name="stevora_voice_entry_summary">Фраза за активиране и лични настройки</string>
-    <string name="stevora_voice_model_ready">Моделът за гласово активиране е наличен</string>
-    <string name="stevora_voice_model_pending">Моделът за гласово активиране не е инсталиран. Ръчното стартиране на Assist е налично.</string>
-    <string name="stevora_voice_activation">Гласово активиране</string>
-    <string name="stevora_voice_activation_summary">Изисква проверен модел Hey Stevora</string>
-    <string name="stevora_voice_sensitivity">Чувствителност на разпознаването</string>
-    <string name="stevora_voice_sensitivity_summary">Запазва се на това устройство</string>
-    <string name="stevora_voice_calibration">Лична калибрация</string>
-    <string name="stevora_voice_calibration_pending">Ще бъде налична след инсталиране на модела и механизма за калибриране</string>
-    <string name="stevora_voice_privacy">Поверителност</string>
-    <string name="stevora_voice_privacy_summary">Този екран не записва, съхранява или изпраща аудио</string>
-    <string name="stevora_voice_assist_setup">Настройка на Android Assist</string>
-    <string name="stevora_voice_assist_setup_summary">Изберете свързания STEVORA сървър, гласовия pipeline и поддържана фраза за активиране</string>
-    <string name="stevora_voice_server_info">OpenAI и гласово активиране</string>
-    <string name="stevora_voice_server_info_summary">OpenAI обработва заявките на сървъра. Това не инсталира модел Hey Stevora на телефона. Изберете налична фраза в настройките на Android Assist, докато бъде добавен проверен модел Hey Stevora.</string>
+    <!-- Bulgarian STEVORA strings are maintained in stevora_brand.xml. -->
 </resources>
