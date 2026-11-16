@@ -1,7 +1,7 @@
 package io.homeassistant.companion.android.stevora
 
-import android.content.Context
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,10 +9,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -21,9 +24,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,7 +42,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.coroutineScope
+import kotlin.math.roundToInt
 
 private val bg = Color(0xFF08131F)
 private val tile = Color(0xFF122437)
@@ -45,51 +50,116 @@ private val cyan = Color(0xFF27B9F5)
 private val white = Color(0xFFF4FAFF)
 private val secondary = Color(0xFFA6BCCD)
 
+// This is a curated STEVORA panel, NOT the HA entity/device inspector.
+// Add a control here only when it belongs in the STEVORA user panel.
+// Do not add backlights, duplicate switch channels, diagnostic entities or raw sensors.
+private data class StevoraControl(
+    val id: String,
+    val room: String,
+    val labelBg: String,
+    val labelEn: String,
+)
+
+private val roomOrder = listOf("living", "kitchen", "hall", "bathroom", "terrace")
+private val roomNames = mapOf(
+    "living" to ("Хол" to "Living Room"),
+    "kitchen" to ("Кухня" to "Kitchen"),
+    "hall" to ("Коридор" to "Hall"),
+    "bathroom" to ("Баня" to "Bathroom"),
+    "terrace" to ("Тераса" to "Terrace"),
+)
+
+// Explicit IDs avoid re-introducing things removed from the STEVORA dashboard.
+// The room here is intentional: HA currently assigns a terrace light to Kitchen.
+private val panelControls = listOf(
+    StevoraControl("climate.air_conditioner", "living", "Климатик", "Air conditioner"),
+    StevoraControl("light.rgb_cct", "living", "LED лента", "LED strip"),
+    StevoraControl("light.living_room_switch_1", "living", "Лява светлина", "Left light"),
+    StevoraControl("light.living_room_switch_2", "living", "Средна светлина", "Middle light"),
+    StevoraControl("light.living_room_switch_3", "living", "Дясна светлина", "Right light"),
+    StevoraControl("light.wifi_bel_2gang_switch_2", "kitchen", "Осветление", "Kitchen light"),
+    StevoraControl("light.terrace_switch_1", "hall", "Осветление", "Hall light"),
+    StevoraControl("light.bathroom_switch_2", "bathroom", "Осветление", "Bathroom light"),
+    StevoraControl("light.wifi_bel_2gang_switch_1", "terrace", "Осветление", "Terrace light"),
+)
+private val controlById = panelControls.associateBy { it.id }
+
+private fun localized(bgLanguage: Boolean, bgText: String, enText: String): String =
+    if (bgLanguage) bgText else enText
+
+private fun hvacLabel(mode: String, bgLanguage: Boolean): String = when (mode) {
+    "off" -> localized(bgLanguage, "Изкл.", "Off")
+    "heat" -> localized(bgLanguage, "Топло", "Heat")
+    "cool" -> localized(bgLanguage, "Студено", "Cool")
+    "dry" -> localized(bgLanguage, "Изсуш.", "Dry")
+    "fan_only" -> localized(bgLanguage, "Вент.", "Fan")
+    "heat_cool" -> localized(bgLanguage, "Авто", "Auto")
+    else -> mode
+}
+
 @EntryPoint
 @InstallIn(SingletonComponent::class)
 internal interface StevoraServerEntryPoint {
     fun serverManager(): ServerManager
 }
 
-/** Uses the existing authenticated Companion server repositories; no URL or token is duplicated. */
+/**
+ * Native, authenticated, room-based STEVORA controls.
+ * Only explicit panel entities are rendered; the HA entity registry additionally
+ * suppresses hidden, configuration and diagnostic entries.
+ * The dashboard and Home Assistant entities are never modified by this screen.
+ */
 @Composable
 internal fun StevoraLivePanel() {
     val context = LocalContext.current.applicationContext
+    val bgLanguage = LocalConfiguration.current.locales[0].language == "bg"
     val manager = remember(context) {
         EntryPointAccessors.fromApplication(context, StevoraServerEntryPoint::class.java).serverManager()
     }
     var entities by remember { mutableStateOf<List<Entity>>(emptyList()) }
-    var status by remember { mutableStateOf("Connecting to Home Hub…") }
+    var status by remember { mutableStateOf(localized(bgLanguage, "Свързване със STEVORA…", "Connecting to STEVORA…")) }
     var busy by remember { mutableStateOf<String?>(null) }
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(manager) {
         while (isActive) {
             try {
                 if (manager.getServer() == null) {
                     entities = emptyList()
-                    status = "Connect a Home Hub in Settings"
+                    status = localized(bgLanguage, "Добавете Home Hub в настройките", "Connect a Home Hub in Settings")
                 } else {
                     val repo = manager.webSocketRepository()
                     val snapshot = repo.getStates()
                     if (snapshot == null) {
-                        status = "Hub unavailable — retrying"
+                        status = localized(bgLanguage, "Няма връзка — нов опит…", "Hub unavailable — retrying")
                     } else {
-                        entities = snapshot.filter { it.domain in setOf("light", "switch", "climate", "sensor", "binary_sensor", "cover", "fan") }
-                        status = "Connected • ${entities.size} devices and sensors"
+                        // Registry failure must not turn the display into an unfiltered HA list.
+                        val hiddenIds = try {
+                            repo.getEntityRegistry().orEmpty()
+                                .filter { it.hiddenBy != null || it.entityCategory != null }
+                                .map { it.entityId }
+                                .toSet()
+                        } catch (e: Exception) {
+                            emptySet()
+                        }
+                        entities = snapshot.filter {
+                            it.entityId in controlById && it.entityId !in hiddenIds
+                        }
+                        status = localized(bgLanguage, "Свързано", "Connected") + " • " +
+                            entities.size + " " + localized(bgLanguage, "контроли", "controls")
                     }
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                status = "Connection unavailable — retrying"
+                status = localized(bgLanguage, "Проблем с връзката — нов опит…", "Connection unavailable — retrying")
             }
             delay(5_000L)
         }
     }
 
     fun execute(entity: Entity, service: String, data: Map<String, Any?> = emptyMap()) {
-        if (busy != null) return
+        if (busy != null || entity.entityId !in controlById) return
         busy = entity.entityId
         scope.launch {
             try {
@@ -98,11 +168,15 @@ internal fun StevoraLivePanel() {
                     service,
                     data + ("entity_id" to entity.entityId),
                 )
+                // Follow-up refresh without importing every entity on the server.
                 manager.webSocketRepository().getStates()?.let { snapshot ->
-                    entities = snapshot.filter { it.domain in setOf("light", "switch", "climate", "sensor", "binary_sensor", "cover", "fan") }
+                    val previouslyVisible = entities.map { it.entityId }.toSet()
+                    entities = snapshot.filter { it.entityId in previouslyVisible }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                status = "Command failed — check the hub connection"
+                status = localized(bgLanguage, "Командата не беше изпълнена", "Command failed — check the hub")
             } finally {
                 busy = null
             }
@@ -115,75 +189,146 @@ internal fun StevoraLivePanel() {
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text("STEVORA", fontSize = 30.sp, color = white, letterSpacing = 2.sp)
-        Text("NATIVE HOME CONTROL", fontSize = 12.sp, color = cyan, letterSpacing = 2.sp)
+        Text(localized(bgLanguage, "УПРАВЛЕНИЕ НА ДОМА", "NATIVE HOME CONTROL"),
+            fontSize = 12.sp, color = cyan, letterSpacing = 2.sp)
         Text(status, color = secondary, fontSize = 13.sp)
-        val grouped = entities.groupBy { it.domain }
-        val order = listOf("climate", "light", "switch", "fan", "cover", "sensor", "binary_sensor")
-        order.forEach { domain ->
-            val items = grouped[domain].orEmpty()
+
+        roomOrder.forEach { room ->
+            val items = panelControls
+                .filter { it.room == room }
+                .mapNotNull { control -> entities.firstOrNull { it.entityId == control.id }?.let { control to it } }
             if (items.isNotEmpty()) {
-                Text(domain.replaceFirstChar { it.uppercase() }.replace('_', ' '), color = cyan, fontSize = 19.sp)
-                items.sortedBy { it.attributes["friendly_name"]?.toString() ?: it.entityId }.forEach { entity ->
+                val names = requireNotNull(roomNames[room])
+                Text(if (bgLanguage) names.first else names.second, color = cyan, fontSize = 20.sp)
+                items.forEach { (control, entity) ->
                     Card(
                         colors = CardDefaults.cardColors(containerColor = tile),
+                        shape = RoundedCornerShape(20.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(entity.attributes["friendly_name"]?.toString() ?: entity.entityId, color = white, fontSize = 17.sp)
-                            Text(entity.state + (entity.attributes["unit_of_measurement"]?.toString() ?: ""), color = secondary, fontSize = 13.sp)
-                            val enabled = entity.state !in listOf("unavailable", "unknown")
-                            if (domain in setOf("light", "switch", "fan")) {
-                                Switch(
-                                    checked = entity.state == "on",
-                                    enabled = enabled && busy != entity.entityId,
-                                    onCheckedChange = { checked -> execute(entity, if (checked) "turn_on" else "turn_off") },
-                                )
-                            }
-                            if (domain == "light" && entity.state == "on" && entity.attributes["brightness"] is Number) {
-                                val brightness = (entity.attributes["brightness"] as Number).toFloat()
-                                var slider by remember(entity.entityId, brightness) { mutableStateOf(brightness) }
-                                Text("Brightness", color = secondary, fontSize = 12.sp)
-                                Slider(
-                                    value = slider,
-                                    onValueChange = { slider = it },
-                                    onValueChangeFinished = { execute(entity, "turn_on", mapOf("brightness" to slider.toInt())) },
-                                    valueRange = 1f..255f,
-                                    enabled = enabled && busy != entity.entityId,
-                                )
-                            }
-                            if (domain == "climate" && enabled) {
-                                val target = (entity.attributes["temperature"] as? Number)?.toFloat()
-                                val current = entity.attributes["current_temperature"]
-                                if (current != null) Text("Room: $current °C", color = secondary)
-                                if (target != null) {
-                                    val min = (entity.attributes["min_temp"] as? Number)?.toFloat() ?: 16f
-                                    val max = (entity.attributes["max_temp"] as? Number)?.toFloat() ?: 30f
-                                    var desired by remember(entity.entityId, target) { mutableStateOf(target) }
-                                    if (max > min) {
-                                        Text("Target: ${desired.toInt()} °C", color = white)
-                                        Slider(
-                                            value = desired.coerceIn(min, max),
-                                            onValueChange = { desired = it },
-                                            onValueChangeFinished = {
-                                                execute(entity, "set_temperature", mapOf("temperature" to desired.toInt()))
+                        Column(
+                            Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Text(if (bgLanguage) control.labelBg else control.labelEn,
+                                color = white, fontSize = 17.sp)
+                            val available = entity.state != "unavailable" && entity.state != "unknown"
+                            if (!available) {
+                                Text(localized(bgLanguage, "Недостъпно", "Unavailable"), color = secondary)
+                            } else if (entity.domain == "climate") {
+                                val current = entity.attributes["current_temperature"] as? Number
+                                if (current != null) {
+                                    Text(localized(bgLanguage, "В помещението: ", "Room: ") +
+                                        current.toFloat().toString() + " °C", color = secondary)
+                                }
+                                val mode = entity.state
+                                val modes = (entity.attributes["hvac_modes"] as? List<*>)
+                                    ?.filterIsInstance<String>().orEmpty()
+                                Text(localized(bgLanguage, "Режим: ", "Mode: ") +
+                                    hvacLabel(mode, bgLanguage), color = secondary, fontSize = 13.sp)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    modes.forEach { supportedMode ->
+                                        val selected = supportedMode == mode
+                                        Button(
+                                            onClick = {
+                                                execute(entity, "set_hvac_mode", mapOf("hvac_mode" to supportedMode))
                                             },
-                                            valueRange = min..max,
-                                            steps = (max - min).toInt().coerceAtLeast(1) - 1,
+                                            enabled = busy != entity.entityId && !selected,
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = if (selected) cyan else Color(0xFF254158),
+                                                contentColor = if (selected) bg else white,
+                                            ),
+                                        ) { Text(hvacLabel(supportedMode, bgLanguage)) }
+                                    }
+                                }
+                                // The Tuya integration reports 88°C as max. Never show an 88°C
+                                // slider: STEVORA uses a deliberate 16–30°C, whole-degree UI.
+                                val target = entity.attributes["temperature"] as? Number
+                                if (target != null) {
+                                    val minTemp = maxOf(16, (entity.attributes["min_temp"] as? Number)?.toInt() ?: 16)
+                                    val maxTemp = minOf(30, (entity.attributes["max_temp"] as? Number)?.toInt() ?: 30)
+                                    val setpoint = target.toFloat().roundToInt().coerceIn(minTemp, maxTemp)
+                                    val canSet = mode in setOf("heat", "cool", "heat_cool") &&
+                                        busy != entity.entityId && maxTemp > minTemp
+                                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                execute(entity, "set_temperature",
+                                                    mapOf("temperature" to (setpoint - 1)))
+                                            },
+                                            enabled = canSet && setpoint > minTemp,
+                                        ) { Text("−", fontSize = 23.sp) }
+                                        Column {
+                                            Text(localized(bgLanguage, "Зададена", "Target"),
+                                                color = secondary, fontSize = 12.sp)
+                                            Text(setpoint.toString() + " °C", color = white, fontSize = 25.sp)
+                                        }
+                                        OutlinedButton(
+                                            onClick = {
+                                                execute(entity, "set_temperature",
+                                                    mapOf("temperature" to (setpoint + 1)))
+                                            },
+                                            enabled = canSet && setpoint < maxTemp,
+                                        ) { Text("+", fontSize = 23.sp) }
+                                    }
+                                }
+                            } else if (entity.domain == "light") {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Text(
+                                        localized(bgLanguage, if (entity.state == "on") "Включена" else "Изключена",
+                                            if (entity.state == "on") "On" else "Off"),
+                                        color = secondary,
+                                    )
+                                    Switch(
+                                        checked = entity.state == "on",
+                                        enabled = busy != entity.entityId,
+                                        onCheckedChange = { on ->
+                                            execute(entity, if (on) "turn_on" else "turn_off")
+                                        },
+                                    )
+                                }
+                                // The RGB strip is the only color/brightness control.
+                                if (entity.entityId == "light.rgb_cct" && entity.state == "on") {
+                                    val brightness = (entity.attributes["brightness"] as? Number)?.toInt()
+                                    if (brightness != null) {
+                                        val percent = (brightness * 100f / 255f).roundToInt().coerceIn(1, 100)
+                                        var brightnessPercent by remember(entity.entityId, percent) {
+                                            mutableStateOf(percent.toFloat())
+                                        }
+                                        Text(localized(bgLanguage, "Яркост", "Brightness") +
+                                            ": " + brightnessPercent.roundToInt() + "%", color = secondary)
+                                        Slider(
+                                            value = brightnessPercent,
+                                            valueRange = 1f..100f,
+                                            onValueChange = { brightnessPercent = it },
+                                            onValueChangeFinished = {
+                                                execute(entity, "turn_on", mapOf(
+                                                    "brightness" to (brightnessPercent * 255f / 100f).roundToInt()))
+                                            },
                                             enabled = busy != entity.entityId,
                                         )
                                     }
-                                }
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(
-                                        enabled = busy != entity.entityId,
-                                        onClick = { execute(entity, "turn_off") },
-                                    ) { Text("Off") }
-                                }
-                            }
-                            if (domain == "cover" && enabled) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(onClick = { execute(entity, "open_cover") }, enabled = busy != entity.entityId) { Text("Open") }
-                                    Button(onClick = { execute(entity, "close_cover") }, enabled = busy != entity.entityId) { Text("Close") }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        listOf(
+                                            Triple("Бяло", "White", listOf(255, 255, 255)),
+                                            Triple("Розово", "Pink", listOf(255, 80, 160)),
+                                            Triple("Червено", "Red", listOf(255, 0, 0)),
+                                        ).forEach { (labelBg, labelEn, rgb) ->
+                                            OutlinedButton(
+                                                onClick = { execute(entity, "turn_on", mapOf("rgb_color" to rgb)) },
+                                                enabled = busy != entity.entityId,
+                                            ) { Text(if (bgLanguage) labelBg else labelEn) }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -191,6 +336,11 @@ internal fun StevoraLivePanel() {
                 }
             }
         }
-        if (entities.isEmpty()) Text("No device states received yet.", color = secondary)
+        if (entities.isEmpty()) {
+            Text(localized(bgLanguage,
+                "Няма активни STEVORA контроли. Проверете връзката и настройките на панела.",
+                "No STEVORA controls available. Check the connection and panel configuration."),
+                color = secondary)
+        }
     }
 }
