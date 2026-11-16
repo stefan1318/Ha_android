@@ -123,7 +123,7 @@ internal interface StevoraServerEntryPoint {
  * The dashboard and Home Assistant entities are never modified by this screen.
  */
 @Composable
-internal fun StevoraLivePanel() {
+internal fun StevoraLivePanel(initialRoom: String = "all") {
     val context = LocalContext.current.applicationContext
     val bgLanguage = LocalConfiguration.current.locales[0].language == "bg"
     val manager = remember(context) {
@@ -132,7 +132,7 @@ internal fun StevoraLivePanel() {
     var entities by remember { mutableStateOf<List<Entity>>(emptyList()) }
     var status by remember { mutableStateOf(localized(bgLanguage, "Свързване със STEVORA…", "Connecting to STEVORA…")) }
     var busy by remember { mutableStateOf<String?>(null) }
-    var selectedRoom by remember { mutableStateOf("all") }
+    var selectedRoom by remember(initialRoom) { mutableStateOf(initialRoom) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(manager) {
