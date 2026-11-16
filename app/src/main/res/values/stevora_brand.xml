@@ -47,4 +47,17 @@
     <string name="stevora_ai_start">Start conversation</string>
     <string name="stevora_ai_pipeline">Configure Assist pipeline</string>
     <string name="stevora_ai_note">Conversations use your connected server. Hey Stevora wake word requires a separate validated model.</string>
+    <string name="stevora_native_welcome">Welcome home</string>
+    <string name="stevora_native_subtitle">Your home, thoughtfully connected.</string>
+    <string name="stevora_native_hub">STEVORA Home Hub</string>
+    <string name="stevora_native_hub_description">Connected device controls are available through your authenticated hub while native synchronization is being developed.</string>
+    <string name="stevora_native_open_devices">Open live controls</string>
+    <string name="stevora_native_sections">Explore</string>
+    <string name="stevora_native_climate">Climate</string>
+    <string name="stevora_native_climate_description">Heating, cooling and room comfort</string>
+    <string name="stevora_native_lights">Lighting</string>
+    <string name="stevora_native_lights_description">Lights, colors and brightness</string>
+    <string name="stevora_native_devices">Devices &amp; rooms</string>
+    <string name="stevora_native_devices_description">Browse connected home devices</string>
+    <string name="stevora_native_notice">Native interface preview. Live device controls currently open the secure Home Hub view. No simulated device readings are shown.</string>
 </resources>
