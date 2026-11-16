@@ -8,13 +8,7 @@ internal object StevoraConfiguration {
     const val HOME_PANEL_PATH = "/stevora"
     const val WAKE_PHRASE = "Hey Stevora"
 
-    /**
-     * Wake-word recognition is unavailable until a validated TFLite model
-     * is packaged and the microWakeWord runtime is connected to this setting.
-     * Do not enable a fake listener.
-     */
-    const val WAKE_WORD_MODEL_AVAILABLE = false
-
+    // Hey Stevora is offered only when a real, validated model is packaged.\n    const val WAKE_WORD_MODEL_NAME = "Hey Stevora"\n
     fun panelPathOrDefault(path: String?): String =
         path?.trim()?.takeIf { candidate ->
             candidate.startsWith("/") &&
