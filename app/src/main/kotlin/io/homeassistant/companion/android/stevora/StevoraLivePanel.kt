@@ -90,6 +90,12 @@ private val panelControls = listOf(
 )
 private val controlById = panelControls.associateBy { it.id }
 
+// Only the two HomePod display helpers used by STEVORA. These are read-only
+// telemetry, not switches, and must never appear in the device control list.
+private const val HOMEPOD_TEMP = "sensor.realna_temperatura_homepod"
+private const val HOMEPOD_HUMIDITY = "sensor.realna_vlazhnost_homepod"
+private val visibleEntityIds = controlById.keys + setOf(HOMEPOD_TEMP, HOMEPOD_HUMIDITY)
+
 private fun localized(bgLanguage: Boolean, bgText: String, enText: String): String =
     if (bgLanguage) bgText else enText
 
@@ -150,10 +156,10 @@ internal fun StevoraLivePanel() {
                             emptySet()
                         }
                         entities = snapshot.filter {
-                            it.entityId in controlById && it.entityId !in hiddenIds
+                            it.entityId in visibleEntityIds && it.entityId !in hiddenIds
                         }
                         status = localized(bgLanguage, "Свързано", "Connected") + " • " +
-                            entities.size + " " + localized(bgLanguage, "контроли", "controls")
+                            entities.count { it.entityId in controlById } + " " + localized(bgLanguage, "контроли", "controls")
                     }
                 }
             } catch (e: CancellationException) {
@@ -227,6 +233,32 @@ internal fun StevoraLivePanel() {
                         Text(status, color = secondary, fontSize = 12.sp)
                     }
                     Text("⌂", color = cyan, fontSize = 38.sp)
+                }
+            }
+            val temp = entities.firstOrNull { it.entityId == HOMEPOD_TEMP }
+            val humidity = entities.firstOrNull { it.entityId == HOMEPOD_HUMIDITY }
+            if (temp != null || humidity != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    listOf(
+                        Triple(localized(bgLanguage, "Температура", "Temperature"), temp, "°C"),
+                        Triple(localized(bgLanguage, "Влажност", "Humidity"), humidity, "%"),
+                    ).forEach { (label, sensor, unit) ->
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = CardDefaults.cardColors(containerColor = tile),
+                        ) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                Text(label.uppercase(), color = secondary, fontSize = 11.sp, letterSpacing = 1.sp)
+                                val state = sensor?.state?.takeUnless { it == "unknown" || it == "unavailable" }
+                                Text(if (state == null) "—" else "$"+"{state} $"+"unit", color = white, fontSize = 24.sp)
+                                Text("HomePod", color = cyan, fontSize = 11.sp)
+                            }
+                        }
+                    }
                 }
             }
             Text(localized(bgLanguage, "ПОМЕЩЕНИЯ", "ROOMS"), color = secondary,
