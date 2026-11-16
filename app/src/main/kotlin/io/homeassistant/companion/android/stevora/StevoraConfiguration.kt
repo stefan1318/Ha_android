@@ -8,7 +8,9 @@ internal object StevoraConfiguration {
     const val HOME_PANEL_PATH = "/stevora"
     const val WAKE_PHRASE = "Hey Stevora"
 
-    // Hey Stevora is offered only when a real, validated model is packaged.\n    const val WAKE_WORD_MODEL_NAME = "Hey Stevora"\n
+    // Hey Stevora is offered only when a real, validated model is packaged.
+    const val WAKE_WORD_MODEL_NAME = "Hey Stevora"
+
     fun panelPathOrDefault(path: String?): String =
         path?.trim()?.takeIf { candidate ->
             candidate.startsWith("/") &&
