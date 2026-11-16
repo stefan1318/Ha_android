@@ -108,32 +108,11 @@ internal fun HANavHost(
                     wearNameToOnboard = startDestination.wearName,
                 )
             }
-            frontendScreen(
-                navController = navController,
-                onOpenExternalLink = { uri ->
-                    navController.navigateToUri(uri.toString(), onShowSnackbar)
-                },
-                onNavigateToSettings = { deepLink ->
-                    activity?.let { it.startActivity(SettingsActivity.newInstance(it, deepLink)) }
-                },
-                onSecurityLevelHelpClick = {
-                    navController.navigateToUri(URL_SECURITY_LEVEL_DOCUMENTATION, onShowSnackbar)
-                },
-                onOpenLocationSettings = {
-                    activity?.let { openSystemLocationSettings(it) }
-                },
-                onConfigureHomeNetwork = { serverId ->
-                    navController.navigateToSetHomeNetworkRoute(serverId)
-                },
-                onShowSnackbar = onShowSnackbar,
-                onShowServerSwitcher = { onServerSelected -> showServerSwitcher(activity, onServerSelected) },
-                onLaunchApp = { packageName -> navController.launchAppOrStore(packageName, onShowSnackbar) },
-                onLaunchIntent = { intentUri -> navController.launchIntentUri(intentUri, onShowSnackbar) },
-                onOpenSecuritySettings = { navController.openSecuritySettings(onShowSnackbar) },
-                onUpdateWebView = { navController.updateSystemWebView(onShowSnackbar) },
-                onRequestFullscreen = onRequestFullscreen,
-                onPipReadinessChanged = onPipReadinessChanged,
-            )
+            // STEVORA: the authenticated frontend destination is rendered by Compose,
+            // not by Home Assistant's WebView frontend.
+            androidx.navigation.compose.composable<FrontendRoute> {
+                io.homeassistant.companion.android.stevora.StevoraLivePanel()
+            }
             changelogScreen(
                 navController = navController,
                 onShowSnackbar = onShowSnackbar,
