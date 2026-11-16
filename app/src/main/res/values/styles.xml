@@ -26,8 +26,13 @@
 
     <!-- Product-owned theme while preserving upstream component compatibility. -->
     <style name="Theme.Stevora" parent="Theme.HomeAssistant">
+        <item name="colorPrimary">@color/stevora_primary</item>
+        <item name="colorPrimaryDark">@color/stevora_background</item>
+        <item name="colorAccent">@color/stevora_accent</item>
         <item name="colorSecondary">@color/stevora_accent</item>
         <item name="colorSecondaryVariant">@color/stevora_primary</item>
+        <item name="android:colorBackground">@color/stevora_background</item>
+        <item name="android:windowBackground">@color/stevora_background</item>
         <item name="android:statusBarColor">@color/stevora_background</item>
         <item name="android:navigationBarColor">@color/stevora_background</item>
         <item name="android:windowLightStatusBar">false</item>
