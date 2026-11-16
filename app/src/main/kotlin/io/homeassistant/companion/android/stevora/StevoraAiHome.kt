@@ -56,6 +56,7 @@ internal fun StevoraAiHome(
     var input by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var pipelineId by remember { mutableStateOf<String?>(null) }
+    var pipelineHasStt by remember { mutableStateOf(false) }
     var pipelineStatus by remember { mutableStateOf("Checking account and Assist pipeline…") }
     var conversationId by remember { mutableStateOf<String?>(null) }
     var messages by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
@@ -77,6 +78,7 @@ internal fun StevoraAiHome(
                     it.name.trim().equals(requiredName, ignoreCase = true)
                 }
                 pipelineId = selected?.id
+                pipelineHasStt = selected?.sttEngine != null
                 pipelineStatus = if (selected == null) {
                     "$requiredName not found in Assist pipelines"
                 } else {
@@ -87,6 +89,7 @@ internal fun StevoraAiHome(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            pipelineId = null
             pipelineStatus = "Unable to load Assist pipelines"
         }
     }
@@ -174,7 +177,24 @@ internal fun StevoraAiHome(
                     }
                 },
             ) { Text(if (busy) "Sending…" else "Send") }
-            OutlinedButton(onClick = onStartConversation) { Text("Voice Assist") }
+            OutlinedButton(
+                enabled = pipelineId != null && !busy,
+                onClick = {
+                    val selected = pipelineId ?: return@OutlinedButton
+                    scope.launch {
+                        try {
+                            // Upstream AssistActivity reads the last-used pipeline.
+                            // Persist the role-specific selection before launching voice.
+                            manager.integrationRepository().setLastUsedPipeline(selected, pipelineHasStt)
+                            onStartConversation()
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            messages = messages + ("STEVORA" to "Unable to select voice pipeline.")
+                        }
+                    }
+                },
+            ) { Text("Voice Assist") }
         }
         OutlinedButton(onClick = onBack) { Text("Home") }
     }
