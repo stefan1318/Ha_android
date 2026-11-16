@@ -6,8 +6,15 @@
 - STEVORA panel default path `/stevora` and separate STEVORA Voice settings entry.
 - Hybrid training dataset preparation for future Hey Stevora model. **No Hey Stevora TFLite is bundled.**
 
+## Latest development candidate (unvalidated)
+- Native Premium Home and bottom navigation are wired to the existing frontend, settings, and Assist entry points.
+- Native STEVORA AI landing screen offers authenticated Assist conversation and pipeline configuration, not a replacement AI backend.
+- Add Hub now opens the existing secure server onboarding flow.
+- New Premium Home and AI strings are localized in BG/EN.
+- Runtime verification and a successful CI build for the latest commits are still required.
+
 ## Not yet a validated release
-The native product dashboard, premium bottom navigation, custom AI conversation screen, complete BG/EN localization, seamless theme parity with the server-side `/stevora` dashboard, automatic selection of a STEVORA Assist pipeline, offline behavior, full accessibility review, production signing and device test matrix **remain open**. No claim is made that all runtime failures can be prevented in advance.
+The live native device dashboard, complete BG/EN localization beyond the new STEVORA screens, seamless theme parity with the server-side `/stevora` dashboard, automatic STEVORA Assist pipeline selection, dedicated in-screen chat history, offline behavior, full accessibility review, production signing and device test matrix **remain open**. No claim is made that all runtime failures can be prevented in advance.
 
 ## Acceptance gates
 1. CI: `./gradlew :app:assembleMinimalDebug`, APK branding verifier, `./gradlew :app:lintMinimalDebug` if available; retain CI logs and artifact.
