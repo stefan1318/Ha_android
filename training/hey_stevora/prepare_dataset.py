@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate/normalize consented WAV files and split by speaker (stdlib only).
+"""Validate/normalize consented WAV files and split by speaker (NumPy/SciPy).
 
 This is a dataset preparation tool, NOT a wake-word trainer.
 Usage: python3 training/hey_stevora/prepare_dataset.py --input /private/raw --output /private/prepared
@@ -10,7 +10,9 @@ import hashlib
 import json
 import random
 import wave
-import audioop
+import numpy as np
+from scipy.signal import resample_poly
+from math import gcd
 from pathlib import Path
 
 LABELS = ("positive", "negative_speech", "negative_ambient")
@@ -23,14 +25,26 @@ def normalize(source: Path, target: Path):
         if reader.getcomptype() != "NONE" or channels not in (1, 2) or width not in (1, 2, 3, 4):
             raise ValueError("Unsupported WAV encoding")
         frames = reader.readframes(reader.getnframes())
+    # Decode integer PCM to floating point before channel mixing and resampling.
+    if width == 1:
+        audio = (np.frombuffer(frames, dtype=np.uint8).astype(np.float32) - 128.0) / 128.0
+    elif width == 2:
+        audio = np.frombuffer(frames, dtype="<i2").astype(np.float32) / 32768.0
+    elif width == 3:
+        raw = np.frombuffer(frames, dtype=np.uint8).reshape(-1, 3).astype(np.int32)
+        vals = raw[:, 0] | (raw[:, 1] << 8) | (raw[:, 2] << 16)
+        vals = np.where(vals & 0x800000, vals - 0x1000000, vals)
+        audio = vals.astype(np.float32) / 8388608.0
+    else:
+        audio = np.frombuffer(frames, dtype="<i4").astype(np.float32) / 2147483648.0
     if channels == 2:
-        frames = audioop.tomono(frames, width, 0.5, 0.5)
-    if width != 2:
-        frames = audioop.lin2lin(frames, width, 2)
+        audio = audio.reshape(-1, 2).mean(axis=1)
     if rate != RATE:
-        frames, _ = audioop.ratecv(frames, 2, 1, rate, RATE, None)
-    if not (RATE // 5 * 2 <= len(frames) <= RATE * 20 * 2):
+        divisor = gcd(rate, RATE)
+        audio = resample_poly(audio, RATE // divisor, rate // divisor)
+    if not (RATE // 5 <= len(audio) <= RATE * 20):
         raise ValueError("Expected clip length between 0.2 and 20 seconds")
+    frames = np.round(np.clip(audio, -1.0, 1.0) * 32767.0).astype("<i2").tobytes()
     target.parent.mkdir(parents=True, exist_ok=True)
     with wave.open(str(target), "wb") as writer:
         writer.setnchannels(1)
