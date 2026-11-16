@@ -1,0 +1,6 @@
+raw/
+prepared/
+*.wav
+*.tflite
+*.npz
+*.npy
