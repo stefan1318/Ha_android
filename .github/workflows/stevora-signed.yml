@@ -1,0 +1,72 @@
+name: STEVORA signed installable APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/stevora-companion
+    paths:
+      - 'app/**'
+      - 'common/**'
+      - 'build-logic/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - 'scripts/prepare_stevora_branding.py'
+      - '.github/workflows/stevora-signed.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  signed-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate signing setup
+        env:
+          STEVORA_KEYSTORE_BASE64: ${{ secrets.STEVORA_KEYSTORE_BASE64 }}
+          STEVORA_KEYSTORE_PASSWORD: ${{ secrets.STEVORA_KEYSTORE_PASSWORD }}
+          STEVORA_KEY_ALIAS: ${{ secrets.STEVORA_KEY_ALIAS }}
+          STEVORA_KEY_PASSWORD: ${{ secrets.STEVORA_KEY_PASSWORD }}
+        run: |
+          for key in STEVORA_KEYSTORE_BASE64 STEVORA_KEYSTORE_PASSWORD STEVORA_KEY_ALIAS STEVORA_KEY_PASSWORD; do
+            if [ -z "${!key}" ]; then
+              echo "::error::Missing GitHub Actions signing secret: $key"
+              exit 1
+            fi
+          done
+          printf '%s' "$STEVORA_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/stevora-release.keystore"
+          chmod 600 "$RUNNER_TEMP/stevora-release.keystore"
+      - name: Prepare branding
+        run: |
+          python3 -m pip install --user Pillow==11.3.0
+          python3 scripts/check_stevora_resources.py
+          python3 scripts/prepare_stevora_branding.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build signed STEVORA minimal release
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/stevora-release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.STEVORA_KEYSTORE_PASSWORD }}
+          KEYSTORE_ALIAS: ${{ secrets.STEVORA_KEY_ALIAS }}
+          KEYSTORE_ALIAS_PASSWORD: ${{ secrets.STEVORA_KEY_PASSWORD }}
+          VERSION_CODE: ${{ github.run_number }}
+        run: ./gradlew :app:assembleMinimalRelease --stacktrace
+      - name: Verify signed APK and identity
+        run: |
+          APK=$(find app/build/outputs/apk/minimal/release -name '*.apk' -type f | head -n 1)
+          test -n "$APK"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt" dump badging "$APK" | grep "package: name='com.stevora.companion.minimal'"
+      - name: Upload installable signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: stevora-signed-release-apk
+          path: app/build/outputs/apk/minimal/release/*.apk
+          if-no-files-found: error
+          retention-days: 30
