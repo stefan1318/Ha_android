@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Verify STEVORA logo and generate consistent Android legacy launcher icons."""
 from pathlib import Path
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageDraw, ImageFont
 import io
 import sys
 
@@ -30,6 +30,21 @@ try:
                 with Image.open(dest) as check:
                     check.verify()
             print(f"STEVORA launcher icons OK: {density} {size}x{size}")
+        # Android TV banner, replacing the inherited Home Assistant branding.
+        banner = Image.new("RGB", (320, 180), (8, 19, 31))
+        art = ImageOps.contain(logo, (128, 128), Image.Resampling.LANCZOS)
+        banner.paste(art, (12, (180 - art.height) // 2))
+        draw = ImageDraw.Draw(banner)
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 25)
+        except OSError:
+            font = ImageFont.load_default()
+        draw.text((148, 74), "STEVORA", fill=(39, 185, 245), font=font)
+        banner_path = RES / "mipmap-xhdpi/ic_banner.png"
+        banner.save(banner_path, format="PNG", optimize=True)
+        with Image.open(banner_path) as check:
+            check.verify()
+        print("STEVORA Android TV banner OK")
         print(f"STEVORA logo OK: {logo.width}x{logo.height}, {len(data)} bytes")
 except Exception as exc:
     print(f"STEVORA branding validation FAILED: {exc}", file=sys.stderr)
