@@ -10,6 +10,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -99,7 +102,7 @@ internal fun ConnectionScreen(
     FileChooserEffect(pendingRequest = pendingFileChooser)
     PendingPermissionHandler(pendingRequest = pendingPermissionRequest)
 
-    Box(modifier = modifier.testTag(CONNECTION_SCREEN_TAG)) {
+    Box(modifier = modifier.fillMaxSize().background(Color(0xFF08131F)).testTag(CONNECTION_SCREEN_TAG)) {
         Spacer(
             modifier = Modifier
                 .fillMaxWidth()
@@ -114,7 +117,8 @@ internal fun ConnectionScreen(
                 HAWebView(
                     modifier = Modifier
                         .fillMaxSize()
-                        .windowInsetsPadding(WindowInsets.safeDrawing),
+                        .windowInsetsPadding(WindowInsets.safeDrawing)
+                        .padding(top = 120.dp, bottom = 64.dp, start = 16.dp, end = 16.dp),
                     configure = {
                         this.webChromeClient = webChromeClient
                         webView = this
@@ -134,29 +138,44 @@ internal fun ConnectionScreen(
             ErrorPlaceholder()
         }
 
-        if (!isError && !isLoading) {
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
+        if (!isError) {
+            Column(
+                modifier = Modifier.align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .windowInsetsPadding(WindowInsets.safeDrawing)
                     .background(Color(0xFF08131F))
-                    .padding(horizontal = 20.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Image(
                     imageVector = ImageVector.vectorResource(R.drawable.ic_launcher_foreground),
                     contentDescription = "STEVORA",
-                    modifier = Modifier.size(34.dp),
+                    modifier = Modifier.size(48.dp),
                 )
-                Column(Modifier.padding(start = 12.dp)) {
-                    Text("STEVORA", color = Color.White, fontSize = 18.sp, letterSpacing = 2.sp)
-                    Text(
-                        if (LocalConfiguration.current.locales[0].language == "bg") "Сигурен вход в Home Hub" else "Secure Home Hub sign in",
-                        color = Color(0xFF27B9F5),
-                        fontSize = 11.sp,
-                    )
+                Text("STEVORA", color = Color.White, fontSize = 24.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    if (LocalConfiguration.current.locales[0].language == "bg") "СИГУРЕН ВХОД В HOME HUB" else "SECURE HOME HUB SIGN IN",
+                    color = Color(0xFF27B9F5),
+                    fontSize = 11.sp,
+                )
+            }
+            Row(
+                modifier = Modifier.align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                    .background(Color(0xFF08131F))
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                TextButton(onClick = onBackClick) {
+                    Text(if (LocalConfiguration.current.locales[0].language == "bg") "Назад" else "Back", color = Color(0xFF27B9F5))
                 }
+                Text(
+                    if (LocalConfiguration.current.locales[0].language == "bg") "Защитено удостоверяване" else "Protected authentication",
+                    color = Color(0xFFA6BCCD),
+                    fontSize = 11.sp,
+                )
             }
         }
         if (isLoading) {
@@ -176,7 +195,7 @@ private fun ErrorPlaceholder() {
         contentAlignment = Alignment.Center,
     ) {
         Image(
-            imageVector = ImageVector.vectorResource(R.drawable.ic_home_assistant_branding),
+            imageVector = ImageVector.vectorResource(R.drawable.ic_launcher_foreground),
             contentDescription = null,
             modifier = Modifier.size(ICON_SIZE),
         )
