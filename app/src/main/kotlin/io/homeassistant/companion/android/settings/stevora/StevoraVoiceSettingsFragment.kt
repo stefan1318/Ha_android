@@ -20,24 +20,24 @@ class StevoraVoiceSettingsFragment : PreferenceFragmentCompat() {
         preferenceScreen = root
 
         val section = PreferenceCategory(requireContext()).apply {
-            title = "STEVORA Voice / Глас"
+            title = getString(io.homeassistant.companion.android.R.string.stevora_voice_title)
         }
         root.addPreference(section)
 
         section.addPreference(Preference(requireContext()).apply {
             title = "Hey Stevora"
             summary = if (StevoraConfiguration.WAKE_WORD_MODEL_AVAILABLE) {
-                "Wake-word model ready / Моделът е наличен"
+                getString(io.homeassistant.companion.android.R.string.stevora_voice_model_ready)
             } else {
-                "Wake-word model pending / Очаква се гласов модел. Assist остава достъпен ръчно."
+                getString(io.homeassistant.companion.android.R.string.stevora_voice_model_pending)
             }
             isSelectable = false
         })
 
         section.addPreference(SwitchPreferenceCompat(requireContext()).apply {
             key = "stevora_voice_enabled_ui"
-            title = "Voice activation / Гласово активиране"
-            summary = "Available after model integration / Достъпно след интегриране на модел"
+            title = getString(io.homeassistant.companion.android.R.string.stevora_voice_activation)
+            summary = getString(io.homeassistant.companion.android.R.string.stevora_voice_activation_summary)
             isPersistent = false
             isEnabled = StevoraConfiguration.WAKE_WORD_MODEL_AVAILABLE
             isChecked = prefs.enabled
@@ -49,8 +49,8 @@ class StevoraVoiceSettingsFragment : PreferenceFragmentCompat() {
 
         section.addPreference(SeekBarPreference(requireContext()).apply {
             key = "stevora_voice_sensitivity_ui"
-            title = "Sensitivity / Чувствителност"
-            summary = "Saved locally per app installation / Запазва се локално"
+            title = getString(io.homeassistant.companion.android.R.string.stevora_voice_sensitivity)
+            summary = getString(io.homeassistant.companion.android.R.string.stevora_voice_sensitivity_summary)
             min = 0
             max = 100
             showSeekBarValue = true
@@ -63,14 +63,14 @@ class StevoraVoiceSettingsFragment : PreferenceFragmentCompat() {
         })
 
         section.addPreference(Preference(requireContext()).apply {
-            title = "Personal voice calibration / Персонално калибриране"
-            summary = "Requires a working model. This screen does not train or record a voice model."
+            title = getString(io.homeassistant.companion.android.R.string.stevora_voice_calibration)
+            summary = getString(io.homeassistant.companion.android.R.string.stevora_voice_calibration_pending)
             isEnabled = false
         })
 
         section.addPreference(Preference(requireContext()).apply {
-            title = "Privacy / Поверителност"
-            summary = "No voice samples are collected or uploaded by these settings."
+            title = getString(io.homeassistant.companion.android.R.string.stevora_voice_privacy)
+            summary = getString(io.homeassistant.companion.android.R.string.stevora_voice_privacy_summary)
             isSelectable = false
         })
     }
