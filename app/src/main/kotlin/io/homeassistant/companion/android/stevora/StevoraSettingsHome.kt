@@ -159,18 +159,18 @@ internal fun StevoraSettingsHome(
             Text("ADMIN CONTROL CENTER", fontSize = 12.sp, color = accent)
             // These entries remain informational until STEVORA's protected
             // memory and automation API contracts are verified and implemented.
-            SettingsInfo("Memory Manager", "Awaiting verified STEVORA memory API")
-            SettingsInfo("Automation Studio", "Awaiting secure automation editor")
-            SettingsInfo("Climate Analytics", "Historical HomePod charts in development")
+            SettingsInfo("Memory Manager", "Home Hub integration pending — not yet available")
+            SettingsInfo("Automation Studio", "Home Hub automation editor pending — not yet available")
+            SettingsInfo("Climate Analytics", "Recorder history integration pending — not yet available")
             SettingsEntry("Home Hub", "Server connection and authentication", "⌂", onServerSettings)
-            SettingsEntry("STEVORA AI", "Personal voice and Assist preferences", "✦", { voiceExpanded = !voiceExpanded })
+            SettingsEntry("STEVORA AI", "Assist pipeline and microphone preferences", "✦", { voiceExpanded = !voiceExpanded })
             SettingsEntry("Device & privacy", "Companion permissions and advanced settings", "◈", onSystemSettings)
         } else if (checked && accountVerified) {
             Text("STEVORA PERSONAL", fontSize = 12.sp, color = accent)
             Text("Device control, climate statistics and the personalized voice assistant.",
                 fontSize = 14.sp, color = muted)
             SettingsInfo("Climate Analytics", "Historical HomePod charts in development")
-            SettingsEntry("Voice Assistant", "Personal Assist and microphone settings", "✦", { voiceExpanded = !voiceExpanded })
+            SettingsEntry("Voice Assistant", "Assist pipeline and microphone settings", "✦", { voiceExpanded = !voiceExpanded })
         }
         if (checked && accountVerified && voiceExpanded) {
             Card(
@@ -185,29 +185,10 @@ internal fun StevoraSettingsHome(
                             "These options affect only this device.",
                         color = muted, fontSize = 12.sp,
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Enable Hey STEVORA preference", modifier = Modifier.weight(1f), color = foreground)
-                        Switch(
-                            checked = voiceEnabled,
-                            onCheckedChange = {
-                                voiceEnabled = it
-                                voicePrefs.enabled = it
-                            },
-                        )
-                    }
                     Text(
-                        "Wake-word listening requires an installed compatible model and microphone permission. " +
-                            "This preference alone does not start listening.",
+                        "Hey STEVORA wake-word recognition is reserved for a later update after voice model training. " +
+                            "It is not enabled in Companion 2.0.",
                         color = muted, fontSize = 12.sp,
-                    )
-                    Text("Wake-word sensitivity: " + (sensitivity * 100).toInt() + "%", color = foreground)
-                    Slider(
-                        value = sensitivity,
-                        onValueChange = {
-                            sensitivity = it
-                            voicePrefs.sensitivity = it
-                        },
-                        valueRange = 0f..1f,
                     )
                     OutlinedButton(onClick = onVoiceSettings, modifier = Modifier.fillMaxWidth()) {
                         Text("Microphone & Assist setup")
