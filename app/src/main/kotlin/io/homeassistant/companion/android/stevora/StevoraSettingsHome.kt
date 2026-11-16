@@ -15,6 +15,14 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.CancellationException
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,6 +47,26 @@ internal fun StevoraSettingsHome(
     onSystemSettings: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val context = LocalContext.current.applicationContext
+    val manager = remember(context) {
+        EntryPointAccessors.fromApplication(context, StevoraServerEntryPoint::class.java).serverManager()
+    }
+    var admin by remember { mutableStateOf(false) }
+    var checked by remember { mutableStateOf(false) }
+    var accountName by remember { mutableStateOf("—") }
+    LaunchedEffect(manager) {
+        try {
+            val user = if (manager.getServer() != null) manager.webSocketRepository().getCurrentUser() else null
+            admin = user?.isAdmin == true || user?.isOwner == true
+            accountName = user?.name ?: "—"
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            admin = false
+        } finally {
+            checked = true
+        }
+    }
     Column(
         modifier = Modifier.fillMaxSize().background(background)
             .verticalScroll(rememberScrollState()).padding(24.dp),
@@ -46,11 +74,25 @@ internal fun StevoraSettingsHome(
     ) {
         Text("STEVORA", fontSize = 28.sp, color = foreground, letterSpacing = 3.sp)
         Text("SETTINGS • CONTROL CENTER", fontSize = 12.sp, color = accent)
-        Text("Manage your hub, voice assistant and device permissions.",
-            fontSize = 14.sp, color = muted)
-        SettingsEntry("Home Hub", "Server connection and authentication", "⌂", onServerSettings)
-        SettingsEntry("STEVORA AI", "Voice pipeline and wake word preferences", "✦", onVoiceSettings)
-        SettingsEntry("Device & privacy", "Permissions, sensors and advanced Companion settings", "◈", onSystemSettings)
+        Text(if (checked) "Account: $accountName • " + if (admin) "ADMIN" else "USER / PANEL"
+            else "Checking account permissions…", fontSize = 14.sp, color = muted)
+        if (checked && admin) {
+            Text("ADMIN CONTROL CENTER", fontSize = 12.sp, color = accent)
+            // These entries remain informational until STEVORA's protected
+            // memory and automation API contracts are verified and implemented.
+            SettingsInfo("Memory Manager", "Awaiting verified STEVORA memory API")
+            SettingsInfo("Automation Studio", "Awaiting secure automation editor")
+            SettingsInfo("Climate Analytics", "Historical HomePod charts in development")
+            SettingsEntry("Home Hub", "Server connection and authentication", "⌂", onServerSettings)
+            SettingsEntry("STEVORA AI", "Voice pipeline and wake word preferences", "✦", onVoiceSettings)
+            SettingsEntry("Device & privacy", "Companion permissions and advanced settings", "◈", onSystemSettings)
+        } else if (checked) {
+            Text("STEVORA PERSONAL", fontSize = 12.sp, color = accent)
+            Text("Device control, climate statistics and the personalized voice assistant.",
+                fontSize = 14.sp, color = muted)
+            SettingsInfo("Climate Analytics", "Historical HomePod charts in development")
+            SettingsInfo("Voice Assistant", "Use the AI tab to start STEVORA Assist")
+        }
         SettingsEntry("Back to home", "Return to your command center", "‹", onBack)
         Text("STEVORA Companion 2.0 • Preview", fontSize = 12.sp, color = muted)
     }
@@ -79,6 +121,20 @@ private fun SettingsEntry(
                 Text(subtitle, color = muted, fontSize = 12.sp)
             }
             Text("›", color = muted, fontSize = 22.sp)
+        }
+    }
+}
+
+@Composable
+private fun SettingsInfo(title: String, subtitle: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = surface),
+    ) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(title, color = foreground, fontSize = 17.sp)
+            Text(subtitle, color = muted, fontSize = 12.sp)
         }
     }
 }
