@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import io.homeassistant.companion.android.R
 import io.homeassistant.companion.android.assist.AssistActivity
+import io.homeassistant.companion.android.launch.LaunchActivity
 import io.homeassistant.companion.android.settings.SettingsActivity
 import io.homeassistant.companion.android.frontend.navigation.FrontendTarget
 import io.homeassistant.companion.android.frontend.navigation.navigateToFrontend
@@ -128,7 +129,18 @@ internal fun HAApp(
                     },
                     onOpenVoice = { context.startActivity(AssistActivity.newInstance(context)) },
                     onOpenSettings = { context.startActivity(SettingsActivity.newInstance(context)) },
-                    onOpenOnboarding = { context.startActivity(SettingsActivity.newInstance(context)) },
+                    onOpenOnboarding = {
+                        context.startActivity(
+                            LaunchActivity.newInstance(
+                                context,
+                                LaunchActivity.DeepLink.OpenOnboarding(
+                                    urlToOnboard = null,
+                                    hideExistingServers = false,
+                                    skipWelcome = false,
+                                ),
+                            ),
+                        )
+                    },
                 )
             }
 
