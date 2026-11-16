@@ -100,8 +100,8 @@ class SettingsFragment(
         // The screen explains which capabilities are pending instead of enabling a fake listener.
         preferenceScreen.addPreference(Preference(requireContext()).apply {
             key = "stevora_voice_settings"
-            title = "STEVORA Voice / Гласови настройки"
-            summary = "Hey Stevora · sensitivity / чувствителност"
+            title = getString(R.string.stevora_voice_entry)
+            summary = getString(R.string.stevora_voice_entry_summary)
             setOnPreferenceClickListener {
                 parentFragmentManager.commit {
                     replace(
