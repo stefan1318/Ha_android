@@ -1,6 +1,7 @@
 package io.homeassistant.companion.android.onboarding.welcome
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -17,10 +18,11 @@ internal fun WelcomeScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
 
+    val bg = LocalConfiguration.current.locales[0].language == "bg"
     WelcomeTemplate(
-        title = stringResource(commonR.string.welcome_home_assistant_title),
-        details = stringResource(commonR.string.welcome_details),
-        primaryButtonText = stringResource(commonR.string.welcome_connect_to_ha),
+        title = "STEVORA",
+        details = if (bg) "Вашият интелигентен дом. Свържете STEVORA Home Hub, за да започнете." else "Your intelligent home. Connect your STEVORA Home Hub to get started.",
+        primaryButtonText = if (bg) "Свързване към STEVORA" else "Connect to STEVORA",
         onPrimaryClick = onConnectClick,
         secondaryButtonText = stringResource(commonR.string.welcome_learn_more),
         onSecondaryClick = { coroutineScope.launch { onLearnMoreClick() } },
