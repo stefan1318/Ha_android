@@ -39,11 +39,27 @@ internal fun StevoraSystemHome(onBack: () -> Unit) {
     var connection by remember { mutableStateOf("Checking Home Hub…") }
     var total by remember { mutableStateOf<Int?>(null) }
     var unavailable by remember { mutableStateOf<Int?>(null) }
+    var aiRouting by remember { mutableStateOf("Checking…") }
 
     LaunchedEffect(manager) {
         while (isActive) {
             try {
-                val snapshot = if (manager.getServer() != null) manager.webSocketRepository().getStates() else null
+                val socket = if (manager.getServer() != null) manager.webSocketRepository() else null
+                val snapshot = socket?.getStates()
+                val user = socket?.getCurrentUser()
+                val engine = when {
+                    user == null -> null
+                    user.isAdmin || user.isOwner -> "conversation.living_room_openai_conversation"
+                    else -> "conversation.openai_conversation_for_panels"
+                }
+                val matches = if (engine == null) null else socket.getAssistPipelines()
+                    ?.pipelines?.count { it.conversationEngine.equals(engine, ignoreCase = true) }
+                aiRouting = when (matches) {
+                    1 -> "● READY"
+                    0 -> "Pipeline missing"
+                    null -> "Unavailable"
+                    else -> "Ambiguous ($matches)"
+                }
                 connection = if (snapshot != null) "● ONLINE" else "● OFFLINE"
                 total = snapshot?.size
                 unavailable = snapshot?.count { it.state == "unavailable" || it.state == "unknown" }
@@ -53,6 +69,7 @@ internal fun StevoraSystemHome(onBack: () -> Unit) {
                 connection = "● OFFLINE"
                 total = null
                 unavailable = null
+                aiRouting = "Unavailable"
             }
             delay(10_000L)
         }
@@ -69,6 +86,7 @@ internal fun StevoraSystemHome(onBack: () -> Unit) {
             "Home Hub connection" to connection,
             "Registered entity states" to (total?.toString() ?: "—"),
             "Unavailable or unknown" to (unavailable?.toString() ?: "—"),
+            "AI pipeline routing" to aiRouting,
         ).forEach { (title, value) ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
