@@ -52,7 +52,7 @@ internal fun StevoraSystemHome(onBack: () -> Unit) {
                     user.isAdmin || user.isOwner -> "conversation.living_room_openai_conversation"
                     else -> "conversation.openai_conversation_for_panels"
                 }
-                val matches = if (engine == null) null else socket.getAssistPipelines()
+                val matches = if (engine == null) null else socket?.getAssistPipelines()
                     ?.pipelines?.count { it.conversationEngine.equals(engine, ignoreCase = true) }
                 aiRouting = when (matches) {
                     1 -> "● READY"
