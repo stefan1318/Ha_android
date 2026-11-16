@@ -25,4 +25,8 @@
     <string name="stevora_voice_calibration_pending">Available after the wake-word model and calibration engine are installed</string>
     <string name="stevora_voice_privacy">Privacy</string>
     <string name="stevora_voice_privacy_summary">This setup does not record, save, or upload audio</string>
+    <string name="stevora_voice_assist_setup">Configure working Android Assist</string>
+    <string name="stevora_voice_assist_setup_summary">Select the connected STEVORA server, voice pipeline and any supported on-device wake word</string>
+    <string name="stevora_voice_server_info">OpenAI and wake-word detection</string>
+    <string name="stevora_voice_server_info_summary">OpenAI processes requests on the server. It does not install a Hey Stevora wake-word model on this phone. Choose an available wake word in Android Assist settings until a validated Hey Stevora model is supplied.</string>
 </resources>
