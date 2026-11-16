@@ -49,7 +49,7 @@ android {
  * Release builds must be validated with the real Firebase configuration.
  */
 googleServices {
-    missingGoogleServicesStrategy = com.google.gms.googleservices.MissingGoogleServicesStrategy.WARN
+    missingGoogleServicesStrategy = com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy.WARN
 }
 
 aboutLibraries {
