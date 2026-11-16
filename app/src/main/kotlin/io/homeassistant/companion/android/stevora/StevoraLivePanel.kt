@@ -324,22 +324,30 @@ internal fun StevoraLivePanel() {
                                     ?.filterIsInstance<String>().orEmpty()
                                 Text(localized(bgLanguage, "Режим: ", "Mode: ") +
                                     hvacLabel(mode, bgLanguage), color = secondary, fontSize = 13.sp)
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    modes.forEach { supportedMode ->
-                                        val selected = supportedMode == mode
-                                        Button(
-                                            onClick = {
-                                                if (!selected) execute(entity, "set_hvac_mode", mapOf("hvac_mode" to supportedMode))
-                                            },
-                                            enabled = busy != entity.entityId,
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = if (selected) cyan else Color(0xFF254158),
-                                                contentColor = if (selected) bg else white,
-                                            ),
-                                        ) { Text(hvacLabel(supportedMode, bgLanguage)) }
+                                // Wrap modes into a responsive two-column grid instead of
+                                // clipping buttons inside a narrow tablet card.
+                                modes.chunked(2).forEach { modeRow ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        modeRow.forEach { supportedMode ->
+                                            val selected = supportedMode == mode
+                                            Button(
+                                                modifier = Modifier.weight(1f),
+                                                onClick = {
+                                                    if (!selected) execute(entity, "set_hvac_mode", mapOf("hvac_mode" to supportedMode))
+                                                },
+                                                enabled = busy != entity.entityId,
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = if (selected) cyan else Color(0xFF254158),
+                                                    contentColor = if (selected) bg else white,
+                                                ),
+                                            ) {
+                                                Text(hvacLabel(supportedMode, bgLanguage), fontSize = 12.sp, maxLines = 1)
+                                            }
+                                        }
+                                        if (modeRow.size == 1) Spacer(Modifier.weight(1f))
                                     }
                                 }
                                 // The Tuya integration reports 88°C as max. Never show an 88°C
