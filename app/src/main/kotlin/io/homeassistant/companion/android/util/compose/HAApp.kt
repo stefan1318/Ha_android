@@ -24,6 +24,8 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import io.homeassistant.companion.android.R
 import io.homeassistant.companion.android.assist.AssistActivity
 import io.homeassistant.companion.android.settings.SettingsActivity
 import io.homeassistant.companion.android.frontend.navigation.FrontendTarget
@@ -77,13 +79,13 @@ internal fun HAApp(
         bottomBar = {
             if (showPremiumNavigation) {
                 NavigationBar {
-                    NavigationBarItem(selected = showPremiumHome, onClick = { showPremiumHome = true }, icon = { Text("⌂") }, label = { Text("Home") })
+                    NavigationBarItem(selected = showPremiumHome, onClick = { showPremiumHome = true }, icon = { Text("⌂") }, label = { Text(stringResource(R.string.stevora_nav_home)) })
                     NavigationBarItem(selected = !showPremiumHome, onClick = {
                         showPremiumHome = false
                         navController.navigateToFrontend(FrontendTarget.Path("/stevora"))
-                    }, icon = { Text("▦") }, label = { Text("Panel") })
-                    NavigationBarItem(selected = false, onClick = { context.startActivity(AssistActivity.newInstance(context)) }, icon = { Text("●") }, label = { Text("AI") })
-                    NavigationBarItem(selected = false, onClick = { context.startActivity(SettingsActivity.newInstance(context)) }, icon = { Text("⚙") }, label = { Text("Settings") })
+                    }, icon = { Text("▦") }, label = { Text(stringResource(R.string.stevora_nav_panel)) })
+                    NavigationBarItem(selected = false, onClick = { context.startActivity(AssistActivity.newInstance(context)) }, icon = { Text("●") }, label = { Text(stringResource(R.string.stevora_nav_ai)) })
+                    NavigationBarItem(selected = false, onClick = { context.startActivity(SettingsActivity.newInstance(context)) }, icon = { Text("⚙") }, label = { Text(stringResource(R.string.stevora_nav_settings)) })
                 }
             }
         },
