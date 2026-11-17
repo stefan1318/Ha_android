@@ -594,6 +594,7 @@ private fun StevoraVoiceIdPanel(bg: Boolean, micAllowed: Boolean, askPermission:
     var notice by remember { mutableStateOf("") }
     var deleting by remember { mutableStateOf(false) }
     var playing by remember { mutableStateOf(false) }
+    var pendingSampleDeletion by remember { mutableStateOf<String?>(null) }
     var activePlayer by remember { mutableStateOf<android.media.MediaPlayer?>(null) }
     val speakers = remember(revision) { profiles.all() }
     val selected = remember(revision) { profiles.selected() }
@@ -677,6 +678,51 @@ private fun StevoraVoiceIdPanel(bg: Boolean, micAllowed: Boolean, askPermission:
             },
         ) { Text(if (playing) tr("Възпроизвежда се...", "Playing...")
             else tr("▶ Прослушай последния запис", "▶ Play latest recording")) }
+        Text(tr("Преглед на записите", "Review recordings"), color = foreground, fontSize = 14.sp)
+        recorder.samples().forEachIndexed { index, file ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text("${index + 1}. ${file.name}", modifier = Modifier.weight(1f),
+                    color = muted, fontSize = 11.sp)
+                OutlinedButton(enabled = !recorder.isRecording && !playing, onClick = {
+                    try {
+                        playing = true
+                        activePlayer = recorder.playSample(file.name) {
+                            playing = false
+                            activePlayer = null
+                        }
+                        if (activePlayer == null) playing = false
+                    } catch (e: Exception) {
+                        playing = false
+                        notice = e.message ?: "Playback error"
+                    }
+                }) { Text("▶") }
+                OutlinedButton(enabled = !recorder.isRecording && !playing,
+                    onClick = { pendingSampleDeletion = file.name }) { Text("×") }
+            }
+        }
+        pendingSampleDeletion?.let { target ->
+            AlertDialog(
+                onDismissRequest = { pendingSampleDeletion = null },
+                title = { Text(tr("Изтриване на запис?", "Delete recording?")) },
+                text = { Text(target) },
+                confirmButton = {
+                    Button(onClick = {
+                        recorder.deleteSample(target)
+                        pendingSampleDeletion = null
+                        revision++
+                    }) { Text(tr("Изтрий", "Delete")) }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = { pendingSampleDeletion = null }) {
+                        Text(tr("Отказ", "Cancel"))
+                    }
+                },
+            )
+        }
         if (recorder.sampleCount == StevoraVoiceEnrollment.MAX_SAMPLES) {
             SettingsInfo(tr("Събирането е завършено", "Collection complete"),
                 tr("20 проверени аудиофайла. Предстои модел за разпознаване и независима проверка. Активацията Hey Stevora още не е включена.",
