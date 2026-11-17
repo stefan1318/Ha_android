@@ -41,11 +41,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val background = Color(0xFF08131F)
-private val surface = Color(0xFF122437)
-private val accent = Color(0xFF27B9F5)
-private val foreground = Color(0xFFF4FAFF)
-private val muted = Color(0xFFA6BCCD)
+private val background = StevoraDesign.background
+private val surface = StevoraDesign.surface
+private val accent = StevoraDesign.accent
+private val foreground = StevoraDesign.foreground
+private val muted = StevoraDesign.muted
 
 /**
  * STEVORA-owned settings landing page. The existing Companion settings remain
@@ -159,7 +159,7 @@ internal fun StevoraSettingsHome(
         )
     }
     Column(
-        modifier = Modifier.fillMaxSize().background(background)
+        modifier = Modifier.fillMaxSize().background(StevoraDesign.gradient)
             .verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
