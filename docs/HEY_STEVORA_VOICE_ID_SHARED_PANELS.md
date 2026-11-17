@@ -44,3 +44,11 @@ User-approved scope: sample capture + review/playback + quality validation + per
 ## Next review iteration — 2026-11-17
 
 Added per-sample listing, playback, and confirmation-gated individual deletion in native STEVORA settings, alongside existing latest-sample replay. This lets the owner remove poor-quality takes without resetting all 20 samples. Implementation committed on the prototype branch; CI and Zebra on-device tests pending. No acoustic speaker verification or personalized wake-word activation is claimed.
+
+## Continued implementation — 2026-11-17
+
+- Added per-sample playback and deletion controls to native STEVORA AI settings, with confirmation before removal. Owner can replace a bad sample rather than resetting a profile.
+- Recording now rejects too-short, non-decodable, and low-peak-amplitude captures; this is a **basic signal sanity check**, not speech detection or a proof of correct phrase.
+- Aligned signed test APK build with the established clean, ordered Hilt Gradle workflow to reduce release build races.
+- GitHub Actions compile/test outcomes and real-device microphone/playback behavior remain unverified at the time of this update.
+- **Still pending:** speaker embedding model, true per-speaker verification, confirmed learning, valid microWakeWord TFLite wake-word detector, and device-level activation. Do not enable automatic Hey Stevora until both models pass real-device acceptance.
