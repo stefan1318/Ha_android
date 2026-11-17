@@ -589,6 +589,7 @@ private fun StevoraVoiceIdPanel(bg: Boolean, micAllowed: Boolean, askPermission:
     fun tr(a: String, b: String) = if (bg) a else b
     val profiles = remember { StevoraVoiceProfiles(context.applicationContext) }
     val recorder = remember { StevoraVoiceEnrollment(context.applicationContext) }
+    val review = remember { StevoraVoiceSampleReview(context.applicationContext) }
     var revision by remember { mutableStateOf(0) }
     var name by remember { mutableStateOf("") }
     var notice by remember { mutableStateOf("") }
@@ -678,8 +679,11 @@ private fun StevoraVoiceIdPanel(bg: Boolean, micAllowed: Boolean, askPermission:
             },
         ) { Text(if (playing) tr("Възпроизвежда се...", "Playing...")
             else tr("▶ Прослушай последния запис", "▶ Play latest recording")) }
+        val recordings = recorder.samples()
+        val approvedCount = recordings.count { review.isApproved(selected.id, it.name) }
+        SettingsInfo(tr("Одобрени записи", "Approved samples"), "$approvedCount / 20")
         Text(tr("Преглед на записите", "Review recordings"), color = foreground, fontSize = 14.sp)
-        recorder.samples().forEachIndexed { index, file ->
+        recordings.forEachIndexed { index, file ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -700,6 +704,9 @@ private fun StevoraVoiceIdPanel(bg: Boolean, micAllowed: Boolean, askPermission:
                         notice = e.message ?: "Playback error"
                     }
                 }) { Text("▶") }
+                Checkbox(checked = review.isApproved(selected.id, file.name),
+                    enabled = !recorder.isRecording && !playing,
+                    onCheckedChange = { review.setApproved(selected.id, file.name, it); revision++ })
                 OutlinedButton(enabled = !recorder.isRecording && !playing,
                     onClick = { pendingSampleDeletion = file.name }) { Text("×") }
             }
@@ -712,6 +719,7 @@ private fun StevoraVoiceIdPanel(bg: Boolean, micAllowed: Boolean, askPermission:
                 confirmButton = {
                     Button(onClick = {
                         recorder.deleteSample(target)
+                        review.remove(selected.id, target)
                         pendingSampleDeletion = null
                         revision++
                     }) { Text(tr("Изтрий", "Delete")) }
@@ -724,9 +732,12 @@ private fun StevoraVoiceIdPanel(bg: Boolean, micAllowed: Boolean, askPermission:
             )
         }
         if (recorder.sampleCount == StevoraVoiceEnrollment.MAX_SAMPLES) {
-            SettingsInfo(tr("Събирането е завършено", "Collection complete"),
-                tr("20 проверени аудиофайла. Предстои модел за разпознаване и независима проверка. Активацията Hey Stevora още не е включена.",
-                    "20 verified audio files. Speaker model and independent validation pending. Hey Stevora activation is not enabled."))
+            SettingsInfo(
+                if (approvedCount == 20) tr("Готово за бъдещо обучение", "Ready for future training")
+                else tr("Изисква се преглед", "Review required"),
+                if (approvedCount == 20) tr("20 одобрени записа. Моделът още не е обучен.", "20 approved recordings. Model not trained yet.")
+                else tr("Прослушай и одобри всеки запис.", "Listen to and approve every sample."),
+            )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(tr("Съгласие за бъдещо самообучение", "Consent for future self-learning"),
@@ -750,6 +761,7 @@ private fun StevoraVoiceIdPanel(bg: Boolean, micAllowed: Boolean, askPermission:
                     recorder.stop(save = false)
                     recorder.profileId = selected.id
                     recorder.deleteAll()
+                    review.removeProfile(selected.id)
                     profiles.remove(selected.id)
                     deleting = false
                     revision++
