@@ -1,10 +1,12 @@
 package io.homeassistant.companion.android.stevora
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +24,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -103,6 +107,35 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
                     Text(label, color = climateMuted, fontSize = 13.sp)
                     Text(value, color = Color.White, fontSize = 24.sp)
                 }
+            }
+        }
+        if (samples.size >= 2) {
+            Text(tr("Тенденция на температурата • текуща сесия", "Temperature trend • current session"),
+                color = climateCyan)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = climateTile),
+            ) {
+                val values = samples.map { it.first }
+                val low = values.minOrNull() ?: 0.0
+                val high = values.maxOrNull() ?: 0.0
+                val span = (high - low).coerceAtLeast(0.5)
+                Canvas(Modifier.fillMaxWidth().height(140.dp).padding(16.dp)) {
+                    val trace = Path()
+                    values.forEachIndexed { index, value ->
+                        val x = size.width * index / (values.size - 1)
+                        val y = size.height * (1f - ((value - low) / span).toFloat())
+                        if (index == 0) trace.moveTo(x, y) else trace.lineTo(x, y)
+                    }
+                    drawPath(trace, climateCyan, style = Stroke(width = 3.dp.toPx()))
+                }
+                Text(
+                    tr("Минимум", "Minimum") + ": %.1f °C".format(low) +
+                        "  •  " + tr("Максимум", "Maximum") + ": %.1f °C".format(high),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = climateMuted,
+                )
             }
         }
         Text(
