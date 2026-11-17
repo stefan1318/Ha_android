@@ -125,7 +125,7 @@ private fun ManualServerContent(
             modifier = Modifier
                 .padding(top = HADimens.SPACE6),
             // Use painterResource instead of vector resource for API < 24 since it has gradients
-            painter = painterResource(R.drawable.ic_launcher_foreground),
+            painter = painterResource(R.drawable.stevora_brand_mark),
             contentDescription = null,
         )
         Text(
@@ -181,7 +181,7 @@ private fun ServerUrlTextField(
         },
         placeholder = {
             Text(
-                text = "http://homeassistant.local",
+                text = "https://hub.example.com",
                 style = HATextStyle.UserInput,
                 color = LocalHAColorScheme.current.colorOnNeutralNormal,
             )
