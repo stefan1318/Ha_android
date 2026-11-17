@@ -44,6 +44,8 @@ Deliver an opt-in, privacy-conscious **Hey STEVORA** voice activation experience
 5. Synchronize milestones into the general STEVORA roadmap when appropriate, but this file is the authoritative Hey STEVORA implementation log.
 6. Updates happen when development/test results are reviewed and committed; this document does not itself run a background monitor.
 
+| 2026-11-17 | Received pilot recording (35.99s, AAC 48kHz stereo), converted to 16kHz mono PCM, extracted 17 candidate positive clips from one speaker; created local private pilot ZIP and segment manifest | User-supplied audio; local sandbox artifact, not uploaded to public GitHub | Segmentation is heuristic; clips need listening review; no trained model yet |
+
 ## Immediate next actions
 1. Verify the dataset CI workflow execution and fix any failures.
 2. Collect consented audio samples; use pilot 20–30 speakers, roughly 30–50 positive examples each, and diverse negative/background samples; expand based on evaluation.
