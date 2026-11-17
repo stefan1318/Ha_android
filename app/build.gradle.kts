@@ -11,6 +11,7 @@ android {
     defaultConfig {
         // Separate package identity so STEVORA and official HA Companion can coexist.
         applicationId = "com.stevora.companion"
+        versionName = "2.0.0"
         manifestPlaceholders["sentryRelease"] = "$applicationId@$versionName"
         manifestPlaceholders["sentryDsn"] = System.getenv("SENTRY_DSN") ?: ""
 

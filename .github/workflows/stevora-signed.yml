@@ -67,10 +67,14 @@ jobs:
           test -n "$APK"
           "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --print-certs "$APK"
           "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt" dump badging "$APK" | grep "package: name='com.stevora.companion.minimal'"
+      - name: Verify STEVORA Stable version
+        run: |
+          APK=$(find app/build/outputs/apk/minimal/release -name '*.apk' -type f | head -n 1)
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt" dump badging "$APK" | grep "versionName='2.0.0'"
       - name: Upload installable signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: stevora-signed-release-apk
+          name: stevora-companion-2.0.0-stable-signed-apk
           path: app/build/outputs/apk/minimal/release/*.apk
           if-no-files-found: error
           retention-days: 30
