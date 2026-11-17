@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -178,7 +179,7 @@ internal fun StevoraMemoryManager(onBack: () -> Unit) {
     }
     Column(
         Modifier.fillMaxSize().background(Color(0xFF08131F))
-            .verticalScroll(rememberScrollState()).padding(20.dp),
+            .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text("STEVORA • MEMORY MANAGER", color = Color(0xFF27B9F5))
@@ -199,13 +200,7 @@ internal fun StevoraMemoryManager(onBack: () -> Unit) {
                 ),
                 color = Color(0xFFA6BCCD),
             )
-            if (memoryEntities.isEmpty()) {
-                Text(
-                    tr("Няма публикувани диагностични сензори за паметта в Home Assistant.",
-                        "No memory diagnostic sensors are exposed by Home Assistant."),
-                    color = Color(0xFFA6BCCD),
-                )
-            }
+
             memoryEntities.forEach { (id, state) ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -404,5 +399,6 @@ internal fun StevoraMemoryManager(onBack: () -> Unit) {
         error?.let { Text(it, color = Color(0xFFFFA76B)) }
         OutlinedButton(onClick = { refresh++ }) { Text(tr("Обнови", "Refresh")) }
         OutlinedButton(onClick = onBack) { Text(tr("Назад", "Back")) }
+        androidx.compose.foundation.layout.Spacer(Modifier.height(88.dp))
     }
 }
