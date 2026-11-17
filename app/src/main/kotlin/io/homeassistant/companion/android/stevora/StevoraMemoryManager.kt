@@ -52,6 +52,7 @@ internal fun StevoraMemoryManager(onBack: () -> Unit) {
     var refresh by remember { mutableStateOf(0) }
     var query by remember { mutableStateOf("") }
     var bridgeResult by remember { mutableStateOf<String?>(null) }
+    var bridgeHealth by remember { mutableStateOf<String?>(null) }
     var bridgeBusy by remember { mutableStateOf(false) }
     var aiResult by remember { mutableStateOf<String?>(null) }
     var searching by remember { mutableStateOf(false) }
@@ -69,6 +70,7 @@ internal fun StevoraMemoryManager(onBack: () -> Unit) {
         memoryEntities = emptyList()
         memoryPipeline = null
         aiResult = null
+        bridgeHealth = null
         error = null
         try {
             val socket = if (manager.getServer() != null) manager.webSocketRepository() else null
@@ -78,6 +80,17 @@ internal fun StevoraMemoryManager(onBack: () -> Unit) {
                 val states = socket.getStates()
                 hubConnected = states != null
                 if (states != null) {
+                    val health = socket.getStevoraMemory("health")
+                    bridgeHealth = if (health == null) {
+                        tr("Мостът не отговаря • провери версията и рестартирай Home Assistant",
+                            "Bridge not responding • check version and restart Home Assistant")
+                    } else {
+                        val available = health["storage_available"]?.toString() == "true"
+                        if (available) tr("Мостът е свързан • файловата памет е достъпна",
+                            "Bridge connected • memory storage available")
+                        else tr("Мостът е свързан • хранилището не е достъпно",
+                            "Bridge connected • memory storage unavailable")
+                    }
                     val pipelines = socket.getAssistPipelines()
                     memoryPipeline = pipelines?.pipelines?.filter {
                         it.conversationEngine.equals("conversation.living_room_openai_conversation", ignoreCase = true)
@@ -153,6 +166,7 @@ internal fun StevoraMemoryManager(onBack: () -> Unit) {
                     }
                 }
             }
+            bridgeHealth?.let { Text(it, color = Color(0xFF27B9F5)) }
             Text(tr("Канонична памет • удостоверен HA WebSocket мост",
                 "Canonical memory • authenticated HA WebSocket bridge"),
                 color = Color(0xFF27B9F5))
