@@ -38,6 +38,8 @@ Deliver an opt-in, privacy-conscious **Hey STEVORA** voice activation experience
 
 | 2026-11-17 | Received 39.23s positive distance recording and 25.41s hard-negative recording; extracted 20 positive and 12 negative candidate WAV clips at 16kHz mono, with segment manifest; private ZIP v02 prepared | User audio and local sandbox artifact; not published to GitHub | Automated segmentation only, manual review pending; all examples from same speaker; no trained model |
 
+| 2026-11-17 | Owner listened to and approved the current pilot audio set (first positive, distance positive, and hard-negative recordings) | Explicit owner confirmation in project conversation | **OWNER APPROVED audio content**; technical dataset validation and model training still pending |
+
 ## Update policy (approved)
 1. Update this document **after each verified successful implementation**; log date, change, exact commit/workflow/artifact link, test evidence and owner acceptance if required.
 2. Keep status **IN PROGRESS** until acceptance criteria have been met; distinguish code committed, CI passed, device tested, and owner accepted.
