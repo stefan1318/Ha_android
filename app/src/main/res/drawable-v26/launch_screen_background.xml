@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/colorLaunchScreenBackground" />
+    <item android:drawable="@color/stevora_background" />
 
     <item android:width="112dp"
         android:height="112dp"
         android:gravity="center"
-        android:drawable="@drawable/app_icon_launch">
+        android:drawable="@drawable/stevora_brand_mark">
     </item>
 </layer-list>
