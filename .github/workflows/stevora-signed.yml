@@ -8,6 +8,7 @@ on:
       - feature/stevora-companion
     paths:
       - 'app/**'
+      - 'scripts/check_stevora_release_gate.py'
       - 'common/**'
       - 'build-logic/**'
       - 'gradle/**'
@@ -40,6 +41,8 @@ jobs:
           done
           printf '%s' "$STEVORA_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/stevora-release.keystore"
           chmod 600 "$RUNNER_TEMP/stevora-release.keystore"
+      - name: Validate STEVORA final test release gate
+        run: python3 scripts/check_stevora_release_gate.py
       - name: Prepare branding
         run: |
           python3 -m pip install --user Pillow==11.3.0
