@@ -43,11 +43,11 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
-private val homeBg = Color(0xFF08131F)
-private val homeTile = Color(0xFF122437)
-private val homeAccent = Color(0xFF27B9F5)
-private val homeText = Color(0xFFF4FAFF)
-private val homeMuted = Color(0xFFA6BCCD)
+private val homeBg = StevoraDesign.background
+private val homeTile = StevoraDesign.surface
+private val homeAccent = StevoraDesign.accent
+private val homeText = StevoraDesign.foreground
+private val homeMuted = StevoraDesign.muted
 
 /** Overview only: detailed controls belong to Rooms, not Home. */
 @Composable
