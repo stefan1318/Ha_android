@@ -32,6 +32,7 @@ import io.homeassistant.companion.android.common.data.websocket.impl.entities.Tr
 import io.homeassistant.companion.android.common.data.websocket.impl.entities.WebRtcCandidate
 import io.homeassistant.companion.android.common.data.websocket.impl.entities.WebRtcEvent
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonArray
 import javax.inject.Inject
 import javax.inject.Provider
 import kotlinx.coroutines.flow.Flow
@@ -43,6 +44,7 @@ interface WebSocketRepository {
     suspend fun getCurrentUser(): CurrentUserResponse?
     suspend fun getConfig(): GetConfigResponse?
     suspend fun getStevoraMemory(command: String, parameters: Map<String, Any?> = emptyMap()): JsonObject?
+    suspend fun getStevoraClimateHistory(startTime: String, endTime: String, entityIds: List<String>): JsonArray?
     suspend fun getStates(): List<EntityResponse>?
     suspend fun getAreaRegistry(): List<AreaRegistryResponse>?
     suspend fun getDeviceRegistry(): List<DeviceRegistryResponse>?
