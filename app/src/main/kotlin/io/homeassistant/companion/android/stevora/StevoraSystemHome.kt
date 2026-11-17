@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,13 +34,15 @@ import kotlinx.coroutines.isActive
 @Composable
 internal fun StevoraSystemHome(onBack: () -> Unit) {
     val context = LocalContext.current.applicationContext
+    val bgLanguage = LocalConfiguration.current.locales[0].language == "bg"
+    fun localized(bg: String, en: String) = if (bgLanguage) bg else en
     val manager = remember(context) {
         EntryPointAccessors.fromApplication(context, StevoraServerEntryPoint::class.java).serverManager()
     }
-    var connection by remember { mutableStateOf("Checking Home Hub…") }
+    var connection by remember { mutableStateOf(localized("Проверка на Home Hub…", "Checking Home Hub…")) }
     var total by remember { mutableStateOf<Int?>(null) }
     var unavailable by remember { mutableStateOf<Int?>(null) }
-    var aiRouting by remember { mutableStateOf("Checking…") }
+    var aiRouting by remember { mutableStateOf(localized("Проверка…", "Checking…")) }
 
     LaunchedEffect(manager) {
         while (isActive) {
@@ -56,9 +59,9 @@ internal fun StevoraSystemHome(onBack: () -> Unit) {
                     ?.pipelines?.count { it.conversationEngine.equals(engine, ignoreCase = true) }
                 aiRouting = when (matches) {
                     1 -> "● READY"
-                    0 -> "Pipeline missing"
-                    null -> "Unavailable"
-                    else -> "Ambiguous ($matches)"
+                    0 -> localized("Липсва AI pipeline", "Pipeline missing")
+                    null -> localized("Недостъпно", "Unavailable")
+                    else -> localized("Нееднозначно ($matches)", "Ambiguous ($matches)")
                 }
                 connection = if (snapshot != null) "● ONLINE" else "● OFFLINE"
                 total = snapshot?.size
@@ -81,12 +84,12 @@ internal fun StevoraSystemHome(onBack: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text("STEVORA", fontSize = 28.sp, color = Color(0xFFF4FAFF), letterSpacing = 3.sp)
-        Text("SYSTEM • HOME HUB", fontSize = 12.sp, color = Color(0xFF27B9F5))
+        Text(localized("СИСТЕМА • HOME HUB", "SYSTEM • HOME HUB"), fontSize = 12.sp, color = Color(0xFF27B9F5))
         listOf(
-            "Home Hub connection" to connection,
-            "Registered entity states" to (total?.toString() ?: "—"),
-            "Unavailable or unknown" to (unavailable?.toString() ?: "—"),
-            "AI pipeline routing" to aiRouting,
+            localized("Връзка с Home Hub", "Home Hub connection") to connection,
+            localized("Регистрирани устройства и състояния", "Registered entity states") to (total?.toString() ?: "—"),
+            localized("Недостъпни или неизвестни", "Unavailable or unknown") to (unavailable?.toString() ?: "—"),
+            localized("Маршрутизиране на AI", "AI pipeline routing") to aiRouting,
         ).forEach { (title, value) ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -100,9 +103,9 @@ internal fun StevoraSystemHome(onBack: () -> Unit) {
             }
         }
         Text(
-            "Live Home Assistant connection diagnostics. Values refresh every 10 seconds.",
+            localized("Диагностика от Home Assistant в реално време. Обновяване на всеки 10 секунди.", "Live Home Assistant connection diagnostics. Values refresh every 10 seconds."),
             fontSize = 12.sp, color = Color(0xFFA6BCCD),
         )
-        OutlinedButton(onClick = onBack) { Text("Home") }
+        OutlinedButton(onClick = onBack) { Text(localized("Начало", "Home")) }
     }
 }
