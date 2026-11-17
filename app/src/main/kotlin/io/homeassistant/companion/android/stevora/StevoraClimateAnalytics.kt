@@ -42,10 +42,10 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
-private val climateBg = Color(0xFF08131F)
-private val climateTile = Color(0xFF122437)
-private val climateCyan = Color(0xFF27B9F5)
-private val climateMuted = Color(0xFFA6BCCD)
+private val climateBg = StevoraDesign.background
+private val climateTile = StevoraDesign.surface
+private val climateCyan = StevoraDesign.accent
+private val climateMuted = StevoraDesign.muted
 
 @Composable
 internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
