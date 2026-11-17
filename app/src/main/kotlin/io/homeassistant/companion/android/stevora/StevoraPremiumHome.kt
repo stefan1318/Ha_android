@@ -26,11 +26,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val Background = Color(0xFF08131F)
-private val SurfaceColor = Color(0xFF122437)
-private val Accent = Color(0xFF27B9F5)
-private val Foreground = Color(0xFFF4FAFF)
-private val Muted = Color(0xFFA6BCCD)
+private val Background = StevoraDesign.background
+private val SurfaceColor = StevoraDesign.surface
+private val Accent = StevoraDesign.accent
+private val Foreground = StevoraDesign.foreground
+private val Muted = StevoraDesign.muted
 
 /** Native product landing screen. Server data remains inside the authenticated frontend. */
 @Composable
@@ -41,7 +41,7 @@ internal fun StevoraPremiumHome(
     onOpenOnboarding: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().background(Background)
+        modifier = Modifier.fillMaxSize().background(StevoraDesign.gradient)
             .verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
