@@ -6,6 +6,10 @@ import android.content.pm.PackageManager
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import android.widget.Toast
+import android.widget.EditText
+import androidx.appcompat.app.AlertDialog
+import io.homeassistant.companion.android.stevora.StevoraVoiceProfiles
+import androidx.preference.SwitchPreferenceCompat
 import io.homeassistant.companion.android.stevora.StevoraVoiceEnrollment
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
@@ -28,6 +32,9 @@ import io.homeassistant.companion.android.stevora.StevoraVoicePreferences
 class StevoraVoiceSettingsFragment : PreferenceFragmentCompat() {
     @Inject lateinit var assistConfigManager: AssistConfigManager
     private var enrollment: StevoraVoiceEnrollment? = null
+    private var profiles: StevoraVoiceProfiles? = null
+    private var speakerPreference: Preference? = null
+    private var learningPreference: SwitchPreferenceCompat? = null
     private var capturePreference: Preference? = null
     private var enrollmentStatus: Preference? = null
     private val microphonePermission = registerForActivityResult(
@@ -39,6 +46,12 @@ class StevoraVoiceSettingsFragment : PreferenceFragmentCompat() {
 
     private fun refreshEnrollment() {
         val capture = enrollment ?: return
+        val selected = profiles?.selected()
+        capture.profileId = selected?.id
+        speakerPreference?.summary = selected?.name ?: "No profile selected"
+        learningPreference?.isEnabled = selected != null
+        learningPreference?.isChecked = selected?.learningEnabled ?: false
+        capturePreference?.isEnabled = selected != null
         enrollmentStatus?.summary = "${capture.sampleCount} / ${StevoraVoiceEnrollment.MAX_SAMPLES} local samples. Voice ID recognition is not yet trained."
         capturePreference?.title = if (capture.isRecording) "Stop and save sample" else "Record Hey Stevora sample"
         capturePreference?.summary = if (capture.isRecording) "Tap to stop" else "Tap to start recording; stored privately on this device."
@@ -62,6 +75,7 @@ class StevoraVoiceSettingsFragment : PreferenceFragmentCompat() {
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         val prefs = StevoraVoicePreferences(requireContext())
         enrollment = StevoraVoiceEnrollment(requireContext().applicationContext)
+        profiles = StevoraVoiceProfiles(requireContext().applicationContext)
         val root = preferenceManager.createPreferenceScreen(requireContext())
         preferenceScreen = root
 
@@ -126,6 +140,78 @@ class StevoraVoiceSettingsFragment : PreferenceFragmentCompat() {
             title = "STEVORA Voice ID — test enrollment"
         }
         root.addPreference(enrollmentSection)
+        speakerPreference = Preference(requireContext()).apply {
+            title = "Active speaker profile"
+            setOnPreferenceClickListener {
+                val all = profiles?.all().orEmpty()
+                if (all.isEmpty()) {
+                    Toast.makeText(requireContext(), "Add a speaker profile first.", Toast.LENGTH_SHORT).show()
+                } else {
+                    AlertDialog.Builder(requireContext())
+                        .setTitle("Choose speaker")
+                        .setItems(all.map { it.name }.toTypedArray()) { _, index ->
+                            enrollment?.stop(save = false)
+                            profiles?.select(all[index].id)
+                            refreshEnrollment()
+                        }.show()
+                }
+                true
+            }
+        }
+        enrollmentSection.addPreference(speakerPreference!!)
+        enrollmentSection.addPreference(Preference(requireContext()).apply {
+            title = "Add speaker (shared wall panel)"
+            summary = "Each person has separate recordings and learning consent."
+            setOnPreferenceClickListener {
+                val input = EditText(requireContext())
+                input.hint = "Speaker name"
+                AlertDialog.Builder(requireContext())
+                    .setTitle("Add voice profile")
+                    .setView(input)
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Add") { _, _ ->
+                        try {
+                            val profile = profiles?.add(input.text.toString()) ?: return@setPositiveButton
+                            enrollment?.stop(save = false)
+                            profiles?.select(profile.id)
+                            refreshEnrollment()
+                        } catch (error: IllegalArgumentException) {
+                            Toast.makeText(requireContext(), error.message, Toast.LENGTH_LONG).show()
+                        }
+                    }.show()
+                true
+            }
+        })
+        learningPreference = SwitchPreferenceCompat(requireContext()).apply {
+            title = "Allow future confirmed self-learning"
+            summary = "Consent only: automatic adaptation is NOT implemented or active."
+            isPersistent = false
+            setOnPreferenceChangeListener { _, value ->
+                val id = profiles?.selectedId() ?: return@setOnPreferenceChangeListener false
+                profiles?.setLearningConsent(id, value as Boolean)
+                true
+            }
+        }
+        enrollmentSection.addPreference(learningPreference!!)
+        enrollmentSection.addPreference(Preference(requireContext()).apply {
+            title = "Remove active speaker profile"
+            summary = "Deletes that speaker's recordings and local profile."
+            setOnPreferenceClickListener {
+                val selected = profiles?.selected() ?: return@setOnPreferenceClickListener true
+                AlertDialog.Builder(requireContext())
+                    .setTitle("Remove ${selected.name}?")
+                    .setMessage("All local samples for this speaker will be deleted.")
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Delete") { _, _ ->
+                        enrollment?.stop(save = false)
+                        enrollment?.profileId = selected.id
+                        enrollment?.deleteAll()
+                        profiles?.remove(selected.id)
+                        refreshEnrollment()
+                    }.show()
+                true
+            }
+        })
         enrollmentStatus = Preference(requireContext()).apply {
             title = "Local voice samples"
             isSelectable = false
@@ -148,7 +234,7 @@ class StevoraVoiceSettingsFragment : PreferenceFragmentCompat() {
         }
         enrollmentSection.addPreference(capturePreference!!)
         enrollmentSection.addPreference(Preference(requireContext()).apply {
-            title = "Delete all Voice ID samples"
+            title = "Delete selected speaker samples"
             summary = "Permanently erase locally recorded samples."
             setOnPreferenceClickListener {
                 enrollment?.deleteAll()
@@ -159,7 +245,7 @@ class StevoraVoiceSettingsFragment : PreferenceFragmentCompat() {
         })
         enrollmentSection.addPreference(Preference(requireContext()).apply {
             title = "Prototype limitations"
-            summary = "Recording only; speaker recognition, self-learning and background listening are not enabled."
+            summary = "Multiple profiles and learning consent are available. Speaker matching and automatic learning are NOT implemented."
             isSelectable = false
         })
         refreshEnrollment()
