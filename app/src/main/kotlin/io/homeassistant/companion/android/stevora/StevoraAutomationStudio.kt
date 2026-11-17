@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.OutlinedButton
@@ -42,6 +43,7 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
     var status by remember { mutableStateOf("") }
     var automations by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var busy by remember { mutableStateOf<String?>(null) }
+    var pendingAction by remember { mutableStateOf<Pair<String, String>?>(null) }
     var refresh by remember { mutableStateOf(0) }
 
     LaunchedEffect(manager, refresh) {
@@ -72,6 +74,47 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
             loading = false
         }
     }
+    pendingAction?.let { (id, previousState) ->
+        AlertDialog(
+            onDismissRequest = { if (busy == null) pendingAction = null },
+            title = { Text(tr("Потвърди промяната", "Confirm change")) },
+            text = { Text(tr("Промяна на автоматизация: ", "Change automation: ") + id) },
+            confirmButton = {
+                OutlinedButton(enabled = busy == null, onClick = {
+                    pendingAction = null
+                    busy = id
+                    scope.launch {
+                        try {
+                            val socket = manager.webSocketRepository()
+                            val user = socket.getCurrentUser()
+                            val currentState = socket.getStates()?.firstOrNull { it.entityId == id }?.state
+                            if (user == null || (!user.isAdmin && !user.isOwner)) {
+                                status = tr("Отказан достъп", "Permission denied")
+                            } else if (currentState != previousState) {
+                                status = tr("Състоянието е променено. Обновете списъка.", "State changed. Refresh the list.")
+                                refresh++
+                            } else {
+                                manager.integrationRepository().callAction(
+                                    "automation", if (previousState == "on") "turn_off" else "turn_on",
+                                    mapOf("entity_id" to id),
+                                )
+                                refresh++
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (_: Exception) {
+                            status = tr("Командата е неуспешна", "Command failed")
+                        } finally {
+                            busy = null
+                        }
+                    }
+                }) { Text(tr("Потвърди", "Confirm")) }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { pendingAction = null }) { Text(tr("Отказ", "Cancel")) }
+            },
+        )
+    }
     Column(
         Modifier.fillMaxSize().background(Color(0xFF08131F)).verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -97,30 +140,7 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                     if (state == "on" || state == "off") {
                         OutlinedButton(
                             enabled = busy == null,
-                            onClick = {
-                                busy = id
-                                scope.launch {
-                                    try {
-                                        val user = manager.webSocketRepository().getCurrentUser()
-                                        if (user == null || (!user.isAdmin && !user.isOwner)) {
-                                            status = tr("Отказан достъп", "Permission denied")
-                                        } else {
-                                            manager.integrationRepository().callAction(
-                                                "automation",
-                                                if (state == "on") "turn_off" else "turn_on",
-                                                mapOf("entity_id" to id),
-                                            )
-                                            refresh++
-                                        }
-                                    } catch (e: CancellationException) {
-                                        throw e
-                                    } catch (_: Exception) {
-                                        status = tr("Командата е неуспешна", "Command failed")
-                                    } finally {
-                                        busy = null
-                                    }
-                                }
-                            },
+                            onClick = { pendingAction = id to state },
                         ) { Text(if (state == "on") tr("Изключи", "Disable") else tr("Включи", "Enable")) }
                     }
                 }
