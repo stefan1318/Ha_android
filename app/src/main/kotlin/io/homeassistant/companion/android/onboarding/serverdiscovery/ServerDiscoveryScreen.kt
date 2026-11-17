@@ -171,7 +171,7 @@ internal fun ServerDiscoveryScreen(
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.background(Color(0xFF08131F)),
         topBar = { HATopBar(onBackClick = onBackClick, onHelpClick = onHelpClick) },
         contentWindowInsets = WindowInsets.safeDrawing,
     ) { contentPadding ->
@@ -243,7 +243,7 @@ private fun OneServerFound(
                 )
                 Text(
                     text = serverDiscovered.url.toString(),
-                    style = HATextStyle.Body,
+                    style = HATextStyle.Body.copy(color = Color(0xFFA6BCCD)),
                     modifier = Modifier.padding(vertical = HADimens.SPACE3),
                 )
                 HAAccentButton(
@@ -278,7 +278,7 @@ private fun ScreenContent(
     ) {
         Text(
             text = if (LocalConfiguration.current.locales[0].language == "bg") "Търсене на STEVORA Home Hub" else "Searching for STEVORA Home Hub",
-            style = HATextStyle.Headline,
+            style = HATextStyle.Headline.copy(color = Color.White),
             modifier = Modifier.padding(top = HADimens.SPACE6),
         )
 
@@ -379,7 +379,7 @@ private fun ColumnScope.ScanningForServer(discoveryState: DiscoveryState) {
     )
 
     Text(
-        text = stringResource(commonR.string.server_discovery_no_server_info),
+        text = if (LocalConfiguration.current.locales[0].language == "bg") "Не откриваме Home Hub автоматично. Въведете адреса му ръчно." else "No Home Hub detected automatically. Enter its address manually.",
         style = HATextStyle.Body,
         modifier = Modifier
             .padding(
