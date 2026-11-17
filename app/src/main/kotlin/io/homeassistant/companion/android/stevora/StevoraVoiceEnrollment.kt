@@ -75,10 +75,11 @@ internal class StevoraVoiceEnrollment(private val context: Context) {
         pendingFile = null
         var valid = false
         val elapsedMs = SystemClock.elapsedRealtime() - recordingStartedAt
+        val peakAmplitude = try { active.maxAmplitude } catch (_: RuntimeException) { 0 }
         try {
             active.stop()
             valid = save && output != null && elapsedMs >= MIN_DURATION_MS &&
-                output.length() >= MIN_BYTES && hasDecodableAudio(output)
+                output.length() >= MIN_BYTES && peakAmplitude >= MIN_PEAK_AMPLITUDE && hasDecodableAudio(output)
         } catch (_: RuntimeException) {
             valid = false
         } finally {
@@ -149,6 +150,8 @@ internal class StevoraVoiceEnrollment(private val context: Context) {
     companion object {
         const val MAX_SAMPLES = 20
         private const val MIN_BYTES = 2048L
+        // MediaRecorder amplitude is an encoder-side sanity check, not speech recognition.
+        private const val MIN_PEAK_AMPLITUDE = 200
         private const val MIN_DURATION_MS = 1000L
     }
 }
