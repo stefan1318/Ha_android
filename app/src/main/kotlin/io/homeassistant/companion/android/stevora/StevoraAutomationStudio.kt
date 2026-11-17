@@ -140,6 +140,60 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
             },
         )
     }
+    if (saveConfirm && editId != null) {
+        AlertDialog(
+            onDismissRequest = { if (!saving) saveConfirm = false },
+            title = { Text(tr("Потвърди записването", "Confirm save")) },
+            text = { Text(tr(
+                "Промяната ще бъде записана в Home Assistant и може да промени поведението на устройствата.",
+                "This will save to Home Assistant and may change device behavior.",
+            )) },
+            confirmButton = {
+                Button(enabled = !saving, onClick = {
+                    val id = editId ?: return@Button
+                    saveConfirm = false
+                    saving = true
+                    scope.launch {
+                        try {
+                            val socket = manager.webSocketRepository()
+                            val user = socket.getCurrentUser()
+                            require(user != null && (user.isAdmin || user.isOwner)) {
+                                "Administrator permission required"
+                            }
+                            if (baseline != null) {
+                                val current = socket.getStevoraAutomationConfig(
+                                    "automation." + id
+                                )?.get("config") as? JsonObject
+                                require(current == baseline) {
+                                    "Automation changed on server. Reopen before saving."
+                                }
+                            }
+                            val parsed = Json.parseToJsonElement(editText).jsonObject
+                            val clean = JsonObject(parsed.filterKeys { it != "id" })
+                            val success = manager.integrationRepository().saveStevoraAutomation(id, clean)
+                            require(success) { "Home Assistant rejected the configuration" }
+                            status = tr("Автоматизацията е записана", "Automation saved")
+                            editId = null
+                            inspecting = null
+                            config = null
+                            refresh++
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            editError = e.message ?: tr("Грешка при запис", "Save failed")
+                        } finally {
+                            saving = false
+                        }
+                    }
+                }) { Text(tr("Запази", "Save")) }
+            },
+            dismissButton = {
+                OutlinedButton(enabled = !saving, onClick = { saveConfirm = false }) {
+                    Text(tr("Отказ", "Cancel"))
+                }
+            },
+        )
+    }
     inspecting?.let { id ->
         AlertDialog(
             onDismissRequest = { if (!configLoading) { inspecting = null; config = null } },
