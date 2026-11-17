@@ -148,6 +148,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                     val repo = manager.webSocketRepository()
                     val snapshot = repo.getStates()
                     if (snapshot == null) {
+                        entities = emptyList()
                         status = localized(bgLanguage, "Няма връзка — нов опит…", "Hub unavailable — retrying")
                     } else {
                         // Registry failure must not turn the display into an unfiltered HA list.
@@ -156,8 +157,11 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                 .filter { it.hiddenBy != null || it.entityCategory != null }
                                 .map { it.entityId }
                                 .toSet()
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
-                            emptySet()
+                            // Fail closed: do not expose controls when visibility cannot be verified.
+                            visibleEntityIds
                         }
                         entities = snapshot.filter {
                             it.entityId in visibleEntityIds && it.entityId !in hiddenIds
@@ -169,6 +173,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                entities = emptyList()
                 status = localized(bgLanguage, "Проблем с връзката — нов опит…", "Connection unavailable — retrying")
             }
             delay(5_000L)
