@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - feature/stevora-companion
+      - feature/hey-stevora-voice-id-prototype
     paths:
       - 'app/**'
       - 'scripts/check_stevora_release_gate.py'
