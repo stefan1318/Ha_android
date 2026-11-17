@@ -12,6 +12,9 @@ checks = {
     "signed APK verification": 'apksigner" verify' in workflow,
     "expected package validation": "package: name='com.stevora.companion'" in workflow,
     "build number source": "VERSION_CODE:" in workflow,
+    "release 2.1 versionName": 'versionName = "2.1.0"' in app,
+    "release 2.1 APK validation": "versionName=\'2.1.0-full\'" in workflow,
+    "full release flavor": ":app:assembleFullRelease" in workflow,
     "APK artifact upload": "actions/upload-artifact@" in workflow,
     "approved roadmap": (root / "STEVORA_ANDROID_ROADMAP.md").exists(),
 }

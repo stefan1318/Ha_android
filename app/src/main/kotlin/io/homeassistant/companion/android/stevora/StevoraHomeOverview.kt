@@ -86,8 +86,7 @@ internal fun StevoraHomeOverview(
                 val snapshot = if (events != null) repo.getStates() else null
                 if (snapshot == null) {
                     online = false
-                    temperature = "—"; humidity = "—"; activeLights = null
-                    climate = "—"; bathroomFan = "—"
+                    // Retain the last known values as read-only while offline.
                 } else {
                     val current = snapshot.filter { it.entityId in relevantIds }
                         .associateBy { it.entityId }.toMutableMap()

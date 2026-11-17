@@ -202,6 +202,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
             } catch (e: Exception) {
                 status = localized(bgLanguage, "Проблем с връзката — нов опит…", "Connection unavailable — retrying")
             }
+            liveConnected = false
             delay(5_000L) // Retry only after disconnect; not a state refresh interval.
         }
     }
@@ -216,11 +217,8 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                     service,
                     data + ("entity_id" to entity.entityId),
                 )
-                // Follow-up refresh without importing every entity on the server.
-                manager.webSocketRepository().getStates()?.let { snapshot ->
-                    val previouslyVisible = entities.map { it.entityId }.toSet()
-                    entities = snapshot.filter { it.entityId in previouslyVisible }
-                }
+                // State_changed WebSocket events update the affected tile.
+                // Do not issue a whole-home snapshot after each command.
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
