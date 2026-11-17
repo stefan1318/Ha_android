@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -338,7 +339,7 @@ private fun ServerItemContent(server: ServerDiscovered, onConnectClick: (URL) ->
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Image(
-            imageVector = ImageVector.vectorResource(R.drawable.stevora_brand_mark),
+            painter = painterResource(R.drawable.stevora_logo),
             contentDescription = null,
             modifier = Modifier
                 .size(ICON_SIZE)
@@ -433,7 +434,7 @@ private fun AnimatedIcon() {
                 .background(Color(0xFF08131F), CircleShape),
         ) {
             Icon(
-                imageVector = ImageVector.vectorResource(R.drawable.stevora_brand_mark),
+                painter = painterResource(R.drawable.stevora_logo),
                 contentDescription = "STEVORA",
                 modifier = Modifier
                     .align(Alignment.Center)
