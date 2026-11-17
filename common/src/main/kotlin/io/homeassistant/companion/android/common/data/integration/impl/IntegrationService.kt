@@ -21,6 +21,9 @@ import retrofit2.http.Url
 interface IntegrationService {
 
     @POST
+    suspend fun saveStevoraAutomation(@Url url: HttpUrl, @Header("Authorization") auth: String, @Body config: JsonObject): Response<ResponseBody>
+
+    @POST
     suspend fun registerDevice(
         @Url url: HttpUrl,
         @Header("Authorization") auth: String,
