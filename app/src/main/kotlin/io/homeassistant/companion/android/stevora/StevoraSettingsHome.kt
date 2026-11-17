@@ -176,7 +176,7 @@ internal fun StevoraSettingsHome(
             Text("STEVORA PERSONAL", fontSize = 12.sp, color = accent)
             Text("Device control, climate statistics and the personalized voice assistant.",
                 fontSize = 14.sp, color = muted)
-            SettingsInfo("Climate Analytics", "Recorder history integration pending — not yet available")
+            SettingsEntry("Climate Analytics", "Live HomePod readings and session statistics", "◉", { climateExpanded = true })
             SettingsEntry("Voice Assistant", "Assist pipeline and microphone settings", "✦", { voiceExpanded = !voiceExpanded })
         }
         if (checked && accountVerified && voiceExpanded) {
