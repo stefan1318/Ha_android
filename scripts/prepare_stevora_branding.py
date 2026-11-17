@@ -4,10 +4,11 @@ from pathlib import Path
 from PIL import Image, ImageOps, ImageDraw, ImageFont
 import io
 import sys
+import hashlib
 
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / "app/src/main/res"
-SOURCE = RES / "drawable-nodpi/stevora_logo.jpg"
+SOURCE = RES / "drawable-nodpi/stevora_logo.png"
 
 try:
     data = SOURCE.read_bytes()
@@ -15,8 +16,11 @@ try:
         logo.verify()
     with Image.open(io.BytesIO(data)) as logo:
         logo.load()
-        if logo.format != "JPEG" or logo.width < 64 or logo.height < 64:
-            raise ValueError("Expected a valid STEVORA JPEG logo at least 64x64")
+        if logo.format != "PNG" or logo.size != (512, 512):
+            raise ValueError("Expected the official STEVORA 512x512 PNG")
+        expected_sha256 = "58e54712a07d909695a4bbdef5ef0d80dccae05e2485730011b8e588951349e0"
+        if hashlib.sha256(data).hexdigest() != expected_sha256:
+            raise ValueError("STEVORA logo checksum mismatch; refusing unapproved branding")
         logo = logo.convert("RGB")
         # Adaptive launcher icons need a safe-zone foreground, not the inherited
         # Home Assistant launcher artwork. Generated from the packaged STEVORA logo.

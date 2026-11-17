@@ -81,7 +81,7 @@ internal fun WelcomeTemplate(
             Spacer(modifier = Modifier.weight(positionPercentage))
 
             Image(
-                painter = painterResource(R.drawable.stevora_brand_mark),
+                painter = painterResource(R.drawable.stevora_logo),
                 contentDescription = "STEVORA",
                 modifier = Modifier.size(ICON_SIZE),
             )
