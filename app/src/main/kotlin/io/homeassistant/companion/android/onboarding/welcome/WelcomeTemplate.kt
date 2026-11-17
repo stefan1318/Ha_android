@@ -1,6 +1,7 @@
 package io.homeassistant.companion.android.onboarding.welcome
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -19,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
@@ -43,7 +45,7 @@ internal val WelcomeContentMaxWidth = MaxButtonWidth
 /**
  * Shared layout for the onboarding welcome screens ([WelcomeScreen] and [WelcomeInvitationScreen]).
  *
- * Displays the Home Assistant branding, a [title] and [details], any optional [content] placed below
+ * Displays the STEVORA branding, a [title] and [details], any optional [content] placed below
  * the details, and two bottom action buttons: a primary ([primaryButtonText]/[onPrimaryClick]) and a
  * secondary ([secondaryButtonText]/[onSecondaryClick]). An optional [topBar] is shown above the
  * content; pass an [io.homeassistant.companion.android.common.compose.composable.HATopBar] for screens
@@ -62,7 +64,7 @@ internal fun WelcomeTemplate(
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.background(Color(0xFF08131F)),
         topBar = topBar,
         contentWindowInsets = WindowInsets.safeDrawing,
     ) { innerPadding ->
@@ -87,12 +89,12 @@ internal fun WelcomeTemplate(
 
             Text(
                 text = title,
-                style = HATextStyle.Headline,
+                style = HATextStyle.Headline.copy(color = Color.White),
                 modifier = Modifier.widthIn(max = WelcomeContentMaxWidth),
             )
             Text(
                 text = details,
-                style = HATextStyle.Body,
+                style = HATextStyle.Body.copy(color = Color(0xFFA6BCCD)),
                 modifier = Modifier.widthIn(max = WelcomeContentMaxWidth),
             )
 
