@@ -77,7 +77,12 @@ jobs:
           KEYSTORE_ALIAS: ${{ secrets.STEVORA_KEY_ALIAS }}
           KEYSTORE_ALIAS_PASSWORD: ${{ secrets.STEVORA_KEY_PASSWORD }}
           VERSION_CODE: ${{ github.run_number }}
-        run: |\n          # Hilt bytecode instrumentation can race generated Hilt classes in parallel/cached release builds.\n          # Force fresh, ordered processing of :common and the full release variant.\n          ./gradlew --stop || true\n          ./gradlew :common:clean :app:clean :app:assembleFullRelease \\\n            --no-build-cache --no-configuration-cache --no-parallel --max-workers=2 --stacktrace
+        run: |
+          # Hilt bytecode instrumentation can race generated Hilt classes in parallel/cached release builds.
+          # Force fresh, ordered processing of :common and the full release variant.
+          ./gradlew --stop || true
+          ./gradlew :common:clean :app:clean :app:assembleFullRelease \\
+            --no-build-cache --no-configuration-cache --no-parallel --max-workers=2 --stacktrace
       - name: Verify signed full APK
         run: |
           set -euo pipefail
