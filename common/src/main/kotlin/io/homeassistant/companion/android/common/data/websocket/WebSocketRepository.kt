@@ -45,6 +45,7 @@ interface WebSocketRepository {
     suspend fun getConfig(): GetConfigResponse?
     suspend fun getStevoraMemory(command: String, parameters: Map<String, Any?> = emptyMap()): JsonObject?
     suspend fun getStevoraClimateHistory(startTime: String, endTime: String, entityIds: List<String>): JsonArray?
+    suspend fun getStevoraAutomationConfig(entityId: String): JsonObject?
     suspend fun getStates(): List<EntityResponse>?
     suspend fun getAreaRegistry(): List<AreaRegistryResponse>?
     suspend fun getDeviceRegistry(): List<DeviceRegistryResponse>?
