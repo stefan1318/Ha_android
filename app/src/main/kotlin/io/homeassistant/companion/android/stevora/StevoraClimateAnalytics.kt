@@ -9,12 +9,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,6 +36,11 @@ import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 private val climateBg = Color(0xFF08131F)
 private val climateTile = Color(0xFF122437)
@@ -52,6 +59,35 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
     var temperature by remember { mutableStateOf<Double?>(null) }
     var humidity by remember { mutableStateOf<Double?>(null) }
     var samples by remember { mutableStateOf<List<Pair<Double, Double>>>(emptyList()) }
+    var historyHours by remember { mutableStateOf(24) }
+    var historyValues by remember { mutableStateOf<List<Double>>(emptyList()) }
+    var historyStatus by remember { mutableStateOf("") }
+    LaunchedEffect(manager, historyHours) {
+        historyValues = emptyList()
+        historyStatus = tr("Зареждане на историята…", "Loading history…")
+        try {
+            val end = Instant.now()
+            val start = end.minus(historyHours.toLong(), ChronoUnit.HOURS)
+            val result = if (manager.getServer() == null) null else
+                manager.webSocketRepository().getStevoraClimateHistory(
+                    start.toString(), end.toString(),
+                    listOf("sensor.realna_temperatura_homepod"),
+                )
+            historyValues = result?.flatMap { group ->
+                (group as? kotlinx.serialization.json.JsonArray)?.mapNotNull { item ->
+                    item.jsonObject["state"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
+                }.orEmpty()
+            }?.takeLast(600).orEmpty()
+            historyStatus = if (historyValues.isEmpty()) {
+                tr("Няма записани измервания или Recorder не е достъпен",
+                    "No recorded samples or Recorder unavailable")
+            } else tr("История от Home Assistant Recorder", "Home Assistant Recorder history")
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            historyStatus = tr("Неуспешно зареждане", "History loading failed")
+        }
+    }
 
     LaunchedEffect(manager) {
         while (isActive) {
@@ -109,6 +145,39 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
                 }
             }
         }
+        Text(tr("Температура • исторически данни", "Temperature • historical data"), color = climateCyan)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(24, 72, 168).forEach { hours ->
+                FilterChip(
+                    selected = historyHours == hours,
+                    onClick = { historyHours = hours },
+                    label = { Text(if (hours == 24) "24h" else if (hours == 72) "3d" else "7d") },
+                )
+            }
+        }
+        Text(historyStatus, color = climateMuted, fontSize = 12.sp)
+        if (historyValues.size >= 2) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = climateTile),
+                shape = RoundedCornerShape(18.dp),
+            ) {
+                val low = historyValues.minOrNull() ?: 0.0
+                val high = historyValues.maxOrNull() ?: 0.0
+                val span = (high - low).coerceAtLeast(0.5)
+                Canvas(Modifier.fillMaxWidth().height(140.dp).padding(16.dp)) {
+                    val trace = Path()
+                    historyValues.forEachIndexed { index, value ->
+                        val x = size.width * index / (historyValues.size - 1)
+                        val y = size.height * (1f - ((value - low) / span).toFloat())
+                        if (index == 0) trace.moveTo(x, y) else trace.lineTo(x, y)
+                    }
+                    drawPath(trace, climateCyan, style = Stroke(width = 3.dp.toPx()))
+                }
+                Text("%.1f – %.1f °C".format(low, high),
+                    modifier = Modifier.padding(16.dp), color = climateMuted)
+            }
+        }
         if (samples.size >= 2) {
             Text(tr("Тенденция на температурата • текуща сесия", "Temperature trend • current session"),
                 color = climateCyan)
@@ -141,13 +210,14 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
         Text(
             tr(
                 "Данните са реални и се събират само докато този екран е отворен. " +
-                    "Историческите графики от Home Assistant Recorder още не са свързани.",
+                    "Историческите графики използват Home Assistant Recorder.",
                 "Live values are real and samples are collected only while this screen is open. " +
-                    "Home Assistant Recorder history charts are not connected yet.",
+                    "Historical charts use Home Assistant Recorder.",
             ),
             color = climateMuted,
             fontSize = 12.sp,
         )
         OutlinedButton(onClick = onBack) { Text(tr("Назад", "Back")) }
+        Spacer(Modifier.height(88.dp))
     }
 }
