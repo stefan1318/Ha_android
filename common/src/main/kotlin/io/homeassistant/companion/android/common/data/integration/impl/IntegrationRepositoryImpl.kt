@@ -58,6 +58,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import okhttp3.HttpUrl
@@ -79,6 +80,20 @@ class IntegrationRepositoryImpl @AssistedInject constructor(
     @NamedOsVersion private val osVersion: String,
     @NamedDeviceId private val deviceId: String,
 ) : IntegrationRepository {
+
+    override suspend fun saveStevoraAutomation(id: String, config: JsonObject): Boolean {
+        require(id.matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "Invalid automation ID" }
+        val url = connectionStateProvider().urlFlow().firstUrlOrNull {
+            "No secure connection available for automation save"
+        }?.toHttpUrlOrNull() ?: return false
+        val response = integrationService.saveStevoraAutomation(
+            url.newBuilder().addPathSegments("api/config/automation/config")
+                .addPathSegment(id).build(),
+            serverManager.authenticationRepository(serverId).buildBearerToken(),
+            config,
+        )
+        return response.isSuccessful
+    }
 
     companion object {
         private const val APP_ID = "io.homeassistant.companion.android"
