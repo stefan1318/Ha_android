@@ -60,10 +60,13 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
     var humidity by remember { mutableStateOf<Double?>(null) }
     var samples by remember { mutableStateOf<List<Pair<Double, Double>>>(emptyList()) }
     var historyHours by remember { mutableStateOf(24) }
+    var historyRefresh by remember { mutableStateOf(0) }
+    var historyLoading by remember { mutableStateOf(false) }
     var historyValues by remember { mutableStateOf<List<Double>>(emptyList()) }
     var humidityHistory by remember { mutableStateOf<List<Double>>(emptyList()) }
     var historyStatus by remember { mutableStateOf("") }
-    LaunchedEffect(manager, historyHours) {
+    LaunchedEffect(manager, historyHours, historyRefresh) {
+        historyLoading = true
         historyValues = emptyList()
         humidityHistory = emptyList()
         historyStatus = tr("Зареждане на историята…", "Loading history…")
@@ -95,6 +98,8 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
             throw e
         } catch (_: Exception) {
             historyStatus = tr("Неуспешно зареждане", "History loading failed")
+        } finally {
+            historyLoading = false
         }
     }
 
@@ -165,6 +170,10 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
             }
         }
         Text(historyStatus, color = climateMuted, fontSize = 12.sp)
+        OutlinedButton(
+            enabled = !historyLoading,
+            onClick = { historyRefresh++ },
+        ) { Text(tr("Обнови историята", "Refresh history")) }
         if (historyValues.size >= 2) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
