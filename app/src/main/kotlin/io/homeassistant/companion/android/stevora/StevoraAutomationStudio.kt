@@ -36,6 +36,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -63,6 +67,12 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
     var configLoading by remember { mutableStateOf(false) }
     var editId by remember { mutableStateOf<String?>(null) }
     var editText by remember { mutableStateOf("") }
+    var advancedEditor by remember { mutableStateOf(false) }
+    var ruleAlias by remember { mutableStateOf("") }
+    var triggerEntity by remember { mutableStateOf("") }
+    var triggerTo by remember { mutableStateOf("on") }
+    var actionEntity by remember { mutableStateOf("") }
+    var actionService by remember { mutableStateOf("turn_on") }
     var baseline by remember { mutableStateOf<JsonObject?>(null) }
     var sourceEntityId by remember { mutableStateOf<String?>(null) }
     var saveConfirm by remember { mutableStateOf(false) }
@@ -104,18 +114,78 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     Text(id)
-                    OutlinedTextField(
-                        value = editText,
-                        onValueChange = { editText = it.take(60000) },
-                        modifier = Modifier.fillMaxWidth().height(320.dp),
-                        label = { Text("JSON") },
+                    FilterChip(
+                        selected = advancedEditor,
+                        onClick = { advancedEditor = !advancedEditor },
+                        label = { Text(if (advancedEditor) tr("JSON режим", "JSON mode") else tr("Визуален режим", "Visual mode")) },
                     )
+                    if (advancedEditor) {
+                        OutlinedTextField(
+                            value = editText,
+                            onValueChange = { editText = it.take(60000) },
+                            modifier = Modifier.fillMaxWidth().height(320.dp),
+                            label = { Text("JSON") },
+                        )
+                    } else {
+                        Text(tr("Когато → Тогава", "When → Then"), color = StevoraDesign.accent)
+                        OutlinedTextField(ruleAlias, { ruleAlias = it }, label = {
+                            Text(tr("Име на автоматизацията", "Automation name"))
+                        })
+                        OutlinedTextField(triggerEntity, { triggerEntity = it }, label = {
+                            Text(tr("Когато устройството (entity ID)", "When entity ID"))
+                        })
+                        OutlinedTextField(triggerTo, { triggerTo = it }, label = {
+                            Text(tr("Премине в състояние", "Changes to state"))
+                        })
+                        OutlinedTextField(actionEntity, { actionEntity = it }, label = {
+                            Text(tr("Управлявано устройство (entity ID)", "Target entity ID"))
+                        })
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = actionService == "turn_on",
+                                onClick = { actionService = "turn_on" },
+                                label = { Text(tr("Включи", "Turn on")) },
+                            )
+                            FilterChip(
+                                selected = actionService == "turn_off",
+                                onClick = { actionService = "turn_off" },
+                                label = { Text(tr("Изключи", "Turn off")) },
+                            )
+                        }
+                        Text(
+                            tr("Визуалният режим поддържа само прости state тригери и on/off действия. За сложни правила използвай JSON.",
+                                "Visual mode supports simple state triggers and on/off actions only. Use JSON for complex rules."),
+                            color = StevoraDesign.muted,
+                        )
+                    }
                     if (editError.isNotEmpty()) Text(editError, color = Color(0xFFFF9D9D))
                 }
             },
             confirmButton = {
                 Button(enabled = !saving, onClick = {
                     try {
+                        if (!advancedEditor) {
+                            require(ruleAlias.isNotBlank()) { "Automation name required" }
+                            require(triggerEntity.contains(".")) { "Invalid trigger entity ID" }
+                            require(actionEntity.contains(".")) { "Invalid target entity ID" }
+                            val original = Json.parseToJsonElement(editText).jsonObject
+                            val trigger = buildJsonObject {
+                                put("platform", "state")
+                                put("entity_id", triggerEntity.trim())
+                                put("to", triggerTo)
+                            }
+                            val action = buildJsonObject {
+                                put("service", actionEntity.substringBefore(".") + "." + actionService)
+                                put("target", buildJsonObject { put("entity_id", actionEntity.trim()) })
+                            }
+                            val updated = original.toMutableMap()
+                            updated["alias"] = JsonPrimitive(ruleAlias.trim())
+                            updated["triggers"] = JsonArray(listOf(trigger))
+                            updated["actions"] = JsonArray(listOf(action))
+                            updated.remove("trigger")
+                            updated.remove("action")
+                            editText = JsonObject(updated).toString()
+                        }
                         val parsed = Json.parseToJsonElement(editText).jsonObject
                         val alias = parsed["alias"]?.jsonPrimitive?.contentOrNull
                         val triggers = parsed["triggers"] ?: parsed["trigger"]
@@ -225,6 +295,18 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                     } else {
                         editId = id
                         editText = raw.toString()
+                        ruleAlias = raw["alias"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                        val firstTrigger = ((raw["triggers"] ?: raw["trigger"]) as? JsonArray)?.firstOrNull() as? JsonObject
+                        val firstAction = ((raw["actions"] ?: raw["action"]) as? JsonArray)?.firstOrNull() as? JsonObject
+                        triggerEntity = firstTrigger?.get("entity_id")?.jsonPrimitive?.contentOrNull.orEmpty()
+                        triggerTo = firstTrigger?.get("to")?.jsonPrimitive?.contentOrNull ?: "on"
+                        actionEntity = (firstAction?.get("target") as? JsonObject)?.get("entity_id")?.jsonPrimitive?.contentOrNull.orEmpty()
+                        actionService = firstAction?.get("service")?.jsonPrimitive?.contentOrNull?.substringAfter(".") ?: "turn_on"
+                        advancedEditor = firstTrigger?.get("platform")?.jsonPrimitive?.contentOrNull != "state" ||
+                            triggerEntity.isBlank() || actionEntity.isBlank() ||
+                            ((raw["triggers"] ?: raw["trigger"]) as? JsonArray)?.size != 1 ||
+                            ((raw["actions"] ?: raw["action"]) as? JsonArray)?.size != 1 ||
+                            actionService !in listOf("turn_on", "turn_off")
                         baseline = raw
                         sourceEntityId = inspecting
                         editError = ""
@@ -298,6 +380,12 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                 color = Color(0xFFA6BCCD))
         }
         Button(enabled = busy == null && !loading, onClick = {
+            advancedEditor = false
+            ruleAlias = tr("Нова STEVORA автоматизация", "New STEVORA automation")
+            triggerEntity = ""
+            triggerTo = "on"
+            actionEntity = ""
+            actionService = "turn_on"
             editId = UUID.randomUUID().toString().replace("-", "")
             editText = """{"alias":"New STEVORA automation","triggers":[],"conditions":[],"actions":[],"mode":"single"}"""
             baseline = null
