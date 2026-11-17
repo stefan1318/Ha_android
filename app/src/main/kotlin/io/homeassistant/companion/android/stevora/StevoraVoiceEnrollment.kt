@@ -109,9 +109,11 @@ internal class StevoraVoiceEnrollment(private val context: Context) {
             ?.filter { it.isFile && it.extension == "m4a" && hasDecodableAudio(it) }
             ?.sortedBy { it.name } ?: emptyList()
 
-    fun playLatest(onComplete: () -> Unit = {}): MediaPlayer? {
+    fun playLatest(onComplete: () -> Unit = {}): MediaPlayer? = playSample(samples().lastOrNull()?.name ?: return null, onComplete)
+
+    fun playSample(fileName: String, onComplete: () -> Unit = {}): MediaPlayer? {
         check(!isRecording) { "Stop recording before playback" }
-        val latest = samples().lastOrNull() ?: return null
+        val latest = samples().firstOrNull { it.name == fileName } ?: return null
         val player = MediaPlayer()
         try {
             player.setDataSource(latest.absolutePath)
@@ -126,6 +128,12 @@ internal class StevoraVoiceEnrollment(private val context: Context) {
             player.release()
             throw error
         }
+    }
+
+    fun deleteSample(fileName: String): Boolean {
+        check(!isRecording) { "Stop recording before deleting a sample" }
+        val sample = samples().firstOrNull { it.name == fileName } ?: return false
+        return sample.delete()
     }
 
     fun deleteAll() {
