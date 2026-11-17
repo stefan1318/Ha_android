@@ -4,17 +4,18 @@ from pathlib import Path
 import sys
 import hashlib
 import xml.etree.ElementTree as ET
-from PIL import Image
+import struct
 
 root = Path(__file__).resolve().parents[1]
 res = root / "app/src/main/res"
 logo_path = res / "drawable-nodpi/stevora_logo.png"
 if not logo_path.is_file() or (res / "drawable-nodpi/stevora_logo.jpg").exists():
     sys.exit("Release gate failed: the official PNG must be the only stevora_logo drawable")
-with Image.open(logo_path) as logo:
-    if logo.format != "PNG" or logo.size != (512, 512):
-        sys.exit("Release gate failed: official logo is not a 512x512 PNG")
-if hashlib.sha256(logo_path.read_bytes()).hexdigest() != "58e54712a07d909695a4bbdef5ef0d80dccae05e2485730011b8e588951349e0":
+png_bytes = logo_path.read_bytes()
+if (len(png_bytes) < 24 or png_bytes[:8] != bytes.fromhex("89504e470d0a1a0a") or png_bytes[12:16] != b"IHDR"
+        or struct.unpack(">II", png_bytes[16:24]) != (512, 512)):
+    sys.exit("Release gate failed: official logo is not a 512x512 PNG")
+if hashlib.sha256(png_bytes).hexdigest() != "58e54712a07d909695a4bbdef5ef0d80dccae05e2485730011b8e588951349e0":
     sys.exit("Release gate failed: logo SHA-256 does not match approved original")
 welcome = (root / "app/src/main/kotlin/io/homeassistant/companion/android/onboarding/welcome/WelcomeTemplate.kt").read_text()
 if "painterResource(R.drawable.stevora_logo)" not in welcome:
