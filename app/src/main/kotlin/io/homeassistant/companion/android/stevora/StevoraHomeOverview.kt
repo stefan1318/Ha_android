@@ -104,10 +104,11 @@ internal fun StevoraHomeOverview(
                     }
                     online = true
                     publish()
-                    events.collect { event ->
+                    events?.collect { event ->
                         if (event.entityId in relevantIds) {
-                            if (event.newState == null) current.remove(event.entityId)
-                            else current[event.entityId] = event.newState
+                            val newState = event.newState
+                            if (newState == null) current.remove(event.entityId)
+                            else current[event.entityId] = newState
                             publish()
                         }
                     }
