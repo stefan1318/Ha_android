@@ -52,6 +52,8 @@ Deliver an opt-in, privacy-conscious **Hey STEVORA** voice activation experience
 
 | 2026-11-17 | Began approved personalized-first strategy. Trained private offline v05 model on 33 real owner clips + 700 synthetic clips; evaluated on 16 held-out real clips (12 positive, 4 negative), all correctly classified | `training/hey_stevora/train_personalized_v05.py`; private `Hey_Stevora_Personalized_Experiment_v05.zip` | **EXPERIMENTAL ONLY**: train/test share one speaker and sessions, non-streaming classifier, no compatible TFLite or Android APK. Next: microWakeWord training and separate fresh-session evaluation. |
 
+| 2026-11-17 | Added shared-wall-panel multi-speaker enrollment: up to 12 local speaker profiles, 20 samples each, profile selection/deletion, separate audio directories, per-profile consent toggle for future learning | Android prototype branch `feature/hey-stevora-voice-id-prototype`; commits `59a9726460b43818d7af4e48055ed4846a29568c`, `54c5f1a0af0b503e7de8d434848c7dc6ce8d4ae4`, `1802a34ce7ebee447040cecfe0b8483099a5b3d2`; `docs/HEY_STEVORA_VOICE_ID_SHARED_PANELS.md` | **CODE COMMITTED ONLY**; build and device verification pending; recognition and self-learning are NOT running. |
+
 ## Update policy (approved)
 1. Update this document **after each verified successful implementation**; log date, change, exact commit/workflow/artifact link, test evidence and owner acceptance if required.
 2. Keep status **IN PROGRESS** until acceptance criteria have been met; distinguish code committed, CI passed, device tested, and owner accepted.
