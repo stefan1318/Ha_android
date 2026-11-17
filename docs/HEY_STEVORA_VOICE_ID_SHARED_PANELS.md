@@ -24,3 +24,7 @@
 6. iOS foreground enrollment and shared server mapping, with Apple background-audio restrictions respected.
 
 **Safety:** do not auto-associate a voice with the signed-in account merely because the wall panel uses that account. Enrollment audio stays in app-private storage; shared tablet users must explicitly consent.
+
+## 2026-11-17 — Zebra device feedback and UI/recording fix
+
+Owner confirmed Voice ID controls were not accessible from the STEVORA-native AI settings page; only legacy Android preferences exposed them. Owner also reported sample count increments without observable microphone activation. Added native multi-speaker enrollment directly to STEVORA AI page (`StevoraSettingsHome.kt`) and required >=1 second of recorded, decodable audio with audio metadata before accepting an M4A (`StevoraVoiceEnrollment.kt`). The reported symptom has not yet been reproduced or root-caused on Zebra hardware. **New build CI pending**; test microphone permission, Android mic indicator, duration, file existence and playback on-device. Self-learning and speaker identification are still unimplemented.
