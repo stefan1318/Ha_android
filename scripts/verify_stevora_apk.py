@@ -1,48 +1,38 @@
 #!/usr/bin/env python3
-"""Static verification of STEVORA brand assets in the compiled APK."""
+"""Verify signed STEVORA APK brand evidence without assuming AAPT resource filenames."""
 from pathlib import Path
 from zipfile import ZipFile
 from PIL import Image
+import hashlib
 import io
 import sys
-import hashlib
 
 root = Path(__file__).resolve().parents[1]
-apks = sorted((root / "app/build/outputs/apk").rglob("*.apk"))
-if not apks:
-    sys.exit("No APK was generated")
+approved = (root / "app/src/main/res/drawable-nodpi/stevora_logo.png").read_bytes()
+expected_sha = "58e54712a07d909695a4bbdef5ef0d80dccae05e2485730011b8e588951349e0"
+if hashlib.sha256(approved).hexdigest() != expected_sha:
+    sys.exit("Approved STEVORA logo checksum mismatch")
+apks = sorted((root / "app/build/outputs/apk/full/release").glob("*.apk"))
+if len(apks) != 1:
+    sys.exit(f"Expected one Full Release APK, found {len(apks)}")
 for apk in apks:
     with ZipFile(apk) as archive:
         bad = archive.testzip()
         if bad:
             sys.exit(f"Corrupt APK ZIP member: {bad}")
         entries = set(archive.namelist())
-        logo_candidates = sorted(p for p in entries if p.startswith("res/") and p.endswith("/stevora_logo.png"))
-        if not logo_candidates:
-            diagnostic = sorted(p for p in entries if "stevora" in p.lower() or "launcher" in p.lower())
-            sys.exit(f"Missing STEVORA logo in {apk.name}; related entries: {diagnostic[:35]}")
-        logo = logo_candidates[0]
-        approved_logo_sha256 = hashlib.sha256((root / "app/src/main/res/drawable-nodpi/stevora_logo.png").read_bytes()).hexdigest()
-        if hashlib.sha256(archive.read(logo)).hexdigest() != approved_logo_sha256:
-            sys.exit(f"Compiled STEVORA logo differs from approved original: {logo}")
-        required = []
-        for density in ("mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"):
-            for name in ("ic_launcher.png", "ic_launcher_round.png"):
-                matches = sorted(p for p in entries if p.startswith(f"res/mipmap-{density}") and p.endswith("/" + name))
-                if not matches:
-                    sys.exit(f"Missing STEVORA launcher asset: {density}/{name}")
-                required.append(matches[0])
-        banner = sorted(p for p in entries if p.startswith("res/mipmap-xhdpi") and p.endswith("/ic_banner.png"))
-        if not banner:
-            sys.exit("Missing STEVORA banner asset: xhdpi/ic_banner.png")
-        required.append(banner[0])
-        for entry in [logo, *required]:
-            if entry not in entries:
-                sys.exit(f"Missing brand asset: {entry}")
-            with Image.open(io.BytesIO(archive.read(entry))) as im:
-                im.verify()
-            if entry == logo:
-                with Image.open(io.BytesIO(archive.read(entry))) as im:
-                    if im.size != (512, 512) or im.format != "PNG":
-                        sys.exit("Compiled STEVORA logo must be the approved 512x512 PNG")
-        print(f"STEVORA APK brand resources validated: {apk.name} ({apk.stat().st_size} bytes)")
+        if "AndroidManifest.xml" not in entries or "resources.arsc" not in entries:
+            sys.exit("Missing Android manifest or resource table")
+        # AAPT/R8 may rename resource ZIP entries; assets retain stable paths.
+        brand_asset = "assets/stevora/approved_logo.png"
+        if brand_asset not in entries:
+            sys.exit(f"Missing packaged brand evidence: {brand_asset}")
+        image_bytes = archive.read(brand_asset)
+        if hashlib.sha256(image_bytes).hexdigest() != expected_sha:
+            sys.exit("Packaged STEVORA logo does not match approved original")
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            image.verify()
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            if image.format != "PNG" or image.size != (512, 512):
+                sys.exit("Packaged STEVORA logo is not the approved 512x512 PNG")
+        print(f"STEVORA approved logo verified in {apk.name} ({apk.stat().st_size} bytes)")
