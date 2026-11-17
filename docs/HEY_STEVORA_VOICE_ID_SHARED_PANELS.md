@@ -40,3 +40,7 @@ User-approved scope: sample capture + review/playback + quality validation + per
 **Install-over-existing:** debug variants generally use a different signing identity from the full signed release and cannot replace it in-place. Use the signed **full** APK from `.github/workflows/stevora-voice-id-signed.yml` for subsequent test-track updates; preserve applicationId `com.stevora.companion`, existing release certificate and strictly increasing versionCode. Existing installations signed with a different debug key cannot be updated in place by the release-signed build; a one-time migration may be unavoidable. Test versionCode range starts at 2,000,001; future production releases must exceed the highest test versionCode for an in-place upgrade. Do not distribute this build as production.
 
 **Acceptance:** verify certificate fingerprint matches installed package, package ID and versionCode with aapt, install with `adb install -r`, confirm login and settings persist, test real microphone capture/playback and sample deletion on Zebra, then separately train/validate compatible models before enabling automatic activation.
+
+## Next review iteration — 2026-11-17
+
+Added per-sample listing, playback, and confirmation-gated individual deletion in native STEVORA settings, alongside existing latest-sample replay. This lets the owner remove poor-quality takes without resetting all 20 samples. Implementation committed on the prototype branch; CI and Zebra on-device tests pending. No acoustic speaker verification or personalized wake-word activation is claimed.
