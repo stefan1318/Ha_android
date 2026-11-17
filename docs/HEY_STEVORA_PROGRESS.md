@@ -40,6 +40,8 @@ Deliver an opt-in, privacy-conscious **Hey STEVORA** voice activation experience
 
 | 2026-11-17 | Owner listened to and approved the current pilot audio set (first positive, distance positive, and hard-negative recordings) | Explicit owner confirmation in project conversation | **OWNER APPROVED audio content**; technical dataset validation and model training still pending |
 
+| 2026-11-17 | Ran private first training sanity-check: spectral logistic-regression baseline on 49 approved clips (37 positive, 12 hard negatives) | `training/hey_stevora/PILOT_EXPERIMENT_2026-11-17.md`; private report and fitted model | In-sample balanced accuracy 1.0 (not generalization); no held-out speakers; **not** a microWakeWord/TFLite model; Phase 2 remains IN PROGRESS |
+
 ## Update policy (approved)
 1. Update this document **after each verified successful implementation**; log date, change, exact commit/workflow/artifact link, test evidence and owner acceptance if required.
 2. Keep status **IN PROGRESS** until acceptance criteria have been met; distinguish code committed, CI passed, device tested, and owner accepted.
