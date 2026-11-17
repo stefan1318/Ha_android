@@ -10,6 +10,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -30,6 +32,10 @@ import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.JsonObject
 import kotlinx.coroutines.flow.collect
 import io.homeassistant.companion.android.common.data.websocket.impl.entities.AssistPipelineEventType
 import io.homeassistant.companion.android.common.data.websocket.impl.entities.AssistPipelineIntentEnd
@@ -54,6 +60,8 @@ internal fun StevoraMemoryManager(onBack: () -> Unit) {
     var bridgeResult by remember { mutableStateOf<String?>(null) }
     var bridgeHealth by remember { mutableStateOf<String?>(null) }
     var bridgeBusy by remember { mutableStateOf(false) }
+    var proposals by remember { mutableStateOf<List<JsonObject>>(emptyList()) }
+    var pendingDecision by remember { mutableStateOf<Pair<JsonObject, String>?>(null) }
     var aiResult by remember { mutableStateOf<String?>(null) }
     var searching by remember { mutableStateOf(false) }
     var memoryPipeline by remember { mutableStateOf<String?>(null) }
@@ -71,6 +79,7 @@ internal fun StevoraMemoryManager(onBack: () -> Unit) {
         memoryPipeline = null
         aiResult = null
         bridgeHealth = null
+        proposals = emptyList()
         error = null
         try {
             val socket = if (manager.getServer() != null) manager.webSocketRepository() else null
@@ -123,6 +132,49 @@ internal fun StevoraMemoryManager(onBack: () -> Unit) {
         } finally {
             loading = false
         }
+    }
+    pendingDecision?.let { (proposal, action) ->
+        val title = proposal["title"]?.jsonPrimitive?.contentOrNull ?: ""
+        AlertDialog(
+            onDismissRequest = { if (!bridgeBusy) pendingDecision = null },
+            title = { Text(tr("Потвърди решение", "Confirm memory decision")) },
+            text = {
+                Text((if (action == "approve") tr("Одобри: ", "Approve: ")
+                    else tr("Отхвърли: ", "Reject: ")) + title)
+            },
+            confirmButton = {
+                Button(enabled = !bridgeBusy, onClick = {
+                    val id = proposal["id"]?.jsonPrimitive?.contentOrNull
+                    val revision = proposal["revision"]?.jsonPrimitive?.contentOrNull
+                    pendingDecision = null
+                    if (id == null || revision == null) return@Button
+                    bridgeBusy = true
+                    scope.launch {
+                        try {
+                            val response = manager.webSocketRepository().getStevoraMemory(
+                                "decide",
+                                mapOf("proposal_id" to id, "revision" to revision, "action" to action),
+                            )
+                            bridgeResult = response?.toString()
+                                ?: tr("Неуспешно действие • обнови моста", "Decision failed • update bridge")
+                            if (response != null) {
+                                val updated = manager.webSocketRepository().getStevoraMemory("proposals")
+                                proposals = updated?.get("proposals")?.jsonArray?.map { it.jsonObject }.orEmpty()
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (_: Exception) {
+                            bridgeResult = tr("Неуспешно решение", "Decision failed")
+                        } finally {
+                            bridgeBusy = false
+                        }
+                    }
+                }) { Text(tr("Потвърди", "Confirm")) }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { pendingDecision = null }) { Text(tr("Отказ", "Cancel")) }
+            },
+        )
     }
     Column(
         Modifier.fillMaxSize().background(Color(0xFF08131F))
@@ -190,11 +242,16 @@ internal fun StevoraMemoryManager(onBack: () -> Unit) {
                                 } else {
                                     socket.getStevoraMemory("read", mapOf("filename" to file))
                                 }
+                                if (file == "proposals") {
+                                    proposals = response?.get("proposals")?.jsonArray?.map { it.jsonObject }.orEmpty()
+                                } else {
+                                    proposals = emptyList()
+                                }
                                 bridgeResult = if (response == null) {
                                     tr("Мостът не е инсталиран, не е достъпен или достъпът е отказан.",
                                         "Bridge unavailable, not installed or access denied.")
                                 } else if (file == "proposals") {
-                                    response["proposals"]?.toString() ?: "[]"
+                                    null
                                 } else {
                                     response["content"]?.jsonPrimitive?.content ?: ""
                                 }
@@ -208,6 +265,29 @@ internal fun StevoraMemoryManager(onBack: () -> Unit) {
                         }
                     },
                 ) { Text(label) }
+            }
+            proposals.forEach { proposal ->
+                val title = proposal["title"]?.jsonPrimitive?.contentOrNull ?: "Untitled"
+                val status = proposal["status"]?.jsonPrimitive?.contentOrNull ?: "unknown"
+                val details = proposal["details"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF122437)),
+                ) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(title, color = Color.White)
+                        Text(status, color = Color(0xFF27B9F5))
+                        Text(details.take(1500), color = Color(0xFFA6BCCD))
+                        if (status == "pending_review") {
+                            OutlinedButton(enabled = !bridgeBusy, onClick = {
+                                pendingDecision = proposal to "approve"
+                            }) { Text(tr("Одобри", "Approve")) }
+                            OutlinedButton(enabled = !bridgeBusy, onClick = {
+                                pendingDecision = proposal to "reject"
+                            }) { Text(tr("Отхвърли", "Reject")) }
+                        }
+                    }
+                }
             }
             OutlinedButton(
                 enabled = !bridgeBusy && query.isNotBlank(),
@@ -315,10 +395,8 @@ internal fun StevoraMemoryManager(onBack: () -> Unit) {
             }
             Text(
                 tr(
-                    "Директен преглед, одобряване и запис на каноничната памет " +
-                        "ще бъдат активирани само след защитен Home Assistant мост.",
-                    "Direct canonical memory reading, approvals and writes " +
-                        "require a secured Home Assistant bridge and remain disabled.",
+                    "Одобренията и отхвърлянията изискват обновен мост и изрично потвърждение.",
+                    "Approvals and rejections require an updated bridge and explicit confirmation.",
                 ),
                 color = Color(0xFFA6BCCD),
             )
