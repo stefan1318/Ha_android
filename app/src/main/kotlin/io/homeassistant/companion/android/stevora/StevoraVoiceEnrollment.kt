@@ -109,7 +109,10 @@ internal class StevoraVoiceEnrollment(private val context: Context) {
             ?.filter { it.isFile && it.extension == "m4a" && hasDecodableAudio(it) }
             ?.sortedBy { it.name } ?: emptyList()
 
-    fun playLatest(onComplete: () -> Unit = {}): MediaPlayer? = playSample(samples().lastOrNull()?.name ?: return null, onComplete)
+    fun playLatest(onComplete: () -> Unit = {}): MediaPlayer? {
+        val latest = samples().lastOrNull() ?: return null
+        return playSample(latest.name, onComplete)
+    }
 
     fun playSample(fileName: String, onComplete: () -> Unit = {}): MediaPlayer? {
         check(!isRecording) { "Stop recording before playback" }
