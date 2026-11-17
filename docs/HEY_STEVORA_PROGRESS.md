@@ -36,6 +36,8 @@ Deliver an opt-in, privacy-conscious **Hey STEVORA** voice activation experience
 | 2026-11-17 | Created isolated `feature/hey-stevora-training` branch | GitHub branch | Created |
 | 2026-11-17 | Added synthetic audio preprocessing unit tests, Python dependency list and GitHub Actions workflow | `training/hey_stevora/test_prepare_dataset.py`, `requirements-test.txt`, `.github/workflows/hey-stevora-training.yml` | Committed; CI outcome not yet verified |
 
+| 2026-11-17 | Received 39.23s positive distance recording and 25.41s hard-negative recording; extracted 20 positive and 12 negative candidate WAV clips at 16kHz mono, with segment manifest; private ZIP v02 prepared | User audio and local sandbox artifact; not published to GitHub | Automated segmentation only, manual review pending; all examples from same speaker; no trained model |
+
 ## Update policy (approved)
 1. Update this document **after each verified successful implementation**; log date, change, exact commit/workflow/artifact link, test evidence and owner acceptance if required.
 2. Keep status **IN PROGRESS** until acceptance criteria have been met; distinguish code committed, CI passed, device tested, and owner accepted.
