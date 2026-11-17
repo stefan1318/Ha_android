@@ -185,19 +185,9 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(id.removePrefix("automation.").replace('_', ' '), color = Color.White)
                     Text(state, color = Color(0xFFA6BCCD))
-                    if (state == "on" || state == "off") {
-                        OutlinedButton(
-                            enabled = busy == null,
-                            onClick = { pendingAction = id to state },
-                        ) { Text(if (state == "on") tr("Изключи", "Disable") else tr("Включи", "Enable")) }
-                    }
-                }
-            }
-        }
-        OutlinedButton(
+                    OutlinedButton(
             enabled = busy == null && automations.isNotEmpty(),
             onClick = {
-                val id = automations.first().first
                 busy = id
                 scope.launch {
                     try {
@@ -213,7 +203,16 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                     }
                 }
             },
-        ) { Text(tr("Преглед на конфигурацията на първото правило", "Inspect first rule configuration")) }
+                    ) { Text(tr("Преглед на правилото", "Inspect rule")) }
+                    if (state == "on" || state == "off") {
+                        OutlinedButton(
+                            enabled = busy == null,
+                            onClick = { pendingAction = id to state },
+                        ) { Text(if (state == "on") tr("Изключи", "Disable") else tr("Включи", "Enable")) }
+                    }
+                }
+            }
+        }
         OutlinedButton(onClick = { refresh++ }) { Text(tr("Обнови", "Refresh")) }
         OutlinedButton(onClick = onBack) { Text(tr("Назад", "Back")) }
         Spacer(Modifier.height(88.dp))
