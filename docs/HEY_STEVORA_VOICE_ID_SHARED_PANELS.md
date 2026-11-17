@@ -28,3 +28,15 @@
 ## 2026-11-17 — Zebra device feedback and UI/recording fix
 
 Owner confirmed Voice ID controls were not accessible from the STEVORA-native AI settings page; only legacy Android preferences exposed them. Owner also reported sample count increments without observable microphone activation. Added native multi-speaker enrollment directly to STEVORA AI page (`StevoraSettingsHome.kt`) and required >=1 second of recorded, decodable audio with audio metadata before accepting an M4A (`StevoraVoiceEnrollment.kt`). The reported symptom has not yet been reproduced or root-caused on Zebra hardware. **New build CI pending**; test microphone permission, Android mic indicator, duration, file existence and playback on-device. Self-learning and speaker identification are still unimplemented.
+
+## Combined upgrade candidate — 2026-11-17
+
+User-approved scope: sample capture + review/playback + quality validation + personalized speaker learning + local Hey Stevora activation per speaker and device + install-over-existing test APKs.
+
+**Implemented in code:** local multi-profile sample collection, duration/decodable-audio metadata acceptance, count only valid files, replay latest sample, 20/20 collection-complete status, explicit consent preference, deletion, signed full-release test workflow reusing existing STEVORA signing identity and test-track version codes.
+
+**Not implemented, and MUST NOT be represented as implemented:** robust silence/clipping/speech checks, real speaker embedding model, automatic self-training, independent voice identity validation, trained Hey Stevora microWakeWord TFLite, live local wake-word activation, per-device speaker policy. Activation remains disabled pending validated runtime models. A user's 20 samples do not automatically train a new acoustic wake-word detector. Speaker verification is not a secure authorization factor by itself.
+
+**Install-over-existing:** debug variants generally use a different signing identity from the full signed release and cannot replace it in-place. Use the signed **full** APK from `.github/workflows/stevora-voice-id-signed.yml` for subsequent test-track updates; preserve applicationId `com.stevora.companion`, existing release certificate and strictly increasing versionCode. Existing installations signed with a different debug key cannot be updated in place by the release-signed build; a one-time migration may be unavoidable. Test versionCode range starts at 2,000,001; future production releases must exceed the highest test versionCode for an in-place upgrade. Do not distribute this build as production.
+
+**Acceptance:** verify certificate fingerprint matches installed package, package ID and versionCode with aapt, install with `adb install -r`, confirm login and settings persist, test real microphone capture/playback and sample deletion on Zebra, then separately train/validate compatible models before enabling automatic activation.
