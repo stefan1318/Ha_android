@@ -57,6 +57,7 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
@@ -135,6 +136,26 @@ class WebSocketRepositoryImpl internal constructor(
         val response: CurrentUserResponse? = mapResponse(socketResponse)
         response?.let { updateServerWithUser(it) }
         return response
+    }
+
+    override suspend fun getStevoraClimateHistory(
+        startTime: String,
+        endTime: String,
+        entityIds: List<String>,
+    ): JsonArray? {
+        if (entityIds.isEmpty() || entityIds.size > 4 ||
+            entityIds.any { !it.startsWith("sensor.") }) return null
+        val response = webSocketCore.sendMessage(
+            mapOf(
+                "type" to "history/history_during_period",
+                "start_time" to startTime,
+                "end_time" to endTime,
+                "entity_ids" to entityIds,
+                "minimal_response" to true,
+                "no_attributes" to true,
+            ),
+        )
+        return response?.takeIf { it.success == true }?.result as? JsonArray
     }
 
     override suspend fun getStevoraMemory(
