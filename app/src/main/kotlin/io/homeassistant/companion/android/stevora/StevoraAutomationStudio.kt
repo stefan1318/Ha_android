@@ -288,6 +288,13 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
             Text(tr("Няма достъпни автоматизации.", "No available automations."),
                 color = Color(0xFFA6BCCD))
         }
+        Button(enabled = busy == null && !loading, onClick = {
+            editId = UUID.randomUUID().toString().replace("-", "")
+            editText = """{"alias":"New STEVORA automation","triggers":[],"conditions":[],"actions":[],"mode":"single"}"""
+            baseline = null
+            sourceEntityId = null
+            editError = ""
+        }) { Text(tr("Нова автоматизация", "New automation")) }
         OutlinedTextField(
             value = filter,
             onValueChange = { filter = it.take(100) },
