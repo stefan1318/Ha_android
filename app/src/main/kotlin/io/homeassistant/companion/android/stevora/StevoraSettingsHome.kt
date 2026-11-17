@@ -32,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CancellationException
 import androidx.compose.ui.Alignment
@@ -59,6 +60,8 @@ internal fun StevoraSettingsHome(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current.applicationContext
+    val bg = LocalConfiguration.current.locales[0].language == "bg"
+    fun tr(bgText: String, enText: String) = if (bg) bgText else enText
     val manager = remember(context) {
         EntryPointAccessors.fromApplication(context, StevoraServerEntryPoint::class.java).serverManager()
     }
@@ -161,24 +164,24 @@ internal fun StevoraSettingsHome(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text("STEVORA", fontSize = 28.sp, color = foreground, letterSpacing = 3.sp)
-        Text("SETTINGS • CONTROL CENTER", fontSize = 12.sp, color = accent)
+        Text(tr("НАСТРОЙКИ • КОНТРОЛЕН ЦЕНТЪР", "SETTINGS • CONTROL CENTER"), fontSize = 12.sp, color = accent)
         Text(
             if (!checked) "Checking account permissions…"
             else if (!accountVerified) "Account verification unavailable" else "Account: $accountName • " + (if (admin) "ADMIN" else "USER / PANEL"),
             fontSize = 14.sp, color = muted,
         )
         if (checked && accountVerified && admin) {
-            Text("ADMIN CONTROL CENTER", fontSize = 12.sp, color = accent)
+            Text(tr("АДМИНИСТРАТОРСКИ ПАНЕЛ", "ADMIN CONTROL CENTER"), fontSize = 12.sp, color = accent)
             // These entries remain informational until STEVORA's protected
             // memory and automation API contracts are verified and implemented.
-            SettingsEntry("Memory Manager", "Admin diagnostics and secure integration status", "▣", { memoryExpanded = true })
-            SettingsEntry("Automation Studio", "Manage existing Home Assistant automations", "◇", { automationExpanded = true })
-            SettingsEntry("Climate Analytics", "Live HomePod readings and session statistics", "◉", { climateExpanded = true })
+            SettingsEntry("Memory Manager", tr("Управление на паметта и предложенията", "Manage memory and review proposals"), "▣", { memoryExpanded = true })
+            SettingsEntry("Automation Studio", tr("Управление на автоматизациите", "Manage Home Assistant automations"), "◇", { automationExpanded = true })
+            SettingsEntry("Climate Analytics", tr("HomePod измервания и исторически графики", "HomePod readings and history charts"), "◉", { climateExpanded = true })
             SettingsEntry("Home Hub", "Server connection and authentication", "⌂", onServerSettings)
             SettingsEntry("STEVORA AI", "Assist pipeline and microphone preferences", "✦", { voiceExpanded = !voiceExpanded })
             SettingsEntry("Device & privacy", "Companion permissions and advanced settings", "◈", onSystemSettings)
         } else if (checked && accountVerified) {
-            Text("STEVORA PERSONAL", fontSize = 12.sp, color = accent)
+            Text(tr("ЛИЧНИ НАСТРОЙКИ", "STEVORA PERSONAL"), fontSize = 12.sp, color = accent)
             Text("Device control, climate statistics and the personalized voice assistant.",
                 fontSize = 14.sp, color = muted)
             SettingsEntry("Climate Analytics", "Live HomePod readings and session statistics", "◉", { climateExpanded = true })
@@ -213,7 +216,7 @@ internal fun StevoraSettingsHome(
             }
         }
         if (checked && accountVerified) {
-            Text("ACCOUNT & SECURITY", fontSize = 12.sp, color = accent)
+            Text(tr("ПРОФИЛ И СИГУРНОСТ", "ACCOUNT & SECURITY"), fontSize = 12.sp, color = accent)
             SettingsInfo("Signed in as $accountName", if (admin) "Administrator account" else "Personal account")
             SettingsEntry(
                 "Sign out",
