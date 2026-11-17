@@ -138,6 +138,20 @@ class WebSocketRepositoryImpl internal constructor(
         return response
     }
 
+    override suspend fun validateStevoraAutomation(config: JsonObject): JsonObject? {
+        val user = getCurrentUser() ?: return null
+        if (!user.isAdmin && !user.isOwner) return null
+        val fields = listOf("triggers", "conditions", "actions")
+        val payload = fields.mapNotNull { field ->
+            val value = config[field] ?: return@mapNotNull null
+            field to value
+        }.toMap()
+        val response = webSocketCore.sendMessage(
+            mapOf("type" to "validate_config") + payload,
+        )
+        return response?.takeIf { it.success == true }?.result as? JsonObject
+    }
+
     override suspend fun getStevoraAutomationConfig(entityId: String): JsonObject? {
         if (!entityId.startsWith("automation.")) return null
         val user = getCurrentUser() ?: return null
