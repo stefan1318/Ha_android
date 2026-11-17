@@ -46,6 +46,8 @@ Deliver an opt-in, privacy-conscious **Hey STEVORA** voice activation experience
 
 | 2026-11-17 | Expanded private pilot archive v03 to 2,833 WAV clips: 2,760 new synthetic (eSpeak 2,520 BG/EN + Flite 240 EN), 24 earlier synthetic v01, and 49 owner-approved real clips; 1,099 positive, 1,734 hard negatives | `training/hey_stevora/generate_multiengine_seeds.py`, `training/hey_stevora/SYNTHETIC_EXPANSION_PROTOCOL.md`; private `Hey_Stevora_Expanded_v03.zip` | WAV format and counts checked; **new synthetic voices unreviewed**; no independent speaker generalization or production wake-word model; generator produces reproducible seed corpus, archive also uses augmentation |
 
+| 2026-11-17 | Owner explicitly approved **all 2,833 examples** in expanded v03 corpus for training; verified every indexed WAV is 16kHz mono PCM16 and produced private approved manifest + SHA-256 registry | `training/hey_stevora/register_approved_corpus.py`; `Hey_Stevora_Approved_Registry_v03.zip` (private) | **APPROVED FOR TRAINING**, not yet trained; source-group isolation required; no independent speaker validation |
+
 ## Update policy (approved)
 1. Update this document **after each verified successful implementation**; log date, change, exact commit/workflow/artifact link, test evidence and owner acceptance if required.
 2. Keep status **IN PROGRESS** until acceptance criteria have been met; distinguish code committed, CI passed, device tested, and owner accepted.
