@@ -593,13 +593,18 @@ private fun StevoraVoiceIdPanel(bg: Boolean, micAllowed: Boolean, askPermission:
     var name by remember { mutableStateOf("") }
     var notice by remember { mutableStateOf("") }
     var deleting by remember { mutableStateOf(false) }
+    var playing by remember { mutableStateOf(false) }
+    var activePlayer by remember { mutableStateOf<android.media.MediaPlayer?>(null) }
     val speakers = remember(revision) { profiles.all() }
     val selected = remember(revision) { profiles.selected() }
     LaunchedEffect(selected?.id) {
         if (recorder.isRecording) recorder.stop(save = false)
         recorder.profileId = selected?.id
     }
-    DisposableEffect(recorder) { onDispose { recorder.stop(save = false) } }
+    DisposableEffect(recorder) { onDispose {
+        recorder.stop(save = false)
+        activePlayer?.runCatching { stop(); release() }
+    } }
     StevoraSectionHeading(tr("Voice ID • Гласово обучение", "Voice ID • Voice enrollment"),
         tr("До 12 гласа на общ панел", "Up to 12 speakers per shared panel"))
     speakers.forEach { speaker ->
@@ -654,6 +659,28 @@ private fun StevoraVoiceIdPanel(bg: Boolean, micAllowed: Boolean, askPermission:
                 Text(if (recorder.isRecording) tr("■ Спри и провери", "■ Stop and verify")
                     else tr("● Запиши Hey Stevora", "● Record Hey Stevora"))
             }
+        }
+        OutlinedButton(
+            enabled = !recorder.isRecording && recorder.sampleCount > 0 && !playing,
+            onClick = {
+                try {
+                    playing = true
+                    activePlayer = recorder.playLatest {
+                        playing = false
+                        activePlayer = null
+                    }
+                    if (activePlayer == null) playing = false
+                } catch (e: Exception) {
+                    playing = false
+                    notice = tr("Грешка при възпроизвеждане: ", "Playback error: ") + e.message
+                }
+            },
+        ) { Text(if (playing) tr("Възпроизвежда се...", "Playing...")
+            else tr("▶ Прослушай последния запис", "▶ Play latest recording")) }
+        if (recorder.sampleCount == StevoraVoiceEnrollment.MAX_SAMPLES) {
+            SettingsInfo(tr("Събирането е завършено", "Collection complete"),
+                tr("20 проверени аудиофайла. Предстои модел за разпознаване и независима проверка. Активацията Hey Stevora още не е включена.",
+                    "20 verified audio files. Speaker model and independent validation pending. Hey Stevora activation is not enabled."))
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(tr("Съгласие за бъдещо самообучение", "Consent for future self-learning"),
