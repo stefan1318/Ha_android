@@ -38,9 +38,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
-private val aiBg = Color(0xFF08131F)
-private val aiTile = Color(0xFF122437)
-private val aiCyan = Color(0xFF27B9F5)
+private val aiBg = StevoraDesign.background
+private val aiTile = StevoraDesign.surface
+private val aiCyan = StevoraDesign.accent
 
 @Composable
 internal fun StevoraAiHome(
@@ -107,7 +107,7 @@ internal fun StevoraAiHome(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().background(aiBg).padding(18.dp),
+        modifier = Modifier.fillMaxSize().background(StevoraDesign.gradient).padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("STEVORA AI", color = Color.White, fontSize = 28.sp)
