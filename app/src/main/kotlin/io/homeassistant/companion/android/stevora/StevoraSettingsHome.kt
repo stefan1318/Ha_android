@@ -229,7 +229,7 @@ internal fun StevoraSettingsHome(
         }
         logoutError?.let { Text(it, color = Color(0xFFFFA76B), fontSize = 12.sp) }
         SettingsEntry(tr("Към началото", "Back to home"), tr("Връщане към контролния панел", "Return to your command center"), "‹", onBack)
-        Text("STEVORA Companion 2.0 • Release Candidate", fontSize = 12.sp, color = muted)
+        Text("STEVORA Companion 2.1 • Native Experience", fontSize = 12.sp, color = muted)
     }
 }
 

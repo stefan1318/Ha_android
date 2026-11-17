@@ -145,6 +145,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
     var entities by remember { mutableStateOf<List<Entity>>(emptyList()) }
     var status by remember { mutableStateOf(localized(bgLanguage, "Свързване със STEVORA…", "Connecting to STEVORA…")) }
     var busy by remember { mutableStateOf<String?>(null) }
+    var liveConnected by remember { mutableStateOf(false) }
     var selectedRoom by remember(initialRoom) { mutableStateOf(initialRoom) }
     val scope = rememberCoroutineScope()
 
@@ -152,6 +153,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
     // Reconnect after stream completion/errors; never poll the entire home every 5s.
     LaunchedEffect(manager, bgLanguage) {
         while (isActive) {
+            liveConnected = false
             try {
                 if (manager.getServer() == null) {
                     entities = emptyList()
@@ -180,6 +182,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                             status = localized(bgLanguage, "Няма връзка — нов опит…", "Hub unavailable — retrying")
                         } else {
                             entities = snapshot.filter { it.entityId in allowedIds }
+                            liveConnected = true
                             status = localized(bgLanguage, "Свързано • на живо", "Connected • Live") + " • " +
                                 entities.count { it.entityId in controlById } + " " +
                                 localized(bgLanguage, "контроли", "controls")
@@ -204,7 +207,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
     }
 
     fun execute(entity: Entity, service: String, data: Map<String, Any?> = emptyMap()) {
-        if (busy != null || entity.entityId !in controlById) return
+        if (!liveConnected || busy != null || entity.entityId !in controlById) return
         busy = entity.entityId
         scope.launch {
             try {
@@ -382,7 +385,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                 ) {
                                     Button(
                                         modifier = Modifier.weight(1f),
-                                        enabled = busy != entity.entityId,
+                                        enabled = liveConnected && busy != entity.entityId,
                                         onClick = { execute(entity, "turn_on") },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF254158)),
                                     ) { Text(localized(bgLanguage, "⏻ Включи", "⏻ Power on"), fontSize = 12.sp) }

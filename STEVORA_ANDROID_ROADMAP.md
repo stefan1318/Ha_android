@@ -37,3 +37,10 @@ Approved by project owner: 2026-11-17. Baseline: installed and device-tested **2
 - Five-second delay is now only a reconnection retry, not periodic whole-home polling.
 - Follow-up action refresh remains for immediate feedback; device-originated events are authoritative.
 - Pending: CI build, real-device reconnect/session testing, remaining 2.1 UX and widget features.
+
+## 2.1 offline safety hardening
+- Disable native room controls when the live WebSocket connection is unavailable, while keeping last-known values visible for reference.
+- Preserve existing room, light color/brightness, climate, and television controls; do not operate hidden or backlight entities.
+- Update Settings release label to 2.1 Native Experience.
+- Existing upstream Android entity, button, template and media-player widget implementations remain available; STEVORA-specific widget UX and on-device verification are still outstanding.
+- No claim of completed offline cache, background push or device upgrade acceptance without tests.
