@@ -67,6 +67,7 @@ internal fun StevoraSettingsHome(
     var accountName by remember { mutableStateOf("—") }
     var voiceExpanded by remember { mutableStateOf(false) }
     var climateExpanded by remember { mutableStateOf(false) }
+    var automationExpanded by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
     var loggingOut by remember { mutableStateOf(false) }
     var logoutError by remember { mutableStateOf<String?>(null) }
@@ -86,6 +87,10 @@ internal fun StevoraSettingsHome(
         } finally {
             checked = true
         }
+    }
+    if (automationExpanded) {
+        StevoraAutomationStudio(onBack = { automationExpanded = false })
+        return
     }
     if (climateExpanded) {
         StevoraClimateAnalytics(onBack = { climateExpanded = false })
@@ -162,7 +167,7 @@ internal fun StevoraSettingsHome(
             // These entries remain informational until STEVORA's protected
             // memory and automation API contracts are verified and implemented.
             SettingsInfo("Memory Manager", "Home Hub integration pending — not yet available")
-            SettingsInfo("Automation Studio", "Home Hub automation editor pending — not yet available")
+            SettingsEntry("Automation Studio", "Manage existing Home Assistant automations", "◇", { automationExpanded = true })
             SettingsEntry("Climate Analytics", "Live HomePod readings and session statistics", "◉", { climateExpanded = true })
             SettingsEntry("Home Hub", "Server connection and authentication", "⌂", onServerSettings)
             SettingsEntry("STEVORA AI", "Assist pipeline and microphone preferences", "✦", { voiceExpanded = !voiceExpanded })
