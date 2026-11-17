@@ -42,6 +42,7 @@ import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.collect
 
 private val homeBg = StevoraDesign.background
 private val homeTile = StevoraDesign.surface
@@ -68,38 +69,56 @@ internal fun StevoraHomeOverview(
     var climate by remember { mutableStateOf("—") }
     var bathroomFan by remember { mutableStateOf("—") }
 
+    // 2.1: WebSocket event-driven overview, no periodic state polling.
     LaunchedEffect(manager) {
+        val relevantIds = setOf(
+            "sensor.realna_temperatura_homepod", "sensor.realna_vlazhnost_homepod",
+            "climate.air_conditioner", "fan.bathroom_switch_1",
+            "light.rgb_cct", "light.living_room_switch_1", "light.living_room_switch_2",
+            "light.living_room_switch_3", "light.wifi_bel_2gang_switch_2",
+            "light.terrace_switch_1", "light.bathroom_switch_2",
+            "light.wifi_bel_2gang_switch_1",
+        )
         while (isActive) {
             try {
-                val states = if (manager.getServer() != null) manager.webSocketRepository().getStates() else null
-                online = states != null
-                if (states != null) {
-                    fun state(id: String): String = states.firstOrNull { it.entityId == id }?.state
-                        ?.takeUnless { it == "unavailable" || it == "unknown" } ?: "—"
-                    temperature = state("sensor.realna_temperatura_homepod")
-                    humidity = state("sensor.realna_vlazhnost_homepod")
-                    climate = state("climate.air_conditioner")
-                    bathroomFan = state("fan.bathroom_switch_1")
-                    activeLights = states.count {
-                        it.entityId in setOf(
-                            "light.rgb_cct", "light.living_room_switch_1",
-                            "light.living_room_switch_2", "light.living_room_switch_3",
-                            "light.wifi_bel_2gang_switch_2", "light.terrace_switch_1",
-                            "light.bathroom_switch_2", "light.wifi_bel_2gang_switch_1",
-                        ) && it.state == "on"
-                    }
-                } else {
+                val repo = if (manager.getServer() != null) manager.webSocketRepository() else null
+                val events = repo?.getStateChanges()
+                val snapshot = if (events != null) repo.getStates() else null
+                if (snapshot == null) {
+                    online = false
                     temperature = "—"; humidity = "—"; activeLights = null
                     climate = "—"; bathroomFan = "—"
+                } else {
+                    val current = snapshot.filter { it.entityId in relevantIds }
+                        .associateBy { it.entityId }.toMutableMap()
+                    fun publish() {
+                        fun state(id: String): String = current[id]?.state
+                            ?.takeUnless { it == "unavailable" || it == "unknown" } ?: "—"
+                        temperature = state("sensor.realna_temperatura_homepod")
+                        humidity = state("sensor.realna_vlazhnost_homepod")
+                        climate = state("climate.air_conditioner")
+                        bathroomFan = state("fan.bathroom_switch_1")
+                        activeLights = current.values.count {
+                            it.entityId.startsWith("light.") && it.state == "on"
+                        }
+                    }
+                    online = true
+                    publish()
+                    events.collect { event ->
+                        if (event.entityId in relevantIds) {
+                            if (event.newState == null) current.remove(event.entityId)
+                            else current[event.entityId] = event.newState
+                            publish()
+                        }
+                    }
+                    online = false
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 online = false
-                temperature = "—"; humidity = "—"; activeLights = null
-                climate = "—"; bathroomFan = "—"
             }
-            delay(5_000L)
+            delay(5_000L) // Reconnect backoff only.
         }
     }
     Column(

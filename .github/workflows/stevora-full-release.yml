@@ -1,4 +1,4 @@
-name: STEVORA Companion 2.0 Full Release
+name: STEVORA Companion 2.1 Full Release
 # Trigger full signed build after STEVORA logo resource retention fix
 
 on:
@@ -87,13 +87,13 @@ jobs:
           "$BUILD_TOOLS/apksigner" verify --print-certs "$APK"
           BADGING=$("$BUILD_TOOLS/aapt" dump badging "$APK")
           echo "$BADGING" | grep -F "package: name='com.stevora.companion'"
-          echo "$BADGING" | grep -F "versionName='2.0.0-full'"
+          echo "$BADGING" | grep -F "versionName='2.1.0-full'"
           python3 scripts/verify_stevora_apk.py
           sha256sum "$APK"
-      - name: Upload STEVORA Companion 2.0 Full signed APK
+      - name: Upload STEVORA Companion 2.1 Full signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: stevora-companion-2.0-full-signed-apk
+          name: stevora-companion-2.1-full-signed-apk
           path: app/build/outputs/apk/full/release/*.apk
           if-no-files-found: error
           retention-days: 30
