@@ -44,3 +44,8 @@ Approved by project owner: 2026-11-17. Baseline: installed and device-tested **2
 - Update Settings release label to 2.1 Native Experience.
 - Existing upstream Android entity, button, template and media-player widget implementations remain available; STEVORA-specific widget UX and on-device verification are still outstanding.
 - No claim of completed offline cache, background push or device upgrade acceptance without tests.
+
+## 2.1 native widget integration
+- Added STEVORA Settings entry for Android launcher widget pinning using the existing entity widget provider, with a launcher-compatibility fallback.
+- Widget provider and configuration screens are inherited from the Android Companion widget subsystem; this is not a newly authored STEVORA-specific widget design.
+- Requires device/launcher acceptance testing.

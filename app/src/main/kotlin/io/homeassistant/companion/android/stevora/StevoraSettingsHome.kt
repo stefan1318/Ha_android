@@ -23,6 +23,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import android.content.Intent
+import android.content.ComponentName
+import android.appwidget.AppWidgetManager
+import io.homeassistant.companion.android.widgets.entity.EntityWidget
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -83,6 +86,7 @@ internal fun StevoraSettingsHome(
     var climateExpanded by remember { mutableStateOf(false) }
     var automationExpanded by remember { mutableStateOf(false) }
     var memoryExpanded by remember { mutableStateOf(false) }
+    var widgetMessage by remember { mutableStateOf<String?>(null) }
     var confirmLogout by remember { mutableStateOf(false) }
     var loggingOut by remember { mutableStateOf(false) }
     var logoutError by remember { mutableStateOf<String?>(null) }
@@ -197,6 +201,33 @@ internal fun StevoraSettingsHome(
             // memory and automation API contracts are verified and implemented.
             SettingsEntry("Memory Manager", tr("Управление на паметта и предложенията", "Manage memory and review proposals"), "▣", { memoryExpanded = true })
             SettingsEntry("Automation Studio", tr("Управление на автоматизациите", "Manage Home Assistant automations"), "◇", { automationExpanded = true })
+            SettingsEntry(
+                tr("STEVORA widgets", "STEVORA widgets"),
+                tr("Добави състояние на устройство на началния екран", "Pin an entity status widget to the home screen"),
+                "▦",
+                {
+                    val appWidgets = AppWidgetManager.getInstance(context)
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
+                        appWidgets.isRequestPinAppWidgetSupported
+                    ) {
+                        val provider = ComponentName(context, EntityWidget::class.java)
+                        val requested = appWidgets.requestPinAppWidget(provider, null, null)
+                        widgetMessage = if (requested) tr(
+                            "Потвърди добавянето на widget от Android.",
+                            "Confirm the widget in the Android launcher.",
+                        ) else tr(
+                            "Launcher-ът отказа заявката. Добави widget през началния екран.",
+                            "Launcher declined the request. Add a widget from your home screen.",
+                        )
+                    } else {
+                        widgetMessage = tr(
+                            "Отвори Widgets от началния екран и избери STEVORA.",
+                            "Open Widgets from your home screen and choose STEVORA.",
+                        )
+                    }
+                },
+            )
+            widgetMessage?.let { Text(it, color = muted, fontSize = 12.sp) }
             SettingsEntry("Climate Analytics", tr("HomePod измервания и исторически графики", "HomePod readings and history charts"), "◉", { climateExpanded = true })
             SettingsEntry("Home Hub", tr("Връзка, сървър и профил", "Connection, server and account"), "⌂", { nativeSection = "hub" })
             SettingsEntry("STEVORA AI", tr("Глас и разрешения за микрофона", "Voice and microphone permissions"), "✦", { nativeSection = "voice" })
@@ -206,6 +237,33 @@ internal fun StevoraSettingsHome(
             Text(tr("ЛИЧНИ НАСТРОЙКИ", "STEVORA PERSONAL"), fontSize = 12.sp, color = accent)
             Text("Device control, climate statistics and the personalized voice assistant.",
                 fontSize = 14.sp, color = muted)
+            SettingsEntry(
+                tr("STEVORA widgets", "STEVORA widgets"),
+                tr("Добави състояние на устройство на началния екран", "Pin an entity status widget to the home screen"),
+                "▦",
+                {
+                    val appWidgets = AppWidgetManager.getInstance(context)
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
+                        appWidgets.isRequestPinAppWidgetSupported
+                    ) {
+                        val provider = ComponentName(context, EntityWidget::class.java)
+                        val requested = appWidgets.requestPinAppWidget(provider, null, null)
+                        widgetMessage = if (requested) tr(
+                            "Потвърди добавянето на widget от Android.",
+                            "Confirm the widget in the Android launcher.",
+                        ) else tr(
+                            "Launcher-ът отказа заявката. Добави widget през началния екран.",
+                            "Launcher declined the request. Add a widget from your home screen.",
+                        )
+                    } else {
+                        widgetMessage = tr(
+                            "Отвори Widgets от началния екран и избери STEVORA.",
+                            "Open Widgets from your home screen and choose STEVORA.",
+                        )
+                    }
+                },
+            )
+            widgetMessage?.let { Text(it, color = muted, fontSize = 12.sp) }
             SettingsEntry("Climate Analytics", "Live HomePod readings and session statistics", "◉", { climateExpanded = true })
             SettingsEntry("Voice Assistant", tr("Микрофон и настройки на гласа", "Microphone and voice information"), "✦", { nativeSection = "voice" })
             SettingsEntry(tr("Устройство и поверителност", "Device & privacy"), tr("Разрешения и известия", "Permissions and notifications"), "◈", { nativeSection = "privacy" })
