@@ -42,6 +42,8 @@ Deliver an opt-in, privacy-conscious **Hey STEVORA** voice activation experience
 
 | 2026-11-17 | Ran private first training sanity-check: spectral logistic-regression baseline on 49 approved clips (37 positive, 12 hard negatives) | `training/hey_stevora/PILOT_EXPERIMENT_2026-11-17.md`; private report and fitted model | In-sample balanced accuracy 1.0 (not generalization); no held-out speakers; **not** a microWakeWord/TFLite model; Phase 2 remains IN PROGRESS |
 
+| 2026-11-17 | Generated 24 eSpeak synthetic positive WAV clips (Bulgarian and English, masculine/feminine/youthful synthetic timbres, four delivery variations each), 16kHz mono; published reproducible generator and kept audio ZIP as private artifact | `training/hey_stevora/generate_synthetic.py`; private `Hey_Stevora_Synthetic_v01.zip` | Audio generated, **not yet listened to or approved**; youthful timbre is not a real child's voice; synthetic examples do not count as independent speakers |
+
 ## Update policy (approved)
 1. Update this document **after each verified successful implementation**; log date, change, exact commit/workflow/artifact link, test evidence and owner acceptance if required.
 2. Keep status **IN PROGRESS** until acceptance criteria have been met; distinguish code committed, CI passed, device tested, and owner accepted.
