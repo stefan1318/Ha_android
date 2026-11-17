@@ -25,27 +25,31 @@ jobs:
           STEVORA_KEY_PASSWORD: ${{ secrets.STEVORA_KEY_PASSWORD }}
           STEVORA_FIREBASE_CONFIG_BASE64: ${{ secrets.STEVORA_FIREBASE_CONFIG_BASE64 }}
         run: |
-          for key in STEVORA_KEYSTORE_BASE64 STEVORA_KEYSTORE_PASSWORD STEVORA_KEY_ALIAS STEVORA_KEY_PASSWORD STEVORA_FIREBASE_CONFIG_BASE64; do
+          for key in STEVORA_KEYSTORE_BASE64 STEVORA_KEYSTORE_PASSWORD STEVORA_KEY_ALIAS STEVORA_KEY_PASSWORD; do
             if [ -z "${!key}" ]; then
-              echo "::error::Missing required full release secret: $key"
+              echo "::error::Missing signing secret: $key"
               exit 1
             fi
           done
           printf '%s' "$STEVORA_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/stevora-release.keystore"
           chmod 600 "$RUNNER_TEMP/stevora-release.keystore"
-          printf '%s' "$STEVORA_FIREBASE_CONFIG_BASE64" | base64 --decode > app/google-services.json
-          python3 - <<'PY'
+          if [ -n "$STEVORA_FIREBASE_CONFIG_BASE64" ]; then
+            printf '%s' "$STEVORA_FIREBASE_CONFIG_BASE64" | base64 --decode > app/google-services.json
+            python3 - <<'PY'
           import json
           from pathlib import Path
           cfg=json.loads(Path('app/google-services.json').read_text())
           expected='com.stevora.companion'
           names=[c.get('client_info',{}).get('android_client_info',{}).get('package_name') for c in cfg.get('client',[])]
           if expected not in names:
-              raise SystemExit(f'Firebase configuration must include Android app {expected}')
+              raise SystemExit(f'Firebase config must include {expected}')
           if cfg.get('project_info',{}).get('project_number') in (None, '', 'project_number'):
               raise SystemExit('Firebase project number missing or placeholder')
-          print('Firebase configuration matches STEVORA full application ID')
+          print('Firebase configuration matches full application ID')
           PY
+          else
+            echo "::warning::Firebase config not configured. Full APK can build, but FCM push is not provisioned; do not publish as production-ready."
+          fi
       - name: Validate release gate and prepare branding
         run: |
           python3 scripts/check_stevora_release_gate.py
