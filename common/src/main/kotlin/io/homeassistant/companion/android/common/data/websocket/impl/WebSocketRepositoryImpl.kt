@@ -138,6 +138,16 @@ class WebSocketRepositoryImpl internal constructor(
         return response
     }
 
+    override suspend fun getStevoraAutomationConfig(entityId: String): JsonObject? {
+        if (!entityId.startsWith("automation.")) return null
+        val user = getCurrentUser() ?: return null
+        if (!user.isAdmin && !user.isOwner) return null
+        val response = webSocketCore.sendMessage(
+            mapOf("type" to "automation/config", "entity_id" to entityId),
+        )
+        return response?.takeIf { it.success == true }?.result as? JsonObject
+    }
+
     override suspend fun getStevoraClimateHistory(
         startTime: String,
         endTime: String,
