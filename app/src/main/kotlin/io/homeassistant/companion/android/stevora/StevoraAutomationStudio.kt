@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -13,6 +15,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,6 +49,8 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
     var busy by remember { mutableStateOf<String?>(null) }
     var pendingAction by remember { mutableStateOf<Pair<String, String>?>(null) }
     var refresh by remember { mutableStateOf(0) }
+    var filter by remember { mutableStateOf("") }
+    var onlyEnabled by remember { mutableStateOf(false) }
 
     LaunchedEffect(manager, refresh) {
         loading = true
@@ -128,7 +134,26 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
             color = Color(0xFFA6BCCD),
         )
         if (loading) Text(tr("Зареждане…", "Loading…"), color = Color.White)
-        automations.forEach { (id, state) ->
+        OutlinedTextField(
+            value = filter,
+            onValueChange = { filter = it.take(100) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text(tr("Търси автоматизация", "Search automations")) },
+        )
+        FilterChip(
+            selected = onlyEnabled,
+            onClick = { onlyEnabled = !onlyEnabled },
+            label = { Text(tr("Само активни", "Enabled only")) },
+        )
+        val visibleAutomations = automations.filter { (id, state) ->
+            (!onlyEnabled || state == "on") && id.contains(filter.trim(), ignoreCase = true)
+        }
+        Text(
+            tr("Показани: ", "Showing: ") + visibleAutomations.size + " / " + automations.size,
+            color = Color(0xFFA6BCCD),
+        )
+        visibleAutomations.forEach { (id, state) ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -148,5 +173,6 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
         }
         OutlinedButton(onClick = { refresh++ }) { Text(tr("Обнови", "Refresh")) }
         OutlinedButton(onClick = onBack) { Text(tr("Назад", "Back")) }
+        Spacer(Modifier.height(88.dp))
     }
 }
