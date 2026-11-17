@@ -170,6 +170,15 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                                 }
                             }
                             val parsed = Json.parseToJsonElement(editText).jsonObject
+                            val validation = socket.validateStevoraAutomation(parsed)
+                                ?: error("Home Assistant validation unavailable")
+                            val invalid = validation.entries.filter { (_, value) ->
+                                (value as? JsonObject)?.get("valid")?.toString() != "true"
+                            }
+                            require(invalid.isEmpty()) {
+                                "Invalid automation configuration: " +
+                                    invalid.joinToString { it.key + ": " + it.value.toString() }
+                            }
                             val clean = JsonObject(parsed.filterKeys { it != "id" })
                             val success = manager.integrationRepository().saveStevoraAutomation(id, clean)
                             require(success) { "Home Assistant rejected the configuration" }
