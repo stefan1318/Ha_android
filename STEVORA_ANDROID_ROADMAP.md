@@ -30,3 +30,10 @@ Approved by project owner: 2026-11-17. Baseline: installed and device-tested **2
 5. Only after device acceptance, label 2.0.1 as tested.
 
 **Status:** Roadmap approved; individual future features remain planned until implemented and tested.
+
+## 2.1 implementation log — 2026-11-17
+- Native room panel now subscribes to HA `state_changed` events via the existing authenticated WebSocket repository.
+- Snapshot is fetched on connection/reconnection; incoming changes update only allowlisted, visible entity IDs.
+- Five-second delay is now only a reconnection retry, not periodic whole-home polling.
+- Follow-up action refresh remains for immediate feedback; device-originated events are authoritative.
+- Pending: CI build, real-device reconnect/session testing, remaining 2.1 UX and widget features.

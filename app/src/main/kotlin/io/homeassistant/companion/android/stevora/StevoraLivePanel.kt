@@ -147,7 +147,9 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
     var selectedRoom by remember(initialRoom) { mutableStateOf(initialRoom) }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(manager) {
+    // STEVORA 2.1: one initial snapshot per connection, then push updates.
+    // Reconnect after stream completion/errors; never poll the entire home every 5s.
+    LaunchedEffect(manager, bgLanguage) {
         while (isActive) {
             try {
                 if (manager.getServer() == null) {
@@ -155,12 +157,12 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                     status = localized(bgLanguage, "Добавете Home Hub в настройките", "Connect a Home Hub in Settings")
                 } else {
                     val repo = manager.webSocketRepository()
-                    val snapshot = repo.getStates()
-                    if (snapshot == null) {
-                        entities = emptyList()
+                    // Subscribe before the snapshot to avoid losing changes during initialization.
+                    val changes = repo.getStateChanges()
+                    if (changes == null) {
                         status = localized(bgLanguage, "Няма връзка — нов опит…", "Hub unavailable — retrying")
                     } else {
-                        // Registry failure must not turn the display into an unfiltered HA list.
+                        // Fail closed if visibility cannot be verified; never expose hidden controls.
                         val hiddenIds = try {
                             repo.getEntityRegistry().orEmpty()
                                 .filter { it.hiddenBy != null || it.entityCategory != null }
@@ -169,23 +171,34 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {
-                            // Fail closed: do not expose controls when visibility cannot be verified.
                             visibleEntityIds
                         }
-                        entities = snapshot.filter {
-                            it.entityId in visibleEntityIds && it.entityId !in hiddenIds
+                        val allowedIds = visibleEntityIds - hiddenIds
+                        val snapshot = repo.getStates()
+                        if (snapshot == null) {
+                            status = localized(bgLanguage, "Няма връзка — нов опит…", "Hub unavailable — retrying")
+                        } else {
+                            entities = snapshot.filter { it.entityId in allowedIds }
+                            status = localized(bgLanguage, "Свързано • на живо", "Connected • Live") + " • " +
+                                entities.count { it.entityId in controlById } + " " +
+                                localized(bgLanguage, "контроли", "controls")
+                            changes.collect { event ->
+                                if (event.entityId in allowedIds) {
+                                    entities = entities.filterNot { it.entityId == event.entityId } +
+                                        listOfNotNull(event.newState)
+                                }
+                            }
+                            // A completed subscription is not a healthy live connection.
+                            status = localized(bgLanguage, "Възстановяване на връзката…", "Reconnecting…")
                         }
-                        status = localized(bgLanguage, "Свързано", "Connected") + " • " +
-                            entities.count { it.entityId in controlById } + " " + localized(bgLanguage, "контроли", "controls")
                     }
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                entities = emptyList()
                 status = localized(bgLanguage, "Проблем с връзката — нов опит…", "Connection unavailable — retrying")
             }
-            delay(5_000L)
+            delay(5_000L) // Retry only after disconnect; not a state refresh interval.
         }
     }
 
