@@ -80,7 +80,7 @@ internal fun WelcomeTemplate(
             Spacer(modifier = Modifier.weight(positionPercentage))
 
             Image(
-                imageVector = ImageVector.vectorResource(R.drawable.ic_launcher_foreground),
+                imageVector = ImageVector.vectorResource(R.drawable.stevora_brand_mark),
                 contentDescription = "STEVORA",
                 modifier = Modifier.size(ICON_SIZE),
             )
