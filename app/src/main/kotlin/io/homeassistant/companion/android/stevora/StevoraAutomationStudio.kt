@@ -17,6 +17,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonObject
 
 @Composable
 internal fun StevoraAutomationStudio(onBack: () -> Unit) {
@@ -51,6 +53,8 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
     var refresh by remember { mutableStateOf(0) }
     var filter by remember { mutableStateOf("") }
     var onlyEnabled by remember { mutableStateOf(false) }
+    var inspecting by remember { mutableStateOf<String?>(null) }
+    var config by remember { mutableStateOf<JsonObject?>(null) }
 
     LaunchedEffect(manager, refresh) {
         loading = true
@@ -79,6 +83,25 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
         } finally {
             loading = false
         }
+    }
+    inspecting?.let { id ->
+        AlertDialog(
+            onDismissRequest = { inspecting = null; config = null },
+            title = { Text(tr("Конфигурация", "Configuration")) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(id)
+                    Text(config?.toString()?.take(4000)
+                        ?: tr("Конфигурацията не е достъпна през HA API.",
+                            "Configuration unavailable through HA API."))
+                }
+            },
+            confirmButton = {
+                Button(onClick = { inspecting = null; config = null }) {
+                    Text(tr("Затвори", "Close"))
+                }
+            },
+        )
     }
     pendingAction?.let { (id, previousState) ->
         AlertDialog(
@@ -171,6 +194,26 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                 }
             }
         }
+        OutlinedButton(
+            enabled = busy == null && automations.isNotEmpty(),
+            onClick = {
+                val id = automations.first().first
+                busy = id
+                scope.launch {
+                    try {
+                        config = manager.webSocketRepository().getStevoraAutomationConfig(id)
+                        inspecting = id
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        config = null
+                        inspecting = id
+                    } finally {
+                        busy = null
+                    }
+                }
+            },
+        ) { Text(tr("Преглед на конфигурацията на първото правило", "Inspect first rule configuration")) }
         OutlinedButton(onClick = { refresh++ }) { Text(tr("Обнови", "Refresh")) }
         OutlinedButton(onClick = onBack) { Text(tr("Назад", "Back")) }
         Spacer(Modifier.height(88.dp))
