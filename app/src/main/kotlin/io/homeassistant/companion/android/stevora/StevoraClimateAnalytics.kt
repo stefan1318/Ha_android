@@ -129,7 +129,7 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
         }
     }
     Column(
-        Modifier.fillMaxSize().background(climateBg).verticalScroll(rememberScrollState()).padding(20.dp),
+        Modifier.fillMaxSize().background(StevoraDesign.gradient).verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text("STEVORA", color = Color.White, fontSize = 28.sp)
@@ -148,17 +148,17 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
             tr("Средна влажност в сесията", "Session average humidity") to
                 (if (samples.isEmpty()) "—" else "%.1f %%".format(samples.map { it.second }.average())),
         ).forEach { (label, value) ->
-            Card(
+            StevoraMetricCard(
+                label = label,
+                value = value,
+                detail = tr("Данни от Home Hub", "Home Hub data"),
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = climateTile),
-            ) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(label, color = climateMuted, fontSize = 13.sp)
-                    Text(value, color = Color.White, fontSize = 24.sp)
-                }
-            }
+            )
         }
+        StevoraSectionHeading(
+            tr("История на климата", "Climate history"),
+            tr("Температура и влажност от Recorder", "Temperature and humidity from Recorder"),
+        )
         Text(tr("Температура • исторически данни", "Temperature • historical data"), color = climateCyan)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(24, 72, 168).forEach { hours ->
