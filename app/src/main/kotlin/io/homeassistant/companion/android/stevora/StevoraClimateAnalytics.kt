@@ -3,6 +3,7 @@ package io.homeassistant.companion.android.stevora
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -128,8 +129,11 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
             delay(10_000L)
         }
     }
+    BoxWithConstraints(Modifier.fillMaxSize().background(StevoraDesign.gradient)) {
+    val wide = maxWidth >= 700.dp
     Column(
-        Modifier.fillMaxSize().background(StevoraDesign.gradient).verticalScroll(rememberScrollState()).padding(20.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = if (wide) 48.dp else 20.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text("STEVORA", color = Color.White, fontSize = 28.sp)
@@ -260,5 +264,6 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
         )
         OutlinedButton(onClick = onBack) { Text(tr("Назад", "Back")) }
         Spacer(Modifier.height(88.dp))
+    }
     }
 }
