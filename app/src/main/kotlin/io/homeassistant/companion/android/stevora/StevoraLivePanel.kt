@@ -51,12 +51,12 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-private val bg = Color(0xFF08131F)
-private val tile = Color(0xFF122437)
-private val panelBorder = Color(0xFF29455A)
-private val cyan = Color(0xFF27B9F5)
-private val white = Color(0xFFF4FAFF)
-private val secondary = Color(0xFFA6BCCD)
+private val bg = StevoraDesign.background
+private val tile = StevoraDesign.surface
+private val panelBorder = StevoraDesign.border
+private val cyan = StevoraDesign.accent
+private val white = StevoraDesign.foreground
+private val secondary = StevoraDesign.muted
 
 // This is a curated STEVORA panel, NOT the HA entity/device inspector.
 // Add a control here only when it belongs in the STEVORA user panel.
@@ -205,7 +205,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
         }
     }
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF132945), bg, Color(0xFF050C19))))) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().background(StevoraDesign.gradient)) {
         val wide = maxWidth >= 700.dp
         val columns = if (wide) 2 else 1
         Column(
