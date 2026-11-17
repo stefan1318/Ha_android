@@ -169,6 +169,9 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                             require(triggerEntity.contains(".")) { "Invalid trigger entity ID" }
                             require(actionEntity.contains(".")) { "Invalid target entity ID" }
                             val original = Json.parseToJsonElement(editText).jsonObject
+                            require(((original["conditions"] ?: original["condition"]) as? JsonArray)?.isNotEmpty() != true) {
+                                "Complex conditions require JSON mode"
+                            }
                             val trigger = buildJsonObject {
                                 put("platform", "state")
                                 put("entity_id", triggerEntity.trim())
@@ -306,7 +309,8 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                             triggerEntity.isBlank() || actionEntity.isBlank() ||
                             ((raw["triggers"] ?: raw["trigger"]) as? JsonArray)?.size != 1 ||
                             ((raw["actions"] ?: raw["action"]) as? JsonArray)?.size != 1 ||
-                            actionService !in listOf("turn_on", "turn_off")
+                            actionService !in listOf("turn_on", "turn_off") ||
+                            ((raw["conditions"] ?: raw["condition"]) as? JsonArray)?.isNotEmpty() == true
                         baseline = raw
                         sourceEntityId = inspecting
                         editError = ""
