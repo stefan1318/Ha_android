@@ -50,6 +50,8 @@ Deliver an opt-in, privacy-conscious **Hey STEVORA** voice activation experience
 
 | 2026-11-17 | Trained reproducible offline v04 spectral baseline on approved 2,833-clip corpus, with 2,180 synthetic training clips, 604 synthetic held-out clips (21 disjoint source groups) and 49 held-out real owner clips | `training/hey_stevora/train_offline_baseline_v04.py`; private `Hey_Stevora_Offline_Baseline_v04.zip` | Synthetic holdout balanced accuracy **80.66%**, 92 false positives/360 negatives and 32 misses/244 positives; held-out real speaker **37/37 positive misses**, 12/12 negatives correct; **FAILED real-world readiness**. Not streaming/TFLite/microWakeWord, no APK integration. Must improve real-speech generalization and train compatible architecture. |
 
+| 2026-11-17 | Began approved personalized-first strategy. Trained private offline v05 model on 33 real owner clips + 700 synthetic clips; evaluated on 16 held-out real clips (12 positive, 4 negative), all correctly classified | `training/hey_stevora/train_personalized_v05.py`; private `Hey_Stevora_Personalized_Experiment_v05.zip` | **EXPERIMENTAL ONLY**: train/test share one speaker and sessions, non-streaming classifier, no compatible TFLite or Android APK. Next: microWakeWord training and separate fresh-session evaluation. |
+
 ## Update policy (approved)
 1. Update this document **after each verified successful implementation**; log date, change, exact commit/workflow/artifact link, test evidence and owner acceptance if required.
 2. Keep status **IN PROGRESS** until acceptance criteria have been met; distinguish code committed, CI passed, device tested, and owner accepted.
