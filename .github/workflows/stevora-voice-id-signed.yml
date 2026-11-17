@@ -60,7 +60,9 @@ jobs:
           # Reserve a monotonic TEST track. Production releases must use a higher versionCode.
           export VERSION_CODE="$((2000000 + GITHUB_RUN_NUMBER))"
           echo "Signed test versionCode=$VERSION_CODE"
-          ./gradlew :app:assembleFullRelease --no-parallel --max-workers=2 --stacktrace
+          ./gradlew --stop || true
+          ./gradlew :common:clean :app:clean :app:assembleFullRelease \\
+            --no-build-cache --no-configuration-cache --no-parallel --max-workers=2 --stacktrace
       - name: Verify package, signing and update identity
         run: |
           set -euo pipefail
