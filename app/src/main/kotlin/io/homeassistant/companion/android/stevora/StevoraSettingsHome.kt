@@ -23,6 +23,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import android.content.Intent
+import android.Manifest
+import androidx.compose.runtime.DisposableEffect
 import android.content.ComponentName
 import android.appwidget.AppWidgetManager
 import io.homeassistant.companion.android.widgets.entity.EntityWidget
@@ -518,6 +520,7 @@ private fun StevoraNativeSettingsSection(
                 }
                 StevoraSectionHeading("Assist pipelines", pipelineStatus)
                 pipelines.forEach { SettingsInfo("STEVORA Assist", it) }
+                StevoraVoiceIdPanel(bg, micAllowed, { micPermission.launch(Manifest.permission.RECORD_AUDIO) })
                 SettingsInfo("Hey STEVORA", tr(
                     "Постоянното разпознаване остава изключено до наличен валидиран модел.",
                     "Always-on wake-word detection remains disabled until a validated model exists.",
@@ -578,4 +581,109 @@ private fun StevoraNativeSettingsSection(
             }
         }
     }
+}
+
+@Composable
+private fun StevoraVoiceIdPanel(bg: Boolean, micAllowed: Boolean, askPermission: () -> Unit) {
+    val context = LocalContext.current
+    fun tr(a: String, b: String) = if (bg) a else b
+    val profiles = remember { StevoraVoiceProfiles(context.applicationContext) }
+    val recorder = remember { StevoraVoiceEnrollment(context.applicationContext) }
+    var revision by remember { mutableStateOf(0) }
+    var name by remember { mutableStateOf("") }
+    var notice by remember { mutableStateOf("") }
+    var deleting by remember { mutableStateOf(false) }
+    val speakers = remember(revision) { profiles.all() }
+    val selected = remember(revision) { profiles.selected() }
+    LaunchedEffect(selected?.id) {
+        if (recorder.isRecording) recorder.stop(save = false)
+        recorder.profileId = selected?.id
+    }
+    DisposableEffect(recorder) { onDispose { recorder.stop(save = false) } }
+    StevoraSectionHeading(tr("Voice ID • Гласово обучение", "Voice ID • Voice enrollment"),
+        tr("До 12 гласа на общ панел", "Up to 12 speakers per shared panel"))
+    speakers.forEach { speaker ->
+        FilterChip(
+            selected = selected?.id == speaker.id,
+            onClick = {
+                if (recorder.isRecording) recorder.stop(save = false)
+                profiles.select(speaker.id)
+                revision++
+            },
+            label = { Text(speaker.name) },
+        )
+    }
+    OutlinedTextField(
+        value = name,
+        onValueChange = { name = it.take(40) },
+        label = { Text(tr("Нов говорител", "New speaker")) },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+    )
+    OutlinedButton(enabled = name.isNotBlank() && speakers.size < 12, onClick = {
+        try {
+            val speaker = profiles.add(name)
+            profiles.select(speaker.id)
+            name = ""
+            revision++
+        } catch (e: Exception) { notice = e.message ?: "Unable to add speaker" }
+    }) { Text(tr("Добави гласов профил", "Add voice profile")) }
+    if (selected != null) {
+        SettingsInfo(tr("Записи за ", "Samples for ") + selected.name,
+            "${recorder.sampleCount} / ${StevoraVoiceEnrollment.MAX_SAMPLES}")
+        if (!micAllowed) {
+            Button(onClick = askPermission) { Text(tr("Разреши микрофона", "Allow microphone")) }
+        } else {
+            Button(
+                enabled = recorder.isRecording || recorder.sampleCount < StevoraVoiceEnrollment.MAX_SAMPLES,
+                onClick = {
+                    if (recorder.isRecording) {
+                        val saved = recorder.stop()
+                        notice = if (saved) tr("Аудиото е проверено и запазено.", "Verified audio saved.")
+                            else tr("Невалиден запис, не е запазен.", "Invalid recording discarded.")
+                    } else {
+                        try {
+                            recorder.profileId = selected.id
+                            recorder.start()
+                            notice = tr("Записва се от микрофона. Кажи Hey Stevora.", "Microphone recording. Say Hey Stevora.")
+                        } catch (e: Exception) { notice = tr("Грешка при запис: ", "Recording error: ") + e.message }
+                    }
+                    revision++
+                },
+            ) {
+                Text(if (recorder.isRecording) tr("■ Спри и провери", "■ Stop and verify")
+                    else tr("● Запиши Hey Stevora", "● Record Hey Stevora"))
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(tr("Съгласие за бъдещо самообучение", "Consent for future self-learning"),
+                color = foreground, modifier = Modifier.weight(1f), fontSize = 13.sp)
+            Switch(checked = selected.learningEnabled, onCheckedChange = {
+                profiles.setLearningConsent(selected.id, it)
+                revision++
+            })
+        }
+        Text(tr("Реално самообучение и разпознаване още не са активни.",
+            "Recognition and automatic learning are not active yet."), color = muted, fontSize = 12.sp)
+        OutlinedButton(onClick = { deleting = true }) {
+            Text(tr("Изтрий говорителя и записите", "Delete speaker and samples"))
+        }
+        if (deleting) AlertDialog(
+            onDismissRequest = { deleting = false },
+            title = { Text(tr("Изтриване на профила?", "Delete profile?")) },
+            text = { Text(tr("Записите ще бъдат изтрити.", "All samples will be deleted.")) },
+            confirmButton = {
+                Button(onClick = {
+                    recorder.stop(save = false)
+                    recorder.profileId = selected.id
+                    recorder.deleteAll()
+                    profiles.remove(selected.id)
+                    deleting = false
+                    revision++
+                }) { Text(tr("Изтрий", "Delete")) }
+            },
+            dismissButton = { OutlinedButton(onClick = { deleting = false }) { Text(tr("Отказ", "Cancel")) } },
+        )
+    }
+    if (notice.isNotBlank()) Text(notice, color = accent, fontSize = 12.sp)
 }
