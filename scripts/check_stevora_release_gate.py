@@ -11,8 +11,8 @@ checks = {
     "drawable-v26/launch_screen_background.xml": "stevora_brand_mark",
     "drawable-v31/app_icon_launch_screen.xml": "stevora_brand_mark",
     "values-v31/styles.xml": "stevora_brand_mark",
-    "debug/res/mipmap-anydpi-v26/ic_launcher.xml": "stevora_brand_mark",
-    "debug/res/mipmap-anydpi-v26/ic_launcher_round.xml": "stevora_brand_mark",
+    "debug/res/mipmap-anydpi-v26/ic_launcher.xml": "stevora_adaptive_foreground",
+    "debug/res/mipmap-anydpi-v26/ic_launcher_round.xml": "stevora_adaptive_foreground",
 }
 for relative, expected in checks.items():
     path = (root / "app/src" / relative) if relative.startswith("debug/") else (res / relative)
