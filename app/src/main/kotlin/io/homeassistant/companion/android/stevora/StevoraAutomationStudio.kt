@@ -35,6 +35,11 @@ import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import java.util.UUID
 
 @Composable
 internal fun StevoraAutomationStudio(onBack: () -> Unit) {
@@ -56,6 +61,12 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
     var inspecting by remember { mutableStateOf<String?>(null) }
     var config by remember { mutableStateOf<JsonObject?>(null) }
     var configLoading by remember { mutableStateOf(false) }
+    var editId by remember { mutableStateOf<String?>(null) }
+    var editText by remember { mutableStateOf("") }
+    var baseline by remember { mutableStateOf<JsonObject?>(null) }
+    var saveConfirm by remember { mutableStateOf(false) }
+    var editError by remember { mutableStateOf("") }
+    var saving by remember { mutableStateOf(false) }
 
     LaunchedEffect(manager, refresh) {
         loading = true
@@ -84,6 +95,50 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
         } finally {
             loading = false
         }
+    }
+    editId?.let { id ->
+        AlertDialog(
+            onDismissRequest = { if (!saving) editId = null },
+            title = { Text(tr("Редактор на автоматизация", "Automation editor")) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    Text(id)
+                    OutlinedTextField(
+                        value = editText,
+                        onValueChange = { editText = it.take(60000) },
+                        modifier = Modifier.fillMaxWidth().height(320.dp),
+                        label = { Text("JSON") },
+                    )
+                    if (editError.isNotEmpty()) Text(editError, color = Color(0xFFFF9D9D))
+                }
+            },
+            confirmButton = {
+                Button(enabled = !saving, onClick = {
+                    try {
+                        val parsed = Json.parseToJsonElement(editText).jsonObject
+                        val alias = parsed["alias"]?.jsonPrimitive?.contentOrNull
+                        val triggers = parsed["triggers"] ?: parsed["trigger"]
+                        val actions = parsed["actions"] ?: parsed["action"]
+                        require(!alias.isNullOrBlank()) { "Alias is required" }
+                        require(triggers is kotlinx.serialization.json.JsonArray && triggers.isNotEmpty()) {
+                            "At least one trigger is required"
+                        }
+                        require(actions is kotlinx.serialization.json.JsonArray && actions.isNotEmpty()) {
+                            "At least one action is required"
+                        }
+                        editError = ""
+                        saveConfirm = true
+                    } catch (e: Exception) {
+                        editError = e.message ?: tr("Невалиден JSON", "Invalid JSON")
+                    }
+                }) { Text(tr("Провери и запази", "Review & save")) }
+            },
+            dismissButton = {
+                OutlinedButton(enabled = !saving, onClick = { editId = null }) {
+                    Text(tr("Отказ", "Cancel"))
+                }
+            },
+        )
     }
     inspecting?.let { id ->
         AlertDialog(
