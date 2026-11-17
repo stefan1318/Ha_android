@@ -141,7 +141,7 @@ class WebSocketRepositoryImpl internal constructor(
         command: String,
         parameters: Map<String, Any?>,
     ): JsonObject? {
-        require(command in setOf("read", "search", "proposals"))
+        require(command in setOf("health", "read", "search", "proposals"))
         val user = getCurrentUser() ?: return null
         if (!user.isAdmin && !user.isOwner) return null
         val response = webSocketCore.sendMessage(
