@@ -1,0 +1,86 @@
+name: STEVORA Companion 2.0 Full Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/stevora-companion
+    paths:
+      - '.github/workflows/stevora-full-release.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  full-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate full release credentials
+        env:
+          STEVORA_KEYSTORE_BASE64: ${{ secrets.STEVORA_KEYSTORE_BASE64 }}
+          STEVORA_KEYSTORE_PASSWORD: ${{ secrets.STEVORA_KEYSTORE_PASSWORD }}
+          STEVORA_KEY_ALIAS: ${{ secrets.STEVORA_KEY_ALIAS }}
+          STEVORA_KEY_PASSWORD: ${{ secrets.STEVORA_KEY_PASSWORD }}
+          STEVORA_FIREBASE_CONFIG_BASE64: ${{ secrets.STEVORA_FIREBASE_CONFIG_BASE64 }}
+        run: |
+          for key in STEVORA_KEYSTORE_BASE64 STEVORA_KEYSTORE_PASSWORD STEVORA_KEY_ALIAS STEVORA_KEY_PASSWORD STEVORA_FIREBASE_CONFIG_BASE64; do
+            if [ -z "${!key}" ]; then
+              echo "::error::Missing required full release secret: $key"
+              exit 1
+            fi
+          done
+          printf '%s' "$STEVORA_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/stevora-release.keystore"
+          chmod 600 "$RUNNER_TEMP/stevora-release.keystore"
+          printf '%s' "$STEVORA_FIREBASE_CONFIG_BASE64" | base64 --decode > app/google-services.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          cfg=json.loads(Path('app/google-services.json').read_text())
+          expected='com.stevora.companion'
+          names=[c.get('client_info',{}).get('android_client_info',{}).get('package_name') for c in cfg.get('client',[])]
+          if expected not in names:
+              raise SystemExit(f'Firebase configuration must include Android app {expected}')
+          if cfg.get('project_info',{}).get('project_number') in (None, '', 'project_number'):
+              raise SystemExit('Firebase project number missing or placeholder')
+          print('Firebase configuration matches STEVORA full application ID')
+          PY
+      - name: Validate release gate and prepare branding
+        run: |
+          python3 scripts/check_stevora_release_gate.py
+          python3 scripts/check_stevora_resources.py
+          python3 -m pip install --user Pillow==11.3.0
+          python3 scripts/prepare_stevora_branding.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build signed STEVORA full release
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/stevora-release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.STEVORA_KEYSTORE_PASSWORD }}
+          KEYSTORE_ALIAS: ${{ secrets.STEVORA_KEY_ALIAS }}
+          KEYSTORE_ALIAS_PASSWORD: ${{ secrets.STEVORA_KEY_PASSWORD }}
+          VERSION_CODE: ${{ github.run_number }}
+        run: ./gradlew :app:assembleFullRelease --stacktrace
+      - name: Verify signed full APK
+        run: |
+          set -euo pipefail
+          APK=$(find app/build/outputs/apk/full/release -name '*.apk' -type f | head -n 1)
+          test -n "$APK"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          "$BUILD_TOOLS/apksigner" verify --print-certs "$APK"
+          BADGING=$("$BUILD_TOOLS/aapt" dump badging "$APK")
+          echo "$BADGING" | grep -F "package: name='com.stevora.companion'"
+          echo "$BADGING" | grep -F "versionName='2.0.0-full'"
+          python3 scripts/verify_stevora_apk.py
+          sha256sum "$APK"
+      - name: Upload STEVORA Companion 2.0 Full signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: stevora-companion-2.0-full-signed-apk
+          path: app/build/outputs/apk/full/release/*.apk
+          if-no-files-found: error
+          retention-days: 30
