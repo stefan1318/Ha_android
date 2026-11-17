@@ -55,6 +55,7 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
     var onlyEnabled by remember { mutableStateOf(false) }
     var inspecting by remember { mutableStateOf<String?>(null) }
     var config by remember { mutableStateOf<JsonObject?>(null) }
+    var configLoading by remember { mutableStateOf(false) }
 
     LaunchedEffect(manager, refresh) {
         loading = true
@@ -86,18 +87,18 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
     }
     inspecting?.let { id ->
         AlertDialog(
-            onDismissRequest = { inspecting = null; config = null },
+            onDismissRequest = { if (!configLoading) { inspecting = null; config = null } },
             title = { Text(tr("Конфигурация", "Configuration")) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(id)
-                    Text(config?.toString()?.take(4000)
+                    Text(if (configLoading) tr("Зареждане…", "Loading…") else config?.toString()?.take(4000)
                         ?: tr("Конфигурацията не е достъпна през HA API.",
                             "Configuration unavailable through HA API."))
                 }
             },
             confirmButton = {
-                Button(onClick = { inspecting = null; config = null }) {
+                Button(enabled = !configLoading, onClick = { inspecting = null; config = null }) {
                     Text(tr("Затвори", "Close"))
                 }
             },
@@ -186,13 +187,15 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                     Text(id.removePrefix("automation.").replace('_', ' '), color = Color.White)
                     Text(state, color = Color(0xFFA6BCCD))
                     OutlinedButton(
-            enabled = busy == null && automations.isNotEmpty(),
+            enabled = busy == null && !configLoading,
             onClick = {
                 busy = id
+                config = null
+                configLoading = true
+                inspecting = id
                 scope.launch {
                     try {
                         config = manager.webSocketRepository().getStevoraAutomationConfig(id)
-                        inspecting = id
                     } catch (e: CancellationException) {
                         throw e
                     } catch (_: Exception) {
@@ -200,6 +203,7 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                         inspecting = id
                     } finally {
                         busy = null
+                        configLoading = false
                     }
                 }
             },
