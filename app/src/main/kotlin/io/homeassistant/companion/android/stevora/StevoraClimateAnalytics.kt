@@ -61,9 +61,11 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
     var samples by remember { mutableStateOf<List<Pair<Double, Double>>>(emptyList()) }
     var historyHours by remember { mutableStateOf(24) }
     var historyValues by remember { mutableStateOf<List<Double>>(emptyList()) }
+    var humidityHistory by remember { mutableStateOf<List<Double>>(emptyList()) }
     var historyStatus by remember { mutableStateOf("") }
     LaunchedEffect(manager, historyHours) {
         historyValues = emptyList()
+        humidityHistory = emptyList()
         historyStatus = tr("Зареждане на историята…", "Loading history…")
         try {
             val end = Instant.now()
@@ -71,14 +73,21 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
             val result = if (manager.getServer() == null) null else
                 manager.webSocketRepository().getStevoraClimateHistory(
                     start.toString(), end.toString(),
-                    listOf("sensor.realna_temperatura_homepod"),
+                    listOf("sensor.realna_temperatura_homepod", "sensor.realna_vlazhnost_homepod"),
                 )
-            historyValues = result?.flatMap { group ->
-                (group as? kotlinx.serialization.json.JsonArray)?.mapNotNull { item ->
+            val series = result?.mapNotNull { group ->
+                val entries = group as? kotlinx.serialization.json.JsonArray
+                    ?: return@mapNotNull null
+                val id = entries.firstOrNull()?.jsonObject?.get("entity_id")
+                    ?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                id to entries.mapNotNull { item ->
                     item.jsonObject["state"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
-                }.orEmpty()
-            }?.takeLast(600).orEmpty()
-            historyStatus = if (historyValues.isEmpty()) {
+                        ?.takeIf { it.isFinite() }
+                }.takeLast(600)
+            }?.toMap().orEmpty()
+            historyValues = series["sensor.realna_temperatura_homepod"].orEmpty()
+            humidityHistory = series["sensor.realna_vlazhnost_homepod"].orEmpty()
+            historyStatus = if (historyValues.isEmpty() && humidityHistory.isEmpty()) {
                 tr("Няма записани измервания или Recorder не е достъпен",
                     "No recorded samples or Recorder unavailable")
             } else tr("История от Home Assistant Recorder", "Home Assistant Recorder history")
@@ -175,6 +184,29 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
                     drawPath(trace, climateCyan, style = Stroke(width = 3.dp.toPx()))
                 }
                 Text("%.1f – %.1f °C".format(low, high),
+                    modifier = Modifier.padding(16.dp), color = climateMuted)
+            }
+        }
+        if (humidityHistory.size >= 2) {
+            Text(tr("Влажност • исторически данни", "Humidity • historical data"), color = climateCyan)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = climateTile),
+                shape = RoundedCornerShape(18.dp),
+            ) {
+                val low = humidityHistory.minOrNull() ?: 0.0
+                val high = humidityHistory.maxOrNull() ?: 0.0
+                val span = (high - low).coerceAtLeast(0.5)
+                Canvas(Modifier.fillMaxWidth().height(140.dp).padding(16.dp)) {
+                    val trace = Path()
+                    humidityHistory.forEachIndexed { index, value ->
+                        val x = size.width * index / (humidityHistory.size - 1)
+                        val y = size.height * (1f - ((value - low) / span).toFloat())
+                        if (index == 0) trace.moveTo(x, y) else trace.lineTo(x, y)
+                    }
+                    drawPath(trace, climateCyan, style = Stroke(width = 3.dp.toPx()))
+                }
+                Text("%.1f – %.1f %%".format(low, high),
                     modifier = Modifier.padding(16.dp), color = climateMuted)
             }
         }
