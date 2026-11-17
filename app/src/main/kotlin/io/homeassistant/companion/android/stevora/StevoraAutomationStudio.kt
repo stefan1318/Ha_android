@@ -64,6 +64,7 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
     var editId by remember { mutableStateOf<String?>(null) }
     var editText by remember { mutableStateOf("") }
     var baseline by remember { mutableStateOf<JsonObject?>(null) }
+    var sourceEntityId by remember { mutableStateOf<String?>(null) }
     var saveConfirm by remember { mutableStateOf(false) }
     var editError by remember { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
@@ -162,7 +163,7 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                             }
                             if (baseline != null) {
                                 val current = socket.getStevoraAutomationConfig(
-                                    "automation." + id
+                                    sourceEntityId ?: error("Missing original entity")
                                 )?.get("config") as? JsonObject
                                 require(current == baseline) {
                                     "Automation changed on server. Reopen before saving."
