@@ -12,14 +12,23 @@ import java.io.File
  * automatic learning engine. Files stay in app-private storage.
  */
 internal class StevoraVoiceEnrollment(private val context: Context) {
+    var profileId: String? = null
+        set(value) {
+            check(!isRecording) { "Stop recording before switching profiles" }
+            field = value
+        }
     private val directory: File
-        get() = File(context.filesDir, "stevora_voice_enrollment")
+        get() {
+            val id = requireNotNull(profileId) { "Select a speaker profile before recording" }
+            require(Regex("[a-f0-9-]{36}").matches(id)) { "Invalid profile ID" }
+            return File(File(context.filesDir, "stevora_voice_enrollment"), id)
+        }
 
     private var recorder: MediaRecorder? = null
     private var pendingFile: File? = null
 
     val sampleCount: Int
-        get() = directory.listFiles()?.count { it.isFile && it.extension == "m4a" } ?: 0
+        get() = if (profileId == null) 0 else directory.listFiles()?.count { it.isFile && it.extension == "m4a" } ?: 0
 
     val isRecording: Boolean
         get() = recorder != null
@@ -75,7 +84,9 @@ internal class StevoraVoiceEnrollment(private val context: Context) {
 
     fun deleteAll() {
         stop(save = false)
+        if (profileId == null) return
         directory.listFiles()?.filter { it.isFile && it.extension == "m4a" }?.forEach { it.delete() }
+        directory.delete()
     }
 
     companion object {
