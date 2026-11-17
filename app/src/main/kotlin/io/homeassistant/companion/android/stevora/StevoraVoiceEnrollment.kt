@@ -2,6 +2,7 @@ package io.homeassistant.companion.android.stevora
 
 import android.content.Context
 import android.media.MediaRecorder
+import android.media.MediaPlayer
 import android.media.MediaMetadataRetriever
 import android.os.SystemClock
 import android.os.Build
@@ -31,7 +32,7 @@ internal class StevoraVoiceEnrollment(private val context: Context) {
     private var recordingStartedAt: Long = 0L
 
     val sampleCount: Int
-        get() = if (profileId == null) 0 else directory.listFiles()?.count { it.isFile && it.extension == "m4a" } ?: 0
+        get() = if (profileId == null) 0 else samples().size
 
     val isRecording: Boolean
         get() = recorder != null
@@ -99,6 +100,31 @@ internal class StevoraVoiceEnrollment(private val context: Context) {
             false
         } finally {
             metadata.release()
+        }
+    }
+
+    /** Only completed and metadata-verified samples can be played. */
+    fun samples(): List<File> =
+        if (profileId == null) emptyList() else directory.listFiles()
+            ?.filter { it.isFile && it.extension == "m4a" && hasDecodableAudio(it) }
+            ?.sortedBy { it.name } ?: emptyList()
+
+    fun playLatest(onComplete: () -> Unit = {}): MediaPlayer? {
+        check(!isRecording) { "Stop recording before playback" }
+        val latest = samples().lastOrNull() ?: return null
+        val player = MediaPlayer()
+        try {
+            player.setDataSource(latest.absolutePath)
+            player.setOnCompletionListener {
+                it.release()
+                onComplete()
+            }
+            player.prepare()
+            player.start()
+            return player
+        } catch (error: Exception) {
+            player.release()
+            throw error
         }
     }
 
