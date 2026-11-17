@@ -103,7 +103,7 @@ internal fun StevoraHomeOverview(
         }
     }
     Column(
-        modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF172F50), homeBg, Color(0xFF060D1B)))).verticalScroll(rememberScrollState())
+        modifier = Modifier.fillMaxSize().background(StevoraDesign.gradient).verticalScroll(rememberScrollState())
             .padding(horizontal = 18.dp, vertical = 22.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -120,9 +120,9 @@ internal fun StevoraHomeOverview(
         }
         Card(
             modifier = Modifier.fillMaxWidth(),
-            border = BorderStroke(1.dp, Color(0xFF365779)),
+            border = BorderStroke(1.dp, StevoraDesign.border),
             shape = RoundedCornerShape(26.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF132840)),
+            colors = CardDefaults.cardColors(containerColor = StevoraDesign.surfaceRaised),
         ) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("CLIMATE CENTER", color = homeText, fontSize = 20.sp)
@@ -175,7 +175,10 @@ internal fun StevoraHomeOverview(
                 HomeMetric(if (bg) "Влажност" else "Humidity", if (humidity == "—") "—" else "$humidity%")
             }
         }
-        Text(if (bg) "СЪСТОЯНИЕ" else "STATUS", color = homeMuted, fontSize = 12.sp, letterSpacing = 2.sp)
+        StevoraSectionHeading(
+            if (bg) "СЪСТОЯНИЕ" else "STATUS",
+            if (bg) "Данни от свързаните устройства" else "Live device readings",
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.weight(1f)) {
                 HomeMetric(if (bg) "Светлини ON" else "Lights ON", activeLights?.toString() ?: "—")
@@ -184,7 +187,10 @@ internal fun StevoraHomeOverview(
                 HomeMetric(if (bg) "Вентилатор" else "Bathroom fan", bathroomFan)
             }
         }
-        Text(if (bg) "БЪРЗ ДОСТЪП" else "QUICK ACCESS", color = homeMuted, fontSize = 12.sp, letterSpacing = 2.sp)
+        StevoraSectionHeading(
+            if (bg) "БЪРЗ ДОСТЪП" else "QUICK ACCESS",
+            if (bg) "Нативни контроли и асистент" else "Native controls and assistant",
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
