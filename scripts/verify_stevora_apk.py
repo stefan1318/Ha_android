@@ -16,12 +16,22 @@ for apk in apks:
         if bad:
             sys.exit(f"Corrupt APK ZIP member: {bad}")
         entries = set(archive.namelist())
-        logo = "res/drawable-nodpi-v4/stevora_logo.png"
-        if logo not in entries:
-            sys.exit(f"Missing STEVORA logo in {apk.name}")
-        required = [f"res/mipmap-{d}-v4/ic_launcher.png" for d in ("mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi")]
-        required += [f"res/mipmap-{d}-v4/ic_launcher_round.png" for d in ("mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi")]
-        required.append("res/mipmap-xhdpi-v4/ic_banner.png")
+        logo_candidates = sorted(p for p in entries if p.startswith("res/") and p.endswith("/stevora_logo.png"))
+        if not logo_candidates:
+            diagnostic = sorted(p for p in entries if "stevora" in p.lower() or "launcher" in p.lower())
+            sys.exit(f"Missing STEVORA logo in {apk.name}; related entries: {diagnostic[:35]}")
+        logo = logo_candidates[0]
+        required = []
+        for density in ("mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"):
+            for name in ("ic_launcher.png", "ic_launcher_round.png"):
+                matches = sorted(p for p in entries if p.startswith(f"res/mipmap-{density}") and p.endswith("/" + name))
+                if not matches:
+                    sys.exit(f"Missing STEVORA launcher asset: {density}/{name}")
+                required.append(matches[0])
+        banner = sorted(p for p in entries if p.startswith("res/mipmap-xhdpi") and p.endswith("/ic_banner.png"))
+        if not banner:
+            sys.exit("Missing STEVORA banner asset: xhdpi/ic_banner.png")
+        required.append(banner[0])
         for entry in [logo, *required]:
             if entry not in entries:
                 sys.exit(f"Missing brand asset: {entry}")
