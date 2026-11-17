@@ -17,6 +17,9 @@ if (len(png_bytes) < 24 or png_bytes[:8] != bytes.fromhex("89504e470d0a1a0a") or
     sys.exit("Release gate failed: official logo is not a 512x512 PNG")
 if hashlib.sha256(png_bytes).hexdigest() != "58e54712a07d909695a4bbdef5ef0d80dccae05e2485730011b8e588951349e0":
     sys.exit("Release gate failed: logo SHA-256 does not match approved original")
+apk_verifier = (root / "scripts/verify_stevora_apk.py").read_text()
+if "res/drawable-nodpi-v4/stevora_logo.png" not in apk_verifier:
+    sys.exit("Release gate failed: compiled APK verification must validate the approved PNG")
 welcome = (root / "app/src/main/kotlin/io/homeassistant/companion/android/onboarding/welcome/WelcomeTemplate.kt").read_text()
 if "painterResource(R.drawable.stevora_logo)" not in welcome:
     sys.exit("Release gate failed: onboarding does not use original logo")

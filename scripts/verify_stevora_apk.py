@@ -16,7 +16,7 @@ for apk in apks:
         if bad:
             sys.exit(f"Corrupt APK ZIP member: {bad}")
         entries = set(archive.namelist())
-        logo = "res/drawable-nodpi-v4/stevora_logo.jpg"
+        logo = "res/drawable-nodpi-v4/stevora_logo.png"
         if logo not in entries:
             sys.exit(f"Missing STEVORA logo in {apk.name}")
         required = [f"res/mipmap-{d}-v4/ic_launcher.png" for d in ("mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi")]
@@ -27,4 +27,8 @@ for apk in apks:
                 sys.exit(f"Missing brand asset: {entry}")
             with Image.open(io.BytesIO(archive.read(entry))) as im:
                 im.verify()
+            if entry == logo:
+                with Image.open(io.BytesIO(archive.read(entry))) as im:
+                    if im.size != (512, 512) or im.format != "PNG":
+                        sys.exit("Compiled STEVORA logo must be the approved 512x512 PNG")
         print(f"STEVORA APK brand resources validated: {apk.name} ({apk.stat().st_size} bytes)")
