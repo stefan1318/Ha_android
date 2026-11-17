@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.coroutines.flow.collect
 import io.homeassistant.companion.android.common.data.websocket.impl.entities.AssistPipelineEventType
 import io.homeassistant.companion.android.common.data.websocket.impl.entities.AssistPipelineIntentEnd
@@ -50,6 +51,8 @@ internal fun StevoraMemoryManager(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var refresh by remember { mutableStateOf(0) }
     var query by remember { mutableStateOf("") }
+    var bridgeResult by remember { mutableStateOf<String?>(null) }
+    var bridgeBusy by remember { mutableStateOf(false) }
     var aiResult by remember { mutableStateOf<String?>(null) }
     var searching by remember { mutableStateOf(false) }
     var memoryPipeline by remember { mutableStateOf<String?>(null) }
@@ -148,6 +151,78 @@ internal fun StevoraMemoryManager(onBack: () -> Unit) {
                         Text(id.removePrefix("sensor.").replace('_', ' '), color = Color(0xFFA6BCCD))
                         Text(state, color = Color.White)
                     }
+                }
+            }
+            Text(tr("Канонична памет • удостоверен HA WebSocket мост",
+                "Canonical memory • authenticated HA WebSocket bridge"),
+                color = Color(0xFF27B9F5))
+            listOf(
+                "knowledge_base.md" to tr("База знания", "Knowledge base"),
+                "decisions.json" to tr("Решения", "Decisions"),
+                "implementation.json" to tr("Реализации", "Implementations"),
+                "memory_status.json" to tr("Статус на синхронизацията", "Sync status"),
+                "proposals" to tr("Предложения за преглед", "Review proposals"),
+            ).forEach { (file, label) ->
+                OutlinedButton(
+                    enabled = !bridgeBusy,
+                    onClick = {
+                        bridgeBusy = true
+                        bridgeResult = null
+                        scope.launch {
+                            try {
+                                val socket = manager.webSocketRepository()
+                                val response = if (file == "proposals") {
+                                    socket.getStevoraMemory("proposals")
+                                } else {
+                                    socket.getStevoraMemory("read", mapOf("filename" to file))
+                                }
+                                bridgeResult = if (response == null) {
+                                    tr("Мостът не е инсталиран, не е достъпен или достъпът е отказан.",
+                                        "Bridge unavailable, not installed or access denied.")
+                                } else if (file == "proposals") {
+                                    response["proposals"]?.toString() ?: "[]"
+                                } else {
+                                    response["content"]?.jsonPrimitive?.content ?: ""
+                                }
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (_: Exception) {
+                                bridgeResult = tr("Грешка при четене от моста", "Bridge read failed")
+                            } finally {
+                                bridgeBusy = false
+                            }
+                        }
+                    },
+                ) { Text(label) }
+            }
+            OutlinedButton(
+                enabled = !bridgeBusy && query.isNotBlank(),
+                onClick = {
+                    bridgeBusy = true
+                    bridgeResult = null
+                    scope.launch {
+                        try {
+                            val result = manager.webSocketRepository().getStevoraMemory(
+                                "search", mapOf("query" to query.trim()),
+                            )
+                            bridgeResult = result?.get("results")?.toString()
+                                ?: tr("Няма достъп до моста", "Bridge unavailable")
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (_: Exception) {
+                            bridgeResult = tr("Търсенето е неуспешно", "Search failed")
+                        } finally {
+                            bridgeBusy = false
+                        }
+                    }
+                },
+            ) { Text(tr("Търси в каноничната памет", "Search canonical memory")) }
+            bridgeResult?.let { result ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF122437)),
+                ) {
+                    Text(result.take(40_000), modifier = Modifier.padding(16.dp), color = Color.White)
                 }
             }
             Text(
