@@ -58,6 +58,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
@@ -274,7 +277,7 @@ private fun ScreenContent(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = stringResource(commonR.string.searching_home_network),
+            text = if (LocalConfiguration.current.locales[0].language == "bg") "Търсене на STEVORA Home Hub" else "Searching for STEVORA Home Hub",
             style = HATextStyle.Headline,
             modifier = Modifier.padding(top = HADimens.SPACE6),
         )
@@ -285,7 +288,7 @@ private fun ScreenContent(
         }
 
         HAPlainButton(
-            text = stringResource(commonR.string.manual_setup),
+            text = if (LocalConfiguration.current.locales[0].language == "bg") "Въведи адрес ръчно" else "Enter Hub address manually",
             onClick = onManualSetupClick,
             modifier = Modifier.fillMaxWidth().padding(bottom = HADimens.SPACE6),
         )
@@ -335,7 +338,7 @@ private fun ServerItemContent(server: ServerDiscovered, onConnectClick: (URL) ->
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Image(
-            imageVector = ImageVector.vectorResource(R.drawable.ic_home_assistant_branding),
+            imageVector = ImageVector.vectorResource(R.drawable.stevora_brand_mark),
             contentDescription = null,
             modifier = Modifier
                 .size(ICON_SIZE)
@@ -348,7 +351,7 @@ private fun ServerItemContent(server: ServerDiscovered, onConnectClick: (URL) ->
                 .padding(end = HADimens.SPACE4),
         ) {
             Text(
-                text = server.name,
+                text = "STEVORA Home Hub",
                 style = HATextStyle.Body.copy(textAlign = TextAlign.Start),
             )
             Text(
