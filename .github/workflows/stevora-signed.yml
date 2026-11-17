@@ -70,7 +70,7 @@ jobs:
       - name: Verify STEVORA Stable version
         run: |
           APK=$(find app/build/outputs/apk/minimal/release -name '*.apk' -type f | head -n 1)
-          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt" dump badging "$APK" | grep "versionName='2.0.0'"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt" dump badging "$APK" | grep "versionName='2.0.0-minimal'"
       - name: Upload installable signed APK
         uses: actions/upload-artifact@v4
         with:
