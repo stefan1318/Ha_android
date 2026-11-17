@@ -8,6 +8,7 @@ on:
       - feature/stevora-companion
     paths:
       - '.github/workflows/stevora-full-release.yml'
+      - 'scripts/verify_stevora_apk.py'
 
 permissions:
   contents: read
