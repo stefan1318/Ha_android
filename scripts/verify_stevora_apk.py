@@ -5,6 +5,7 @@ from zipfile import ZipFile
 from PIL import Image
 import io
 import sys
+import hashlib
 
 root = Path(__file__).resolve().parents[1]
 apks = sorted((root / "app/build/outputs/apk").rglob("*.apk"))
@@ -21,6 +22,9 @@ for apk in apks:
             diagnostic = sorted(p for p in entries if "stevora" in p.lower() or "launcher" in p.lower())
             sys.exit(f"Missing STEVORA logo in {apk.name}; related entries: {diagnostic[:35]}")
         logo = logo_candidates[0]
+        approved_logo_sha256 = hashlib.sha256((root / "app/src/main/res/drawable-nodpi/stevora_logo.png").read_bytes()).hexdigest()
+        if hashlib.sha256(archive.read(logo)).hexdigest() != approved_logo_sha256:
+            sys.exit(f"Compiled STEVORA logo differs from approved original: {logo}")
         required = []
         for density in ("mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"):
             for name in ("ic_launcher.png", "ic_launcher_round.png"):

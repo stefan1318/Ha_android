@@ -9,6 +9,8 @@ on:
     paths:
       - '.github/workflows/stevora-full-release.yml'
       - 'scripts/verify_stevora_apk.py'
+      - 'scripts/check_stevora_release_gate.py'
+      - 'app/build.gradle.kts'
 
 permissions:
   contents: read

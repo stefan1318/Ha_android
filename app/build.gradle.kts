@@ -26,6 +26,10 @@ android {
     }
 
     buildTypes {
+        getByName("release") {
+            // Preserve branded drawable names and PNGs in the signed Full APK.
+            isShrinkResources = false
+        }
         debug {
             // Required for HWASan wrap.sh to be included uncompressed in the APK
             // See https://developer.android.com/ndk/guides/hwasan
