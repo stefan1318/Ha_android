@@ -107,8 +107,8 @@ internal fun StevoraSettingsHome(
     if (confirmLogout) {
         AlertDialog(
             onDismissRequest = { if (!loggingOut) confirmLogout = false },
-            title = { Text("Sign out of STEVORA?") },
-            text = { Text("Sign out and return directly to the saved Home Hub login address.") },
+            title = { Text(tr("Изход от STEVORA?", "Sign out of STEVORA?")) },
+            text = { Text(tr("Излез от профила и се върни към запазения адрес за вход в Home Hub.", "Sign out and return directly to the saved Home Hub login address.")) },
             confirmButton = {
                 Button(
                     enabled = !loggingOut,
@@ -151,10 +151,10 @@ internal fun StevoraSettingsHome(
                             }
                         }
                     },
-                ) { Text("Sign out") }
+                ) { Text(tr("Изход", "Sign out")) }
             },
             dismissButton = {
-                OutlinedButton(enabled = !loggingOut, onClick = { confirmLogout = false }) { Text("Cancel") }
+                OutlinedButton(enabled = !loggingOut, onClick = { confirmLogout = false }) { Text(tr("Отказ", "Cancel")) }
             },
         )
     }
@@ -194,7 +194,7 @@ internal fun StevoraSettingsHome(
                 colors = CardDefaults.cardColors(containerColor = surface),
             ) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("PERSONAL VOICE SETTINGS", color = accent, fontSize = 13.sp)
+                    Text(tr("ЛИЧНИ ГЛАСОВИ НАСТРОЙКИ", "PERSONAL VOICE SETTINGS"), color = accent, fontSize = 13.sp)
                     Text(
                         "Your Assist pipeline is selected automatically by your Home Assistant account. " +
                             "These options affect only this device.",
@@ -206,7 +206,7 @@ internal fun StevoraSettingsHome(
                         color = muted, fontSize = 12.sp,
                     )
                     OutlinedButton(onClick = onVoiceSettings, modifier = Modifier.fillMaxWidth()) {
-                        Text("Microphone & Assist setup")
+                        Text(tr("Микрофон и настройки на Assist", "Microphone & Assist setup"))
                     }
                     Text(
                         "Voice settings are personal. Home Hub, AI agents and server configuration remain admin-managed.",
@@ -220,7 +220,7 @@ internal fun StevoraSettingsHome(
             SettingsInfo("Signed in as $accountName", if (admin) "Administrator account" else "Personal account")
             SettingsEntry(
                 "Sign out",
-                "Sign out while keeping your Home Hub connection settings",
+                tr("Изход със запазване на настройките за връзка", "Sign out while keeping your Home Hub connection settings"),
                 "⇥",
                 { confirmLogout = true },
             )
@@ -228,11 +228,11 @@ internal fun StevoraSettingsHome(
         if (loggingOut) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 CircularProgressIndicator()
-                Text("Signing out…", color = muted)
+                Text(tr("Излизане…", "Signing out…"), color = muted)
             }
         }
         logoutError?.let { Text(it, color = Color(0xFFFFA76B), fontSize = 12.sp) }
-        SettingsEntry("Back to home", "Return to your command center", "‹", onBack)
+        SettingsEntry(tr("Към началото", "Back to home"), tr("Връщане към контролния панел", "Return to your command center"), "‹", onBack)
         Text("STEVORA Companion 2.0 • Release Candidate", fontSize = 12.sp, color = muted)
     }
 }
