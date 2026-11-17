@@ -158,6 +158,10 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
             color = Color(0xFFA6BCCD),
         )
         if (loading) Text(tr("Зареждане…", "Loading…"), color = Color.White)
+        if (!loading && automations.isEmpty()) {
+            Text(tr("Няма достъпни автоматизации.", "No available automations."),
+                color = Color(0xFFA6BCCD))
+        }
         OutlinedTextField(
             value = filter,
             onValueChange = { filter = it.take(100) },
@@ -185,7 +189,15 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(id.removePrefix("automation.").replace('_', ' '), color = Color.White)
-                    Text(state, color = Color(0xFFA6BCCD))
+                    Text(
+                        when (state) {
+                            "on" -> tr("Активна", "Enabled")
+                            "off" -> tr("Изключена", "Disabled")
+                            "unavailable" -> tr("Недостъпна", "Unavailable")
+                            else -> state
+                        },
+                        color = Color(0xFFA6BCCD),
+                    )
                     OutlinedButton(
             enabled = busy == null && !configLoading,
             onClick = {
