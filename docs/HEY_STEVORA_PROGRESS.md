@@ -62,6 +62,27 @@ Deliver an opt-in, privacy-conscious **Hey STEVORA** voice activation experience
 
 | 2026-11-17 | Received pilot recording (35.99s, AAC 48kHz stereo), converted to 16kHz mono PCM, extracted 17 candidate positive clips from one speaker; created local private pilot ZIP and segment manifest | User-supplied audio; local sandbox artifact, not uploaded to public GitHub | Segmentation is heuristic; clips need listening review; no trained model yet |
 
+## Approved Voice ID direction — 2026-11-17
+
+The owner approved a **personalized-first Voice ID architecture** and requested an Android test prototype immediately. Keep the universal wake-word detector separate from speaker verification. Enrollment is opt-in; collect 10–20 short phrases per user locally. Never claim enrollment alone is speaker recognition. A production verifier must use on-device embeddings, calibrated acceptance thresholds, replay/impersonation threat assessment, rejection of uncertain samples, and explicit confirmation for incremental learning. Store biometric templates encrypted, support deletion, and never authorize sensitive actions by voice alone.
+
+### Voice ID acceptance gates
+1. **Android enrollment prototype:** explicit microphone permission, start/stop capture, local private storage, sample counter, delete-all; compile and verify on device. Status: **CODE COMMITTED, CI/DEVICE TEST PENDING**.
+2. **Enrollment quality:** reject silence, clipping, too-short samples; per-user consent and quality indicator. Pending.
+3. **Personal voice profile:** derive speaker embeddings using a licensed, tested pretrained speaker-verification model; calibrate using different-session speech and impostor negatives. Pending.
+4. **Local wake word + speaker verification:** run detection before verification; tune independent thresholds and false accepts/hour; minimize latency and battery use. Pending.
+5. **Controlled self-learning:** only high-confidence samples with opt-in/confirmation, quarantine candidates, rollback, prevent profile poisoning. Pending.
+6. **iOS native enrollment and verification:** foreground voice flow, Siri/App Intents, documented background restrictions; encrypted storage. Pending.
+7. **Cross-platform validation:** multiple devices, microphones, noise conditions, identity false accepts, user approval. Pending.
+
+**Android prototype branch:** `feature/hey-stevora-voice-id-prototype` based on protected `feature/stevora-companion`. Voice enrollment recordings remain on-device and are not uploaded to GitHub. Separate training research stays on `feature/hey-stevora-training`.
+
+### Voice ID implementation log
+| Date | Change | Evidence | Verification |
+| --- | --- | --- | --- |
+| 2026-11-17 | Added Android `StevoraVoiceEnrollment.kt` for private AAC recording, max 20 samples, delete-all | commit `5dd61be9b4e80d0070b5e26515640f0a2b0c6a0e` | Code committed; not yet compiled or tested |
+| 2026-11-17 | Added Voice ID recording UI, microphone permission and deletion controls to voice settings | commit `800609478c068dee60e0c6075b04f3ab9a794bef` | Code committed; not yet compiled or tested |
+
 ## Immediate next actions
 1. Verify the dataset CI workflow execution and fix any failures.
 2. Collect consented audio samples; use pilot 20–30 speakers, roughly 30–50 positive examples each, and diverse negative/background samples; expand based on evaluation.
