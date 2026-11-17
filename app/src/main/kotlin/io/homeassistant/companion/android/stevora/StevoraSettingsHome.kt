@@ -27,6 +27,13 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.content.pm.PackageManager
+import android.app.LocaleManager
+import android.os.LocaleList
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.FilterChip
+import java.net.URI
 import io.homeassistant.companion.android.launch.LaunchActivity.DeepLink
 import io.homeassistant.companion.android.launch.LaunchActivity
 import androidx.compose.runtime.Composable
@@ -72,7 +79,6 @@ internal fun StevoraSettingsHome(
     var admin by remember { mutableStateOf(false) }
     var checked by remember { mutableStateOf(false) }
     var accountName by remember { mutableStateOf("—") }
-    var voiceExpanded by remember { mutableStateOf(false) }
     var nativeSection by remember { mutableStateOf<String?>(null) }
     var climateExpanded by remember { mutableStateOf(false) }
     var automationExpanded by remember { mutableStateOf(false) }
@@ -205,34 +211,6 @@ internal fun StevoraSettingsHome(
             SettingsEntry(tr("Устройство и поверителност", "Device & privacy"), tr("Разрешения и известия", "Permissions and notifications"), "◈", { nativeSection = "privacy" })
             SettingsEntry(tr("Приложение и външен вид", "App & appearance"), tr("Език и тема", "Language and theme"), "◐", { nativeSection = "appearance" })
         }
-        if (checked && accountVerified && voiceExpanded) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = surface),
-            ) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(tr("ЛИЧНИ ГЛАСОВИ НАСТРОЙКИ", "PERSONAL VOICE SETTINGS"), color = accent, fontSize = 13.sp)
-                    Text(
-                        "Your Assist pipeline is selected automatically by your Home Assistant account. " +
-                            "These options affect only this device.",
-                        color = muted, fontSize = 12.sp,
-                    )
-                    Text(
-                        "Hey STEVORA wake-word recognition is reserved for a later update after voice model training. " +
-                            "It is not enabled in Companion 2.0.",
-                        color = muted, fontSize = 12.sp,
-                    )
-                    OutlinedButton(onClick = onVoiceSettings, modifier = Modifier.fillMaxWidth()) {
-                        Text(tr("Микрофон и настройки на Assist", "Microphone & Assist setup"))
-                    }
-                    Text(
-                        "Voice settings are personal. Home Hub, AI agents and server configuration remain admin-managed.",
-                        color = muted, fontSize = 12.sp,
-                    )
-                }
-            }
-        }
         if (checked && accountVerified) {
             Text(tr("ПРОФИЛ И СИГУРНОСТ", "ACCOUNT & SECURITY"), fontSize = 12.sp, color = accent)
             SettingsInfo("Signed in as $accountName", if (admin) "Administrator account" else "Personal account")
@@ -330,6 +308,65 @@ private fun StevoraNativeSettingsSection(
             })
         }
     }
+    val scope = rememberCoroutineScope()
+    var server by remember { mutableStateOf<io.homeassistant.companion.android.database.server.Server?>(null) }
+    var localUrl by remember { mutableStateOf("") }
+    var remoteUrl by remember { mutableStateOf("") }
+    var preferLocal by remember { mutableStateOf(false) }
+    var saveStatus by remember { mutableStateOf("") }
+    var confirmConnection by remember { mutableStateOf(false) }
+    var pipelines by remember { mutableStateOf<List<String>>(emptyList()) }
+    var pipelineStatus by remember { mutableStateOf("") }
+    var micAllowed by remember { mutableStateOf(false) }
+    var notificationsAllowed by remember { mutableStateOf(false) }
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        micAllowed = it
+    }
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        notificationsAllowed = it
+    }
+    LaunchedEffect(section) {
+        val current = manager.getServer()
+        server = current
+        localUrl = current?.connection?.internalUrl.orEmpty()
+        remoteUrl = current?.connection?.externalUrl.orEmpty()
+        preferLocal = current?.connection?.prioritizeInternal ?: false
+        micAllowed = context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        notificationsAllowed = if (Build.VERSION.SDK_INT >= 33) {
+            context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+        } else true
+        if (section == "voice" && current != null) {
+            try {
+                val socket = manager.webSocketRepository()
+                val user = socket.getCurrentUser()
+                val engine = if (user?.isAdmin == true || user?.isOwner == true)
+                    "conversation.living_room_openai_conversation"
+                else "conversation.openai_conversation_for_panels"
+                val all = socket.getAssistPipelines()?.pipelines.orEmpty()
+                pipelines = all.filter { it.conversationEngine.equals(engine, ignoreCase = true) }
+                    .map { it.name + " • " + it.id }
+                pipelineStatus = if (pipelines.isEmpty())
+                    tr("Няма съвместим Assist pipeline за този профил", "No role-compatible Assist pipeline")
+                else tr("Изборът е защитен според ролята на акаунта", "Pipeline selection is role-restricted")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                pipelineStatus = e.message ?: "Assist unavailable"
+            }
+        }
+    }
+    fun validUrl(value: String, allowHttp: Boolean): Boolean {
+        if (value.isBlank()) return true
+        return try {
+            val uri = URI(value.trim())
+            val scheme = uri.scheme?.lowercase()
+            (scheme == "https" || (allowHttp && scheme == "http")) &&
+                !uri.host.isNullOrBlank() && uri.userInfo == null &&
+                uri.fragment == null && uri.query == null
+        } catch (_: Exception) { false }
+    }
     val title = when (section) {
         "hub" -> "Home Hub"
         "voice" -> "STEVORA AI"
@@ -346,80 +383,139 @@ private fun StevoraNativeSettingsSection(
         Text("STEVORA • NATIVE SETTINGS", color = accent, fontSize = 11.sp)
         when (section) {
             "hub" -> {
-                val server = manager.getServer()
                 SettingsInfo(tr("Активен профил", "Active account"), accountName)
-                SettingsInfo(
-                    tr("Статус", "Status"),
-                    if (server == null) tr("Няма свързан Home Hub", "No Home Hub connected")
-                    else tr("Home Hub е конфигуриран", "Home Hub configured"),
-                )
-                if (admin && server != null) {
-                    SettingsInfo(tr("Локален адрес", "Local address"),
-                        server.connection.internalUrl ?: tr("Не е зададен", "Not configured"))
-                    SettingsInfo(tr("Външен адрес", "External address"),
-                        server.connection.externalUrl ?: tr("Не е зададен", "Not configured"))
+                if (server == null) {
+                    SettingsInfo("Home Hub", tr("Няма свързан сървър", "No server connected"))
+                } else {
+                    OutlinedTextField(
+                        value = localUrl,
+                        onValueChange = { localUrl = it.trim().take(512) },
+                        label = { Text(tr("Локален адрес", "Local URL")) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = remoteUrl,
+                        onValueChange = { remoteUrl = it.trim().take(512) },
+                        label = { Text(tr("Външен адрес (HTTPS)", "External URL (HTTPS)")) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(checked = preferLocal, onCheckedChange = { preferLocal = it })
+                        Text(tr("Предпочитай локалната връзка", "Prefer local connection"),
+                            modifier = Modifier.padding(start = 12.dp), color = foreground)
+                    }
+                    Button(
+                        enabled = validUrl(localUrl, true) && validUrl(remoteUrl, false) &&
+                            remoteUrl.isNotBlank(),
+                        onClick = { confirmConnection = true },
+                    ) { Text(tr("Запази връзката", "Save connection")) }
+                    Text(tr(
+                        "Проверявай внимателно адресите. Грешна промяна може да прекъсне достъпа.",
+                        "Check URLs carefully. Incorrect values may interrupt access.",
+                    ), color = muted, fontSize = 12.sp)
+                    if (confirmConnection) {
+                        AlertDialog(
+                            onDismissRequest = { confirmConnection = false },
+                            title = { Text(tr("Промяна на Home Hub", "Update Home Hub")) },
+                            text = { Text(tr("Запази новите адреси за връзка?", "Save the new connection addresses?")) },
+                            confirmButton = {
+                                Button(onClick = {
+                                    confirmConnection = false
+                                    scope.launch {
+                                        try {
+                                            val existing = server ?: error("No server")
+                                            val updated = existing.copy(connection = existing.connection.copy(
+                                                internalUrl = localUrl.ifBlank { null },
+                                                externalUrl = remoteUrl,
+                                                prioritizeInternal = preferLocal,
+                                            ))
+                                            manager.updateServer(updated)
+                                            server = updated
+                                            saveStatus = tr("Връзката е записана", "Connection saved")
+                                        } catch (e: Exception) {
+                                            saveStatus = e.message ?: tr("Грешка при запис", "Save failed")
+                                        }
+                                    }
+                                }) { Text(tr("Потвърди", "Confirm")) }
+                            },
+                            dismissButton = {
+                                OutlinedButton(onClick = { confirmConnection = false }) {
+                                    Text(tr("Отказ", "Cancel"))
+                                }
+                            },
+                        )
+                    }
+                    if (saveStatus.isNotEmpty()) Text(saveStatus, color = accent)
                 }
-                Text(tr(
-                    "Адресите и удостоверяването се управляват сигурно от Companion. За смяна на акаунта използвай Изход от основните настройки.",
-                    "Connections and authentication remain securely managed by Companion. To change account, use Sign out in the main settings.",
-                ), color = muted, fontSize = 13.sp)
             }
             "voice" -> {
-                val granted = context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) ==
-                    PackageManager.PERMISSION_GRANTED
                 SettingsInfo(tr("Достъп до микрофона", "Microphone access"),
-                    if (granted) tr("Разрешен", "Allowed") else tr("Не е разрешен", "Not allowed"))
-                SettingsEntry(tr("Разрешение за микрофона", "Microphone permission"),
-                    tr("Отвори Android разрешенията", "Open Android permissions"), "◉") {
-                    openSystem(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, true)
+                    if (micAllowed) tr("Разрешен", "Allowed") else tr("Не е разрешен", "Not allowed"))
+                if (!micAllowed) {
+                    Button(onClick = { micPermission.launch(android.Manifest.permission.RECORD_AUDIO) }) {
+                        Text(tr("Разреши микрофона", "Allow microphone"))
+                    }
                 }
-                SettingsInfo("Assist", tr(
-                    "Използва конфигурацията на Home Assistant акаунта.",
-                    "Uses your Home Assistant account's Assist configuration.",
-                ))
+                StevoraSectionHeading("Assist pipelines", pipelineStatus)
+                pipelines.forEach { SettingsInfo("STEVORA Assist", it) }
                 SettingsInfo("Hey STEVORA", tr(
-                    "Постоянното разпознаване не е активирано — необходим е валидиран модел.",
-                    "Always-on wake word is not enabled until a validated model is available.",
+                    "Постоянното разпознаване остава изключено до наличен валидиран модел.",
+                    "Always-on wake-word detection remains disabled until a validated model exists.",
                 ))
+                Text(tr(
+                    "Гласовите команди използват Assist pipeline според ролята на акаунта. Промяна на сървърния pipeline изисква отделна администраторска конфигурация.",
+                    "Voice commands use a role-matched Assist pipeline. Server pipeline changes require separate administrator configuration.",
+                ), color = muted, fontSize = 12.sp)
             }
             "privacy" -> {
-                val mic = context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) ==
-                    PackageManager.PERMISSION_GRANTED
                 SettingsInfo(tr("Микрофон", "Microphone"),
-                    if (mic) tr("Разрешен", "Allowed") else tr("Не е разрешен", "Not allowed"))
-                SettingsEntry(tr("Известия", "Notifications"),
-                    tr("Управление на Android известията", "Manage Android notifications"), "◉") {
-                    openSystem(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                }
-                SettingsEntry(tr("Разрешения на приложението", "App permissions"),
-                    tr("Микрофон, местоположение и други", "Microphone, location and more"), "◇") {
-                    openSystem(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, true)
+                    if (micAllowed) tr("Разрешен", "Allowed") else tr("Не е разрешен", "Not allowed"))
+                if (!micAllowed) Button(onClick = {
+                    micPermission.launch(android.Manifest.permission.RECORD_AUDIO)
+                }) { Text(tr("Разреши микрофона", "Allow microphone")) }
+                SettingsInfo(tr("Известия", "Notifications"),
+                    if (notificationsAllowed) tr("Разрешени", "Allowed") else tr("Не са разрешени", "Not allowed"))
+                if (!notificationsAllowed && Build.VERSION.SDK_INT >= 33) {
+                    Button(onClick = {
+                        notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    }) { Text(tr("Разреши известията", "Allow notifications")) }
                 }
                 Text(tr(
-                    "STEVORA не съхранява повторно пароли или токени в това меню.",
-                    "STEVORA does not duplicate passwords or tokens in this settings screen.",
+                    "Android управлява отнемането на разрешения и допълнителните ограничения. STEVORA не може да ги заобикаля.",
+                    "Android controls permission revocation and additional restrictions. STEVORA cannot bypass them.",
                 ), color = muted, fontSize = 12.sp)
             }
             else -> {
-                SettingsInfo(tr("Визуална тема", "Visual theme"),
-                    tr("STEVORA Premium Dark — активна", "STEVORA Premium Dark — active"))
-                SettingsInfo(tr("Език на интерфейса", "Interface language"),
-                    if (bg) "Български" else "English")
-                SettingsEntry(tr("Езикови настройки", "Language preferences"),
-                    tr("Промяна чрез Android, когато се поддържа", "Change via Android when supported"), "◎") {
-                    if (Build.VERSION.SDK_INT >= 33) {
-                        openSystem(Settings.ACTION_APP_LOCALE_SETTINGS, true)
-                    } else {
-                        openSystem(Settings.ACTION_LOCALE_SETTINGS)
+                SettingsInfo(tr("Визуална тема", "Visual theme"), "STEVORA Premium Dark")
+                Text(tr("Език на приложението", "App language"), color = foreground)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    listOf("bg" to "Български", "en" to "English").forEach { (code, label) ->
+                        FilterChip(
+                            selected = if (Build.VERSION.SDK_INT >= 33) {
+                                val lm = context.getSystemService(LocaleManager::class.java)
+                                lm.applicationLocales.toLanguageTags().startsWith(code)
+                            } else bg == (code == "bg"),
+                            onClick = {
+                                if (Build.VERSION.SDK_INT >= 33) {
+                                    context.getSystemService(LocaleManager::class.java)
+                                        .applicationLocales = LocaleList.forLanguageTags(code)
+                                } else {
+                                    saveStatus = tr(
+                                        "Изборът на език в приложението изисква Android 13+.",
+                                        "In-app language selection requires Android 13+.",
+                                    )
+                                }
+                            },
+                            label = { Text(label) },
+                        )
                     }
                 }
-                SettingsEntry(tr("Настройки на приложението", "Application settings"),
-                    tr("Android системни разрешения и данни", "Android app permissions and data"), "◇") {
-                    openSystem(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, true)
-                }
+                if (saveStatus.isNotEmpty()) Text(saveStatus, color = accent)
                 Text(tr(
-                    "Смяната на темата вътре в приложението предстои; показаната тема е действително активната.",
-                    "In-app theme switching is not yet supported; the displayed theme is the currently active one.",
+                    "Темата STEVORA Premium Dark е единната продуктова тема. Системните разрешения не се променят без съгласие.",
+                    "STEVORA Premium Dark is the unified product theme. System permissions are never changed without consent.",
                 ), color = muted, fontSize = 12.sp)
             }
         }
