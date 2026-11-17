@@ -1,0 +1,79 @@
+name: STEVORA Voice ID signed in-place test APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hey-stevora-voice-id-prototype
+    paths:
+      - 'app/**'
+      - 'scripts/**'
+      - '.github/workflows/stevora-voice-id-signed.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  signed-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore existing STEVORA signing identity
+        env:
+          STEVORA_KEYSTORE_BASE64: ${{ secrets.STEVORA_KEYSTORE_BASE64 }}
+          STEVORA_KEYSTORE_PASSWORD: ${{ secrets.STEVORA_KEYSTORE_PASSWORD }}
+          STEVORA_KEY_ALIAS: ${{ secrets.STEVORA_KEY_ALIAS }}
+          STEVORA_KEY_PASSWORD: ${{ secrets.STEVORA_KEY_PASSWORD }}
+          STEVORA_FIREBASE_CONFIG_BASE64: ${{ secrets.STEVORA_FIREBASE_CONFIG_BASE64 }}
+        run: |
+          set -euo pipefail
+          for key in STEVORA_KEYSTORE_BASE64 STEVORA_KEYSTORE_PASSWORD STEVORA_KEY_ALIAS STEVORA_KEY_PASSWORD; do
+            if [ -z "${!key}" ]; then echo "::error::Missing signing secret: $key"; exit 1; fi
+          done
+          printf '%s' "$STEVORA_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/stevora-release.keystore"
+          chmod 600 "$RUNNER_TEMP/stevora-release.keystore"
+          if [ -n "$STEVORA_FIREBASE_CONFIG_BASE64" ]; then
+            printf '%s' "$STEVORA_FIREBASE_CONFIG_BASE64" | base64 --decode > app/google-services.json
+          fi
+      - name: Validate app and prepare branding
+        run: |
+          python3 scripts/check_stevora_release_gate.py
+          python3 scripts/check_stevora_resources.py
+          python3 -m pip install --user Pillow==11.3.0
+          python3 scripts/prepare_stevora_branding.py
+          mkdir -p app/src/main/assets/stevora
+          cp app/src/main/res/drawable-nodpi/stevora_logo.png app/src/main/assets/stevora/approved_logo.png
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Compile full signed in-place test APK
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/stevora-release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.STEVORA_KEYSTORE_PASSWORD }}
+          KEYSTORE_ALIAS: ${{ secrets.STEVORA_KEY_ALIAS }}
+          KEYSTORE_ALIAS_PASSWORD: ${{ secrets.STEVORA_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # Reserve a monotonic TEST track. Production releases must use a higher versionCode.
+          export VERSION_CODE="$((2000000 + GITHUB_RUN_NUMBER))"
+          echo "Signed test versionCode=$VERSION_CODE"
+          ./gradlew :app:assembleFullRelease --no-parallel --max-workers=2 --stacktrace
+      - name: Verify package, signing and update identity
+        run: |
+          set -euo pipefail
+          APK=$(find app/build/outputs/apk/full/release -name '*.apk' -type f | head -n 1)
+          test -n "$APK"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          "$BUILD_TOOLS/apksigner" verify --print-certs "$APK"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" | grep -F "package: name='com.stevora.companion'"
+          sha256sum "$APK"
+          echo "::notice::In-place upgrade requires the same signing certificate and a strictly higher versionCode than the installed APK."
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stevora-voice-id-full-signed-test-apk
+          path: app/build/outputs/apk/full/release/*.apk
+          if-no-files-found: error
+          retention-days: 30
