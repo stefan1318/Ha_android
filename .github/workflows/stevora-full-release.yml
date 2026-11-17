@@ -11,6 +11,7 @@ on:
       - 'scripts/verify_stevora_apk.py'
       - 'scripts/check_stevora_release_gate.py'
       - 'app/build.gradle.kts'
+      - 'scripts/check_stevora_update_contract.py'
 
 permissions:
   contents: read
@@ -56,6 +57,7 @@ jobs:
           fi
       - name: Validate release gate and prepare branding
         run: |
+          python3 scripts/check_stevora_update_contract.py
           python3 scripts/check_stevora_release_gate.py
           python3 scripts/check_stevora_resources.py
           python3 -m pip install --user Pillow==11.3.0
