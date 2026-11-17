@@ -208,7 +208,23 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                 }
             },
             confirmButton = {
-                Button(enabled = !configLoading, onClick = { inspecting = null; config = null }) {
+                Button(enabled = !configLoading && config?.get("config") is JsonObject, onClick = {
+                    val raw = config?.get("config") as? JsonObject ?: return@Button
+                    val id = raw["id"]?.jsonPrimitive?.contentOrNull
+                    if (id.isNullOrBlank()) {
+                        status = tr("Автоматизацията няма ID", "Automation has no ID")
+                    } else {
+                        editId = id
+                        editText = raw.toString()
+                        baseline = raw
+                        sourceEntityId = inspecting
+                        editError = ""
+                        inspecting = null
+                    }
+                }) { Text(tr("Редактирай", "Edit")) }
+            },
+            dismissButton = {
+                OutlinedButton(enabled = !configLoading, onClick = { inspecting = null; config = null }) {
                     Text(tr("Затвори", "Close"))
                 }
             },
