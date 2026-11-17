@@ -81,7 +81,7 @@ jobs:
           # Hilt bytecode instrumentation can race generated Hilt classes in parallel/cached release builds.
           # Force fresh, ordered processing of :common and the full release variant.
           ./gradlew --stop || true
-          ./gradlew :common:clean :app:clean :app:assembleFullRelease \\
+          ./gradlew :common:clean :app:clean :app:assembleFullRelease \
             --no-build-cache --no-configuration-cache --no-parallel --max-workers=2 --stacktrace
       - name: Verify signed full APK
         run: |
