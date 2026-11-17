@@ -52,3 +52,7 @@ Added per-sample listing, playback, and confirmation-gated individual deletion i
 - Aligned signed test APK build with the established clean, ordered Hilt Gradle workflow to reduce release build races.
 - GitHub Actions compile/test outcomes and real-device microphone/playback behavior remain unverified at the time of this update.
 - **Still pending:** speaker embedding model, true per-speaker verification, confirmed learning, valid microWakeWord TFLite wake-word detector, and device-level activation. Do not enable automatic Hey Stevora until both models pass real-device acceptance.
+
+## CI recovery — 2026-11-17
+
+Signed test run 44162755615 failed because workflow supplied a doubled shell backslash before the Gradle flags, causing Gradle to receive an invalid task named `\\`. Corrected the workflow to use a single shell continuation in commit `6da6f6edf5c0fba82f3c4b848c5af7966b59b70d`. Replacement signed run 44163234760 started; success, package signing, versionCode and physical installation remain pending verification. No Voice ID model or live wake-word activation was added in this CI-only fix.
