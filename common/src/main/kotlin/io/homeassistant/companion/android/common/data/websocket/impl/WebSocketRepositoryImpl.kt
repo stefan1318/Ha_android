@@ -137,6 +137,19 @@ class WebSocketRepositoryImpl internal constructor(
         return response
     }
 
+    override suspend fun getStevoraMemory(
+        command: String,
+        parameters: Map<String, Any?>,
+    ): JsonObject? {
+        require(command in setOf("read", "search", "proposals"))
+        val user = getCurrentUser() ?: return null
+        if (!user.isAdmin && !user.isOwner) return null
+        val response = webSocketCore.sendMessage(
+            mapOf("type" to "stevora_memory/$command") + parameters,
+        )
+        return response?.takeIf { it.success == true }?.result as? JsonObject
+    }
+
     override suspend fun getStates(): List<EntityResponse>? {
         val socketResponse = webSocketCore.sendMessage(
             mapOf(
