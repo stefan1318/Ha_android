@@ -1,5 +1,6 @@
 package io.homeassistant.companion.android.common.data.integration
 
+import kotlinx.serialization.json.JsonObject
 import io.homeassistant.companion.android.common.data.LocalStorage
 import io.homeassistant.companion.android.common.data.integration.impl.IntegrationRepositoryImpl
 import io.homeassistant.companion.android.common.data.integration.impl.IntegrationService
@@ -18,6 +19,8 @@ import javax.inject.Provider
 import kotlinx.coroutines.flow.Flow
 
 interface IntegrationRepository {
+    suspend fun saveStevoraAutomation(id: String, config: JsonObject): Boolean
+
 
     suspend fun registerDevice(deviceRegistration: DeviceRegistration)
     suspend fun updateRegistration(deviceRegistration: DeviceRegistration, allowReregistration: Boolean = true)
