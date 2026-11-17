@@ -1,6 +1,7 @@
 package io.homeassistant.companion.android.onboarding.manualserver
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -90,7 +91,7 @@ internal fun ManualServerScreen(
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.background(Color(0xFF08131F)),
         topBar = { HATopBar(onHelpClick = onHelpClick, onBackClick = onBackClick) },
         contentWindowInsets = WindowInsets.safeDrawing,
     ) { contentPadding ->
@@ -130,7 +131,7 @@ private fun ManualServerContent(
         )
         Text(
             text = "STEVORA HOME HUB",
-            style = HATextStyle.Headline,
+            style = HATextStyle.Headline.copy(color = Color.White),
         )
 
         Text(if (LocalConfiguration.current.locales[0].language == "bg") "Въведете адреса на вашия Home Hub" else "Enter your Home Hub address", color = Color(0xFF27B9F5), fontSize = 14.sp)
@@ -182,7 +183,7 @@ private fun ServerUrlTextField(
         placeholder = {
             Text(
                 text = "https://hub.example.com",
-                style = HATextStyle.UserInput,
+                style = HATextStyle.UserInput.copy(color = Color.White),
                 color = LocalHAColorScheme.current.colorOnNeutralNormal,
             )
         },
@@ -206,7 +207,7 @@ private fun ServerUrlTextField(
         supportingText = {
             if (isError) {
                 Text(
-                    text = stringResource(commonR.string.manual_server_wrong_url),
+                    text = if (LocalConfiguration.current.locales[0].language == "bg") "Невалиден адрес на Home Hub" else "Invalid Home Hub address",
                     style = HATextStyle.BodyMedium.copy(color = LocalHAColorScheme.current.colorBorderDangerNormal),
                 )
             }
