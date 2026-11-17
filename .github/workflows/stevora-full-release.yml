@@ -12,6 +12,7 @@ on:
       - 'scripts/check_stevora_release_gate.py'
       - 'app/build.gradle.kts'
       - 'scripts/check_stevora_update_contract.py'
+      - 'app/src/main/kotlin/io/homeassistant/companion/android/stevora/**'
 
 permissions:
   contents: read
