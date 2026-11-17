@@ -140,7 +140,7 @@ internal fun ConnectionScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Image(
-                    imageVector = ImageVector.vectorResource(R.drawable.ic_launcher_foreground),
+                    imageVector = ImageVector.vectorResource(R.drawable.stevora_brand_mark),
                     contentDescription = "STEVORA",
                     modifier = Modifier.size(if (compact) 22.dp else 48.dp),
                 )
@@ -187,7 +187,7 @@ private fun ErrorPlaceholder() {
         contentAlignment = Alignment.Center,
     ) {
         Image(
-            imageVector = ImageVector.vectorResource(R.drawable.ic_launcher_foreground),
+            imageVector = ImageVector.vectorResource(R.drawable.stevora_brand_mark),
             contentDescription = null,
             modifier = Modifier.size(ICON_SIZE),
         )
