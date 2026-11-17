@@ -2,6 +2,8 @@ package io.homeassistant.companion.android.stevora
 
 import android.content.Context
 import android.media.MediaRecorder
+import android.media.MediaMetadataRetriever
+import android.os.SystemClock
 import android.os.Build
 import java.io.File
 
@@ -26,6 +28,7 @@ internal class StevoraVoiceEnrollment(private val context: Context) {
 
     private var recorder: MediaRecorder? = null
     private var pendingFile: File? = null
+    private var recordingStartedAt: Long = 0L
 
     val sampleCount: Int
         get() = if (profileId == null) 0 else directory.listFiles()?.count { it.isFile && it.extension == "m4a" } ?: 0
@@ -53,6 +56,7 @@ internal class StevoraVoiceEnrollment(private val context: Context) {
             next.setOutputFile(output.absolutePath)
             next.prepare()
             next.start()
+            recordingStartedAt = SystemClock.elapsedRealtime()
             pendingFile = output
             recorder = next
         } catch (error: Exception) {
@@ -69,9 +73,11 @@ internal class StevoraVoiceEnrollment(private val context: Context) {
         recorder = null
         pendingFile = null
         var valid = false
+        val elapsedMs = SystemClock.elapsedRealtime() - recordingStartedAt
         try {
             active.stop()
-            valid = save && output != null && output.length() >= MIN_BYTES
+            valid = save && output != null && elapsedMs >= MIN_DURATION_MS &&
+                output.length() >= MIN_BYTES && hasDecodableAudio(output)
         } catch (_: RuntimeException) {
             valid = false
         } finally {
@@ -80,6 +86,20 @@ internal class StevoraVoiceEnrollment(private val context: Context) {
             if (!valid) output?.delete()
         }
         return valid
+    }
+
+    private fun hasDecodableAudio(file: File): Boolean {
+        val metadata = MediaMetadataRetriever()
+        return try {
+            metadata.setDataSource(file.absolutePath)
+            val duration = metadata.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+            val hasAudio = metadata.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO) == "yes"
+            hasAudio && duration >= MIN_DURATION_MS
+        } catch (_: Exception) {
+            false
+        } finally {
+            metadata.release()
+        }
     }
 
     fun deleteAll() {
@@ -92,5 +112,6 @@ internal class StevoraVoiceEnrollment(private val context: Context) {
     companion object {
         const val MAX_SAMPLES = 20
         private const val MIN_BYTES = 2048L
+        private const val MIN_DURATION_MS = 1000L
     }
 }
