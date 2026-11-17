@@ -1,10 +1,15 @@
 package io.homeassistant.companion.android.stevora
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +22,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -34,6 +41,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -304,18 +313,41 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                             group.forEach { (control, entity) ->
                                 androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
 
+                    val activeColor by animateColorAsState(
+                        targetValue = if (entity.state == "on" || (entity.domain == "climate" && entity.state != "off")) StevoraDesign.surfaceRaised else tile,
+                        animationSpec = tween(320),
+                        label = "stevora-device-state",
+                    )
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = tile),
+                        colors = CardDefaults.cardColors(containerColor = activeColor),
                         shape = RoundedCornerShape(20.dp),
                         border = BorderStroke(1.dp, panelBorder),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().animateContentSize(),
                     ) {
                         Column(
                             Modifier.padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            Text(if (bgLanguage) control.labelBg else control.labelEn,
-                                color = white, fontSize = 17.sp)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(if (bgLanguage) control.labelBg else control.labelEn,
+                                    color = white, fontSize = 17.sp)
+                                if (busy == entity.entityId) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        color = cyan,
+                                        strokeWidth = 2.dp,
+                                    )
+                                } else {
+                                    Box(
+                                        Modifier.size(9.dp).clip(RoundedCornerShape(50))
+                                            .background(if (entity.state == "on" || (entity.domain == "climate" && entity.state != "off")) StevoraDesign.success else secondary),
+                                    )
+                                }
+                            }
                             val available = entity.state != "unavailable" && entity.state != "unknown"
                             if (entity.domain == "media_player") {
                                 // HA can report unavailable while the television still accepts
@@ -366,9 +398,27 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                 Text(localized(bgLanguage, "Недостъпно", "Unavailable"), color = secondary)
                             } else if (entity.domain == "climate") {
                                 val current = entity.attributes["current_temperature"] as? Number
-                                if (current != null) {
-                                    Text(localized(bgLanguage, "В помещението: ", "Room: ") +
-                                        current.toFloat().toString() + " °C", color = secondary)
+                                val currentReading = current?.toFloat()
+                                val animatedRoomTemp by animateFloatAsState(
+                                    targetValue = currentReading ?: 0f,
+                                    animationSpec = tween(600),
+                                    label = "stevora-room-temperature",
+                                )
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = StevoraDesign.background),
+                                    shape = RoundedCornerShape(18.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Column(
+                                        Modifier.fillMaxWidth().padding(16.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(5.dp),
+                                    ) {
+                                        Text(localized(bgLanguage, "ТЕМПЕРАТУРА В СТАЯТА", "ROOM TEMPERATURE"),
+                                            color = secondary, fontSize = 11.sp)
+                                        Text(if (currentReading == null) "—" else "%.1f °C".format(animatedRoomTemp),
+                                            color = white, fontSize = 35.sp)
+                                    }
                                 }
                                 val mode = entity.state
                                 val modes = (entity.attributes["hvac_modes"] as? List<*>)
@@ -410,7 +460,11 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                     val setpoint = target.toFloat().roundToInt().coerceIn(minTemp, maxTemp)
                                     val canSet = mode in setOf("heat", "cool", "heat_cool") &&
                                         busy != entity.entityId && maxTemp > minTemp
-                                    Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceEvenly,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
                                         OutlinedButton(
                                             onClick = {
                                                 execute(entity, "set_temperature",
@@ -421,7 +475,13 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                         Column {
                                             Text(localized(bgLanguage, "Зададена", "Target"),
                                                 color = secondary, fontSize = 12.sp)
-                                            Text(setpoint.toString() + " °C", color = white, fontSize = 25.sp)
+                                            val animatedSetpoint by animateFloatAsState(
+                                                targetValue = setpoint.toFloat(),
+                                                animationSpec = tween(350),
+                                                label = "stevora-target-temperature",
+                                            )
+                                            Text(animatedSetpoint.roundToInt().toString() + " °C",
+                                                color = cyan, fontSize = 29.sp)
                                         }
                                         OutlinedButton(
                                             onClick = {
