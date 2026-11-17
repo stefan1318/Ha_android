@@ -512,15 +512,48 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                 }
                                 // Fan uses only supported on/off services; no invented speed control.
                                 // The RGB strip is the only color/brightness control.
-                                if (entity.entityId == "light.rgb_cct" && entity.state == "on") {
+                                if (entity.entityId == "light.rgb_cct") {
                                     val brightness = (entity.attributes["brightness"] as? Number)?.toInt()
-                                    if (brightness != null) {
-                                        val percent = (brightness * 100f / 255f).roundToInt().coerceIn(1, 100)
-                                        var brightnessPercent by remember(entity.entityId, percent) {
-                                            mutableStateOf(percent.toFloat())
+                                    val percent = ((brightness ?: 255) * 100f / 255f).roundToInt().coerceIn(1, 100)
+                                    var brightnessPercent by remember(entity.entityId, percent) {
+                                        mutableStateOf(percent.toFloat())
+                                    }
+                                    val animatedBrightness by animateFloatAsState(
+                                        targetValue = brightnessPercent,
+                                        animationSpec = tween(260),
+                                        label = "stevora-led-brightness",
+                                    )
+                                    val rgb = (entity.attributes["rgb_color"] as? List<*>)
+                                        ?.mapNotNull { (it as? Number)?.toInt() }
+                                    val stripColor = if (rgb != null && rgb.size >= 3) {
+                                        Color(rgb[0].coerceIn(0, 255), rgb[1].coerceIn(0, 255), rgb[2].coerceIn(0, 255))
+                                    } else Color.White
+                                    val animatedStripColor by animateColorAsState(
+                                        targetValue = if (entity.state == "on") stripColor else StevoraDesign.border,
+                                        animationSpec = tween(450),
+                                        label = "stevora-led-color",
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    ) {
+                                        Box(
+                                            Modifier.size(38.dp).clip(RoundedCornerShape(12.dp))
+                                                .background(animatedStripColor),
+                                        )
+                                        Column {
+                                            Text(localized(bgLanguage, "LED ЦВЯТ", "LED COLOR"),
+                                                color = secondary, fontSize = 11.sp)
+                                            Text(if (entity.state == "on")
+                                                localized(bgLanguage, "Активна", "Active")
+                                                else localized(bgLanguage, "Изключена", "Off"),
+                                                color = white)
                                         }
+                                    }
+                                    if (entity.state == "on") {
                                         Text(localized(bgLanguage, "Яркост", "Brightness") +
-                                            ": " + brightnessPercent.roundToInt() + "%", color = secondary)
+                                            ": " + animatedBrightness.roundToInt() + "%", color = white)
                                         Slider(
                                             value = brightnessPercent,
                                             valueRange = 1f..100f,
@@ -531,20 +564,39 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                             },
                                             enabled = busy != entity.entityId,
                                         )
-                                    }
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    ) {
-                                        listOf(
-                                            Triple("Бяло", "White", listOf(255, 255, 255)),
-                                            Triple("Розово", "Pink", listOf(255, 80, 160)),
-                                            Triple("Червено", "Red", listOf(255, 0, 0)),
-                                        ).forEach { (labelBg, labelEn, rgb) ->
-                                            OutlinedButton(
-                                                onClick = { execute(entity, "turn_on", mapOf("rgb_color" to rgb)) },
-                                                enabled = busy != entity.entityId,
-                                            ) { Text(if (bgLanguage) labelBg else labelEn) }
+                                        Text(localized(bgLanguage, "ЦВЕТОВИ СЦЕНИ", "COLOR PRESETS"),
+                                            color = secondary, fontSize = 11.sp)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        ) {
+                                            listOf(
+                                                Triple("Бяло", "White", listOf(255, 255, 255)),
+                                                Triple("Топло", "Warm", listOf(255, 190, 110)),
+                                                Triple("Розово", "Pink", listOf(255, 80, 160)),
+                                                Triple("Червено", "Red", listOf(255, 0, 0)),
+                                                Triple("Синьо", "Blue", listOf(30, 110, 255)),
+                                                Triple("Лилаво", "Purple", listOf(160, 60, 255)),
+                                            ).forEach { (labelBg, labelEn, preset) ->
+                                                Column(
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    verticalArrangement = Arrangement.spacedBy(5.dp),
+                                                ) {
+                                                    val color = Color(preset[0], preset[1], preset[2])
+                                                    Card(
+                                                        modifier = Modifier.size(44.dp).clickable(
+                                                            enabled = busy != entity.entityId,
+                                                        ) {
+                                                            execute(entity, "turn_on", mapOf("rgb_color" to preset))
+                                                        },
+                                                        shape = RoundedCornerShape(14.dp),
+                                                        border = BorderStroke(2.dp, if (rgb == preset) cyan else panelBorder),
+                                                        colors = CardDefaults.cardColors(containerColor = color),
+                                                    ) {}
+                                                    Text(if (bgLanguage) labelBg else labelEn,
+                                                        color = secondary, fontSize = 11.sp)
+                                                }
+                                            }
                                         }
                                     }
                                 }
