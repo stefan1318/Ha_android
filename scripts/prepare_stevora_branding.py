@@ -32,11 +32,12 @@ try:
             scaled = ImageOps.contain(logo, (size - 2 * inset, size - 2 * inset), Image.Resampling.LANCZOS)
             canvas.paste(scaled, ((size - scaled.width) // 2, (size - scaled.height) // 2))
             for name in ("ic_launcher.png", "ic_launcher_round.png"):
-                dest = RES / f"mipmap-{density}/{name}"
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                canvas.save(dest, format="PNG", optimize=True)
-                with Image.open(dest) as check:
-                    check.verify()
+                for variant in ("main", "debug"):
+                    dest = ROOT / f"app/src/{variant}/res/mipmap-{density}/{name}"
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    canvas.save(dest, format="PNG", optimize=True)
+                    with Image.open(dest) as check:
+                        check.verify()
             print(f"STEVORA launcher icons OK: {density} {size}x{size}")
         # Android TV banner, replacing the inherited Home Assistant branding.
         banner = Image.new("RGB", (320, 180), (8, 19, 31))
