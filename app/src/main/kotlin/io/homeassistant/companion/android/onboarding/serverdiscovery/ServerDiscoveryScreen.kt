@@ -430,16 +430,16 @@ private fun AnimatedIcon() {
                 .size(80.dp)
                 .scale(pulse)
                 .align(Alignment.Center)
-                .background(HABrandColors.Blue, CircleShape),
+                .background(Color(0xFF08131F), CircleShape),
         ) {
             Icon(
-                imageVector = ImageVector.vectorResource(commonR.drawable.ic_stat_ic_notification_blue),
-                contentDescription = null,
+                imageVector = ImageVector.vectorResource(R.drawable.stevora_brand_mark),
+                contentDescription = "STEVORA",
                 modifier = Modifier
                     .align(Alignment.Center)
                     .size(HASize.X5L)
                     .scale(pulse),
-                tint = HABrandColors.Background,
+                tint = Color.Unspecified,
             )
         }
     }
