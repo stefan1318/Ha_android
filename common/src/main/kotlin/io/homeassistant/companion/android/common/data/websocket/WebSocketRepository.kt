@@ -42,6 +42,8 @@ interface WebSocketRepository {
     fun shutdown()
     suspend fun sendPing(): Boolean
     suspend fun getCurrentUser(): CurrentUserResponse?
+    /** Optional STEVORA manifest through the existing authenticated connection. */
+    suspend fun getStevoraManifestJson(): String?
     suspend fun getConfig(): GetConfigResponse?
     suspend fun getStevoraMemory(command: String, parameters: Map<String, Any?> = emptyMap()): JsonObject?
     suspend fun getStevoraClimateHistory(startTime: String, endTime: String, entityIds: List<String>): JsonArray?
