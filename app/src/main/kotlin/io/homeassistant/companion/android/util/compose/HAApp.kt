@@ -82,6 +82,17 @@ internal fun HAApp(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
+            // Keep the NavHost composed while entering or leaving the native STEVORA shell.
+            // Removing it on FrontendRoute destroys the navigation graph during onboarding.
+            HANavHost(
+                navController = navController,
+                startDestination = startDestination,
+                onRequestFullscreen = onRequestFullscreen,
+                onPipReadinessChanged = onPipReadinessChanged,
+                onShowSnackbar = { message, action ->
+                    snackbarHostState.showSnackbar(message, action, duration = SnackbarDuration.Short) == ActionPerformed
+                },
+            )
             if (onHome) {
                 when (section) {
                     "home" -> StevoraHomeOverview(
@@ -103,16 +114,6 @@ internal fun HAApp(
                         onBack = { section = "home" },
                     )
                 }
-            } else {
-                HANavHost(
-                    navController = navController,
-                    startDestination = startDestination,
-                    onRequestFullscreen = onRequestFullscreen,
-                    onPipReadinessChanged = onPipReadinessChanged,
-                    onShowSnackbar = { message, action ->
-                        snackbarHostState.showSnackbar(message, action, duration = SnackbarDuration.Short) == ActionPerformed
-                    },
-                )
             }
         }
     }
