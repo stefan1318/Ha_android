@@ -23,6 +23,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import android.content.Intent
+import android.media.MediaRecorder
+import java.io.File
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import android.content.ComponentName
 import android.appwidget.AppWidgetManager
 import io.homeassistant.companion.android.widgets.entity.EntityWidget
@@ -229,8 +233,8 @@ internal fun StevoraSettingsHome(
             )
             widgetMessage?.let { Text(it, color = muted, fontSize = 12.sp) }
             SettingsEntry("Climate Analytics", tr("HomePod измервания и исторически графики", "HomePod readings and history charts"), "◉", { climateExpanded = true })
-            SettingsEntry("Home Hub", tr("Връзка, сървър и профил", "Connection, server and account"), "⌂", { nativeSection = "hub" })
-            SettingsEntry("STEVORA AI", tr("Глас и разрешения за микрофона", "Voice and microphone permissions"), "✦", { nativeSection = "voice" })
+            SettingsEntry("Connection & Ecosystem", tr("Връзка, сървър и STEVORA manifest", "Server connection and STEVORA manifest"), "⌂", { nativeSection = "hub" })
+            SettingsEntry("Hey Stevora · Voice Training", tr("Гласови образци, асистент и микрофон", "Voice samples, assistant and microphone"), "✦", { nativeSection = "voice" })
             SettingsEntry(tr("Устройство и поверителност", "Device & privacy"), tr("Разрешения, известия и сигурност", "Permissions, notifications and security"), "◈", { nativeSection = "privacy" })
             SettingsEntry(tr("Приложение и външен вид", "App & appearance"), tr("Език, тема и системна интеграция", "Language, theme and system integration"), "◐", { nativeSection = "appearance" })
         } else if (checked && accountVerified) {
@@ -265,7 +269,7 @@ internal fun StevoraSettingsHome(
             )
             widgetMessage?.let { Text(it, color = muted, fontSize = 12.sp) }
             SettingsEntry("Climate Analytics", "Live HomePod readings and session statistics", "◉", { climateExpanded = true })
-            SettingsEntry("Voice Assistant", tr("Микрофон и настройки на гласа", "Microphone and voice information"), "✦", { nativeSection = "voice" })
+            SettingsEntry("Hey Stevora · Voice Training", tr("Запис на гласови образци и настройки", "Record voice samples and configure voice"), "✦", { nativeSection = "voice" })
             SettingsEntry(tr("Устройство и поверителност", "Device & privacy"), tr("Разрешения и известия", "Permissions and notifications"), "◈", { nativeSection = "privacy" })
             SettingsEntry(tr("Приложение и външен вид", "App & appearance"), tr("Език и тема", "Language and theme"), "◐", { nativeSection = "appearance" })
         }
@@ -377,6 +381,52 @@ private fun StevoraNativeSettingsSection(
     var pipelineStatus by remember { mutableStateOf("") }
     var micAllowed by remember { mutableStateOf(false) }
     var notificationsAllowed by remember { mutableStateOf(false) }
+    val detectedHomes by StevoraHomeProjection.home.collectAsState()
+    var recording by remember { mutableStateOf<MediaRecorder?>(null) }
+    var pendingAudio by remember { mutableStateOf<File?>(null) }
+    val sampleFolder = remember(context) { File(context.filesDir, "stevora/voice-samples").apply { mkdirs() } }
+    var sampleCount by remember { mutableStateOf(0) }
+    fun refreshCount() {
+        sampleCount = sampleFolder.listFiles()?.count { it.isFile && it.name.startsWith("sample_") && it.extension == "m4a" } ?: 0
+    }
+    fun stopRecording() {
+        val active = recording ?: return
+        recording = null
+        try { active.stop() } catch (_: RuntimeException) { pendingAudio?.delete() }
+        active.release()
+        pendingAudio = null
+        refreshCount()
+    }
+    fun startRecording() {
+        if (recording != null || sampleCount >= 20) return
+        val index = (1..20).firstOrNull { !File(sampleFolder, "sample_%02d.m4a".format(it)).exists() } ?: return
+        val file = File(sampleFolder, "sample_%02d.m4a".format(index))
+        var instance: MediaRecorder? = null
+        try {
+            instance = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) MediaRecorder(context) else MediaRecorder()
+            instance.setAudioSource(MediaRecorder.AudioSource.MIC)
+            instance.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            instance.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            instance.setOutputFile(file.absolutePath)
+            instance.prepare()
+            instance.start()
+            recording = instance
+            pendingAudio = file
+        } catch (_: Exception) {
+            instance?.release()
+            file.delete()
+            saveStatus = tr("Неуспешен запис от микрофона", "Microphone recording failed")
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            recording?.let { active ->
+                try { active.stop() } catch (_: Exception) { pendingAudio?.delete() }
+                active.release()
+            }
+        }
+    }
+    LaunchedEffect(section) { refreshCount() }
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         micAllowed = it
     }
@@ -426,7 +476,7 @@ private fun StevoraNativeSettingsSection(
         } catch (_: Exception) { false }
     }
     val title = when (section) {
-        "hub" -> "Home Hub"
+        "hub" -> "Connection & Ecosystem"
         "voice" -> "STEVORA AI"
         "privacy" -> tr("Устройство и поверителност", "Device & privacy")
         else -> tr("Приложение и външен вид", "App & appearance")
@@ -442,6 +492,15 @@ private fun StevoraNativeSettingsSection(
         when (section) {
             "hub" -> {
                 SettingsInfo(tr("Активен профил", "Active account"), accountName)
+                val activeServerId = server?.id
+                SettingsInfo("STEVORA Ecosystem", if (activeServerId == null) {
+                    tr("Няма свързан сървър", "No server connected")
+                } else if (detectedHomes.containsKey(activeServerId)) {
+                    tr("STEVORA manifest потвърден · инсталация ", "STEVORA manifest confirmed · installation ") +
+                        detectedHomes[activeServerId]?.installationId.orEmpty()
+                } else {
+                    tr("Не е потвърден STEVORA manifest · режимът е неизвестен", "STEVORA manifest not confirmed · server mode unknown")
+                })
                 if (server == null) {
                     SettingsInfo("Home Hub", tr("Няма свързан сървър", "No server connected"))
                 } else {
@@ -516,6 +575,25 @@ private fun StevoraNativeSettingsSection(
                         Text(tr("Разреши микрофона", "Allow microphone"))
                     }
                 }
+                StevoraSectionHeading("Hey Stevora · Voice Training", tr("Нативен запис на устройството", "Native on-device recording"))
+                SettingsInfo(tr("Гласови образци", "Voice samples"), "$sampleCount / 20")
+                Button(
+                    enabled = micAllowed && (recording != null || sampleCount < 20),
+                    onClick = { if (recording != null) stopRecording() else startRecording() },
+                ) { Text(if (recording != null) tr("Спри и запази", "Stop and save") else tr("Запиши образец", "Record sample")) }
+                OutlinedButton(
+                    enabled = recording == null && sampleCount > 0,
+                    onClick = {
+                        sampleFolder.listFiles()?.filter { it.name.startsWith("sample_") && it.extension == "m4a" }
+                            ?.maxByOrNull { it.name }?.delete()
+                        refreshCount()
+                    },
+                ) { Text(tr("Изтрий последния запис", "Delete latest sample")) }
+                SettingsInfo(tr("Обучение и активиране", "Training and activation"), tr(
+                    "Все още няма интегриран обучаващ модел. Записите са реални, но не активират Hey Stevora.",
+                    "No training engine is integrated yet. Recordings are real but do not activate Hey Stevora.",
+                ))
+                if (saveStatus.isNotBlank()) Text(saveStatus, color = muted)
                 StevoraSectionHeading("Assist pipelines", pipelineStatus)
                 pipelines.forEach { SettingsInfo("STEVORA Assist", it) }
                 SettingsInfo("Hey STEVORA", tr(
