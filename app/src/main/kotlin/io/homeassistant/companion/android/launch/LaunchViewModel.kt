@@ -157,16 +157,18 @@ internal class LaunchViewModel @VisibleForTesting constructor(
 
     init {
         viewModelScope.launch {
-            // Never trap the user behind the Android splash while network discovery,
-            // migration, or a previously paired server is unresponsive.
+            // Only bound initialization (server cleanup, session lookup) to 20 seconds.
+            // Network observation is long-lived by design: a temporary loss of connectivity
+            // must not erase a registered Home Hub or force a new OAuth onboarding.
             val initialized = withTimeoutOrNull(20_000L) {
                 cleanupServers()
-                handleInitialState(initialDeepLink)
                 true
             }
-            if (initialized == null && _uiState.value is LaunchUiState.Loading) {
-                Timber.w("STEVORA startup timed out; showing recovery onboarding")
+            if (initialized == null) {
+                Timber.w("STEVORA server initialization timed out; showing recovery onboarding")
                 navigateToOnboarding()
+            } else {
+                handleInitialState(initialDeepLink)
             }
         }
     }
