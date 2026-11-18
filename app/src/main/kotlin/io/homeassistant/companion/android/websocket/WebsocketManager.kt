@@ -202,6 +202,16 @@ class WebsocketManager(appContext: Context, workerParams: WorkerParameters) :
     }
 
     private suspend fun collectNotifications(serverId: Int) {
+        // STEVORA discovery uses the real per-server authenticated WebSocket.
+        // Failure must not block Home Assistant notifications.
+        try {
+            val manifest = serverManager.webSocketRepository(serverId).getStevoraManifestJson()
+            if (manifest != null) Timber.d("STEVORA manifest available for server %d", serverId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Timber.d(e, "STEVORA unavailable; native Home Assistant remains active")
+        }
         serverManager.webSocketRepository(serverId).getNotifications()?.collect {
             if (it.containsKey("hass_confirm_id")) {
                 try {
