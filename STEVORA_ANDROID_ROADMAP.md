@@ -59,3 +59,10 @@ Approved by project owner: 2026-11-17. Baseline: installed and device-tested **2
 - **Release posture:** 2.1 is a **working, owner-tested release candidate** and the protected baseline for future development; do not assert full public stable QA or a published GitHub Release without separate verification.
 - **Next planned version:** **2.2 AI Control Center** — AI chat, Bulgarian/English voice, trained wake word, diagnostics, and safe automation authoring. Subsequent planned versions remain 2.3 Presence & Automation, 2.4 Premium Ecosystem, 3.0 Unified STEVORA.
 - **Upgrade invariants:** keep application ID `com.stevora.companion`, signing identity, and user data; increase versionCode; test upgrades on device. Develop 2.2 separately from the known-good 2.1 baseline.
+
+## Ecosystem-wide dependency order — 2026-11-18
+- **Priority before 2.2 AI:** [STE-00] Universal Home Discovery v1 contract → [STE-01] optional Home Panel manifest → [STE-02]/[STE-03] Android/iOS discovery adapters → [STE-04] Hey Stevora AI and voice → [STE-06] multi-home acceptance.
+- **Current Android implementation is NOT universal:** `StevoraHomeOverview.kt` and `StevoraLivePanel.kt` still reference creator-home entity IDs. The new ecosystem compliance CI gate documents constraints but does not dynamically discover devices.
+- **Next Android implementation milestone:** replace fixed panel entity mapping with a server/account-scoped discovery model and per-home user overrides, while keeping existing 2.1 upgrade and offline safety behavior.
+- **Release gating:** tests on multiple HA servers, absent Home Panel, missing device domains, different permissions, and Android/iOS parity before claiming universal compatibility.
+- See shared architecture: `stefan1318/stevora-memory-sync/UNIVERSAL_HOME_DISCOVERY_V1.md`.
