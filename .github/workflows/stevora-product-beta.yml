@@ -45,6 +45,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         with:
           mock-google-services: "true"
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
       - name: Assemble full debug product
         run: ./gradlew :app:assembleFullDebug --stacktrace --no-daemon
       - name: Verify APK identity
