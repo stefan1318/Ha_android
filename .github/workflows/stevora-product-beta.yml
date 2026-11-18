@@ -1,0 +1,66 @@
+name: STEVORA Android 2.1.0 product beta
+
+'on':
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/stevora-companion
+    paths:
+      - 'app/**'
+      - 'common/**'
+      - '.github/workflows/stevora-product-beta.yml'
+      - 'STEVORA_PRODUCT_RELEASE_GATE.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stevora-product-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  product-beta:
+    name: Build and validate STEVORA product APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout actual STEVORA product source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Assert STEVORA product source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'applicationId = "com.stevora.companion"' app/build.gradle.kts
+          grep -Fq 'versionName = "2.1.0"' app/build.gradle.kts
+          if grep -q '<string name="app_name">Home Assistant</string>' common/src/main/res/values/strings.xml; then
+            echo "::error::Unbranded Home Assistant app_name in STEVORA product branch. Do not distribute."
+            exit 1
+          fi
+      - name: Setup Android build environment
+        uses: ./.github/actions/setup-build-env
+        with:
+          mock-google-services: "true"
+      - name: Assemble full debug product
+        run: ./gradlew :app:assembleFullDebug --stacktrace --no-daemon
+      - name: Verify APK identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t apks < <(find app/build/outputs/apk/full/debug -type f -name '*.apk')
+          test "${#apks[@]}" -eq 1
+          AAPT="$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)"
+          "$AAPT" dump badging "${apks[0]}" | tee apk-identity.txt
+          grep -q "package: name='com.stevora.companion'" apk-identity.txt
+          grep -q "versionName='2.1.0'" apk-identity.txt
+          cp "${apks[0]}" STEVORA-Companion-2.1.0-full-debug.apk
+      - name: Upload validated STEVORA APK
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: STEVORA-Companion-2.1.0-full-debug
+          path: |
+            STEVORA-Companion-2.1.0-full-debug.apk
+            apk-identity.txt
+          retention-days: 14
+          if-no-files-found: error
