@@ -46,6 +46,23 @@ jobs:
         with:
           mock-google-services: "true"
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+      - name: Add STEVORA package identities to CI-only mock Firebase config
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path("app/google-services.json")
+          data = json.loads(path.read_text())
+          template = data["client"][0]
+          for package in ("com.stevora.companion", "com.stevora.companion.debug"):
+              if not any(c.get("client_info", {}).get("android_client_info", {}).get("package_name") == package for c in data["client"]):
+                  import copy
+                  client = copy.deepcopy(template)
+                  client["client_info"]["android_client_info"]["package_name"] = package
+                  data["client"].append(client)
+          path.write_text(json.dumps(data, indent=2) + "\\n")
+          PY
       - name: Compile and run product unit tests
         run: ./gradlew :app:testFullDebugUnitTest --stacktrace --no-daemon
       - name: Assemble full debug product
