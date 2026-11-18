@@ -23,12 +23,14 @@ object StevoraHomeProjection {
     private val mutableHome = MutableStateFlow<Map<Int, StevoraHomeUi>>(emptyMap())
     val home: StateFlow<Map<Int, StevoraHomeUi>> = mutableHome
 
+    @Synchronized
     fun apply(serverId: Int, json: String): Boolean {
         return try {
             val obj = JSONObject(json)
             if (obj.optString("schema_version") != "1.0") return false
             val installationId = obj.optString("installation_id")
             if (installationId.isBlank()) return false
+            if (obj.optInt("revision", -1) < 0) return false
             val roomsJson = obj.optJSONArray("rooms")
             val rooms = buildList {
                 for (i in 0 until (roomsJson?.length() ?: 0)) {
@@ -53,6 +55,8 @@ object StevoraHomeProjection {
                 installationId, obj.optInt("revision", 1),
                 obj.optString("preferred_language", "en"), rooms, mappings,
             )
+            val previous = mutableHome.value[serverId]
+            if (previous != null && previous.installationId == installationId && previous.revision > model.revision) return false
             mutableHome.value = mutableHome.value + (serverId to model)
             true
         } catch (_: Exception) {
@@ -60,6 +64,7 @@ object StevoraHomeProjection {
         }
     }
 
+    @Synchronized
     fun clear(serverId: Int) {
         mutableHome.value = mutableHome.value - serverId
     }
