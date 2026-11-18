@@ -97,28 +97,29 @@ class SettingsFragment(
 
         setPreferencesFromResource(R.xml.preferences, rootKey)
 
-        // Informational only: a successful authenticated manifest probe identifies STEVORA.
-        // No manifest means native HA mode, not proof that the server is unmodified.
+        // Server-specific status: never label all servers STEVORA because one matched.
         val ecosystemPreference = Preference(requireContext()).apply {
             key = "stevora_ecosystem_connection_status"
             title = "STEVORA Ecosystem · Connection"
-            summary = "Checking server configuration / Проверка на сървъра"
+            summary = "Проверка на свързаните сървъри"
             isSelectable = false
         }
         preferenceScreen.addPreference(ecosystemPreference)
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 StevoraHomeProjection.home.collect { installations ->
+                    // Status is a list of detected server IDs; never assert that
+                    // unprobed or disconnected servers are standard Home Assistant.
                     ecosystemPreference.summary = if (installations.isEmpty()) {
-                        "Home Assistant (native mode) · STEVORA не е открита"
+                        "STEVORA не е потвърдена · Home Assistant режим"
                     } else {
-                        "STEVORA Ecosystem · Свързани инсталации: " +
-                            installations.keys.sorted().joinToString(", ") { "HA #$it" }
+                        "STEVORA открита: " +
+                            installations.keys.sorted().joinToString(", ") { "HA #$it" } +
+                            " · Останалите сървъри: непотвърден режим"
                     }
                 }
             }
         }
-
 
         // STEVORA voice settings are intentionally available before the wake model ships.
         // The screen explains which capabilities are pending instead of enabling a fake listener.
