@@ -114,6 +114,7 @@ class LaunchViewModelTest {
     fun `Given active server connected and registered, when network is CONNECTING, then do not navigate but continue observing network changes`() = runTest {
         val server = mockk<Server>(relaxed = true)
         coEvery { serverManager.getServer(ServerManager.SERVER_ID_ACTIVE) } returns server
+        every { server.id } returns ServerManager.SERVER_ID_ACTIVE
         coEvery { serverManager.isRegistered() } returns true
         coEvery { serverManager.authenticationRepository().getSessionState() } returns SessionState.CONNECTED
         val networkStateFlow = MutableStateFlow(NetworkState.CONNECTING)
@@ -130,6 +131,7 @@ class LaunchViewModelTest {
     fun `Given active server connected and registered, when network is UNAVAILABLE, then show network unavailable but continue observing network changes`() = runTest {
         val server = mockk<Server>(relaxed = true)
         coEvery { serverManager.getServer(ServerManager.SERVER_ID_ACTIVE) } returns server
+        every { server.id } returns ServerManager.SERVER_ID_ACTIVE
         coEvery { serverManager.isRegistered() } returns true
         coEvery { serverManager.authenticationRepository().getSessionState() } returns SessionState.CONNECTED
         val networkStateFlow = MutableStateFlow(NetworkState.UNAVAILABLE)
@@ -149,6 +151,7 @@ class LaunchViewModelTest {
         every { workManager.enqueue(any<OneTimeWorkRequest>()) } returns mockk()
 
         coEvery { serverManager.getServer(ServerManager.SERVER_ID_ACTIVE) } returns server
+        every { server.id } returns ServerManager.SERVER_ID_ACTIVE
         coEvery { serverManager.isRegistered() } returns true
         coEvery { serverManager.authenticationRepository().getSessionState() } returns SessionState.CONNECTED
         val networkStateFlow = MutableStateFlow(NetworkState.CONNECTING)
@@ -426,6 +429,7 @@ class LaunchViewModelTest {
         every { workManager.enqueue(any<OneTimeWorkRequest>()) } returns mockk()
 
         coEvery { serverManager.getServer(ServerManager.SERVER_ID_ACTIVE) } returns server
+        every { server.id } returns ServerManager.SERVER_ID_ACTIVE
         coEvery { serverManager.isRegistered() } returns true
         coEvery { serverManager.authenticationRepository().getSessionState() } returns SessionState.CONNECTED
         val networkStateFlow = MutableStateFlow(NetworkState.READY_NET_VALIDATED)
@@ -447,6 +451,7 @@ class LaunchViewModelTest {
         every { workManager.enqueue(any<OneTimeWorkRequest>()) } returns mockk()
 
         coEvery { serverManager.getServer(ServerManager.SERVER_ID_ACTIVE) } returns server
+        every { server.id } returns ServerManager.SERVER_ID_ACTIVE
         coEvery { serverManager.isRegistered() } returns true
         coEvery { serverManager.authenticationRepository().getSessionState() } returns SessionState.CONNECTED
         val networkStateFlow = MutableStateFlow(NetworkState.READY_NET_VALIDATED)
@@ -468,6 +473,7 @@ class LaunchViewModelTest {
         every { workManager.enqueue(any<OneTimeWorkRequest>()) } returns mockk()
 
         coEvery { serverManager.getServer(ServerManager.SERVER_ID_ACTIVE) } returns server
+        every { server.id } returns ServerManager.SERVER_ID_ACTIVE
         coEvery { serverManager.isRegistered() } returns true
         coEvery { serverManager.authenticationRepository().getSessionState() } returns SessionState.CONNECTED
         val networkStateFlow = MutableStateFlow(NetworkState.UNAVAILABLE)
