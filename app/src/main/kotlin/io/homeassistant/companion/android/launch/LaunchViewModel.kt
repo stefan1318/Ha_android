@@ -243,7 +243,7 @@ internal class LaunchViewModel @VisibleForTesting constructor(
                 urlToOnboard = initialDeepLink.urlToOnboard,
             )
 
-            null -> connectToServer(ServerManager.SERVER_ID_ACTIVE, FrontendTarget.Path(io.homeassistant.companion.android.stevora.StevoraConfiguration.HOME_PANEL_PATH))
+            null -> connectToServer(ServerManager.SERVER_ID_ACTIVE, FrontendTarget.Default)
         }
     }
 
