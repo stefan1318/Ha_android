@@ -165,9 +165,9 @@ class HAAppTest {
     fun `Given FrontendRoute as start when starts then show FrontendScreen`() {
         testApp(FrontendRoute()) {
             assertTrue(navController.currentBackStackEntry?.destination?.hasRoute<FrontendRoute>() == true)
-            // With USE_FRONTEND_V2 enabled, FrontendScreen composable is shown
-            // instead of navigating to WebViewActivity. The WebView is always rendered.
-            onNodeWithText("STEVORA").assertIsDisplayed()
+            // The branded native shell intentionally contains several STEVORA labels.
+            // Assert the unique Home tab rather than requiring the brand name to occur once.
+            onNodeWithText("Home", substring = false).assertIsDisplayed()
         }
     }
 
