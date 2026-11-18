@@ -1,6 +1,6 @@
 name: STEVORA Android debug build
 
-on:
+'on':
   workflow_dispatch:
 
 permissions:
@@ -11,10 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - name: Checkout STEVORA development branch
+      - name: Checkout current branch
         uses: actions/checkout@v4
-        with:
-          ref: feature/stevora-companion
       - name: Validate STEVORA logo and prepare Android launcher icons
         run: |
           python3 -m pip install --user Pillow==11.3.0
