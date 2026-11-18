@@ -64,7 +64,7 @@ jobs:
           path.write_text(json.dumps(data, indent=2) + "\\n")
           PY
       - name: Compile and run product unit tests
-        run: ./gradlew :app:testFullDebugUnitTest --stacktrace --no-daemon
+        run: ./gradlew :app:testFullDebugUnitTest --stacktrace --info --refresh-dependencies --no-daemon
       - name: Assemble full debug product
         run: ./gradlew :app:assembleFullDebug --stacktrace --no-daemon
       - name: Verify APK identity
