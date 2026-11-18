@@ -12,6 +12,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult.ActionPerformed
 import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.platform.LocalConfiguration
 import io.homeassistant.companion.android.stevora.StevoraHomeOverview
@@ -84,7 +85,8 @@ internal fun HAApp(
         Box(Modifier.fillMaxSize().padding(padding)) {
             // Keep the NavHost composed while entering or leaving the native STEVORA shell.
             // Removing it on FrontendRoute destroys the navigation graph during onboarding.
-            HANavHost(
+            Box(Modifier.fillMaxSize().alpha(if (onHome) 0f else 1f)) {
+                HANavHost(
                 navController = navController,
                 startDestination = startDestination,
                 onRequestFullscreen = onRequestFullscreen,
@@ -92,7 +94,8 @@ internal fun HAApp(
                 onShowSnackbar = { message, action ->
                     snackbarHostState.showSnackbar(message, action, duration = SnackbarDuration.Short) == ActionPerformed
                 },
-            )
+                )
+            }
             if (onHome) {
                 when (section) {
                     "home" -> StevoraHomeOverview(
