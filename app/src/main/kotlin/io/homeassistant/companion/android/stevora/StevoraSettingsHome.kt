@@ -25,7 +25,6 @@ import kotlinx.coroutines.launch
 import android.content.Intent
 import android.media.MediaRecorder
 import java.io.File
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import android.content.ComponentName
 import android.appwidget.AppWidgetManager
@@ -416,14 +415,6 @@ private fun StevoraNativeSettingsSection(
             instance?.release()
             file.delete()
             saveStatus = tr("Неуспешен запис от микрофона", "Microphone recording failed")
-        }
-    }
-    DisposableEffect(Unit) {
-        onDispose {
-            recording?.let { active ->
-                try { active.stop() } catch (_: Exception) { pendingAudio?.delete() }
-                active.release()
-            }
         }
     }
     LaunchedEffect(section) { refreshCount() }
