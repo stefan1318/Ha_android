@@ -529,12 +529,43 @@ private fun StevoraNativeSettingsSection(
                             tr(" · Свързани обекти: ", " · Mapped entities: ") + mappedCount +
                             " · Manifest v" + discovered.revision,
                     )
+                    // Expand one discovered room at a time. The manifest contains
+                    // entity IDs, not live states or service permissions.
+                    var expandedRoomId by remember(activeServerId) { mutableStateOf<String?>(null) }
                     discovered.rooms.forEach { room ->
-                        SettingsInfo(
-                            room.name,
-                            tr("Обекти: ", "Entities: ") +
-                                discovered.entityMappings[room.id].orEmpty().size,
-                        )
+                        val entityIds = discovered.entityMappings[room.id].orEmpty()
+                        OutlinedButton(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                expandedRoomId = if (expandedRoomId == room.id) null else room.id
+                            },
+                        ) {
+                            Text(
+                                room.name + " · " + entityIds.size + " " +
+                                    tr("обекта", "entities") +
+                                    if (expandedRoomId == room.id) " ▲" else " ▼",
+                            )
+                        }
+                        if (expandedRoomId == room.id) {
+                            if (entityIds.isEmpty()) {
+                                Text(
+                                    tr("Няма открити обекти", "No discovered entities"),
+                                    color = muted, fontSize = 12.sp,
+                                )
+                            } else {
+                                entityIds.groupBy { it.substringBefore('.') }
+                                    .toSortedMap()
+                                    .forEach { (domain, ids) ->
+                                        Text(
+                                            domain + " (" + ids.size + ")",
+                                            color = foreground, fontSize = 13.sp,
+                                        )
+                                        ids.sorted().forEach { entityId ->
+                                            Text(entityId, color = muted, fontSize = 12.sp)
+                                        }
+                                    }
+                            }
+                        }
                     }
                     Text(
                         tr(
