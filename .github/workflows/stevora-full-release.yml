@@ -12,6 +12,8 @@ on:
       - 'scripts/check_stevora_release_gate.py'
       - 'app/build.gradle.kts'
       - 'scripts/check_stevora_update_contract.py'
+      - 'scripts/check_stevora_ecosystem.py'
+      - 'STEVORA_ECOSYSTEM_CONTRACT.md'
       - 'app/src/main/kotlin/io/homeassistant/companion/android/stevora/**'
 
 permissions:
@@ -59,6 +61,7 @@ jobs:
       - name: Validate release gate and prepare branding
         run: |
           python3 scripts/check_stevora_update_contract.py
+          python3 scripts/check_stevora_ecosystem.py
           python3 scripts/check_stevora_release_gate.py
           python3 scripts/check_stevora_resources.py
           python3 -m pip install --user Pillow==11.3.0
