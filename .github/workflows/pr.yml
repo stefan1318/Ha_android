@@ -324,13 +324,15 @@ jobs:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
           mock-google-services: "true"
       - name: Generate dummy keystore
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/ci_dummy_keystore.keystore
         run: |
           keytool -genkeypair -v \
           -alias androiddebugkey \
           -keyalg RSA \
           -keysize 2048 \
           -validity 10000 \
-          -keystore ${{ github.workspace }}/ci_dummy_keystore.keystore \
+          -keystore "$KEYSTORE_PATH" \
           -dname "CN=Android CI dummy, O=Android, C=FR" \
           -storepass android \
           -keypass android
