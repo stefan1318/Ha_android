@@ -46,6 +46,8 @@ jobs:
         with:
           mock-google-services: "true"
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+      - name: Compile and run product unit tests
+        run: ./gradlew :app:testFullDebugUnitTest --stacktrace --no-daemon
       - name: Assemble full debug product
         run: ./gradlew :app:assembleFullDebug --stacktrace --no-daemon
       - name: Verify APK identity
