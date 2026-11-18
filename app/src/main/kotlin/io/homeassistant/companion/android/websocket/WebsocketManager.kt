@@ -35,6 +35,7 @@ import io.homeassistant.companion.android.database.settings.WebsocketSetting
 import io.homeassistant.companion.android.launch.LaunchActivity
 import io.homeassistant.companion.android.notifications.MessagingManager
 import io.homeassistant.companion.android.settings.SettingsActivity
+import io.homeassistant.companion.android.stevora.StevoraHomeProjection
 import io.homeassistant.companion.android.util.hasActiveConnection
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
@@ -205,10 +206,15 @@ class WebsocketManager(appContext: Context, workerParams: WorkerParameters) :
         // Optional probe; never interrupt native Home Assistant notifications.
         try {
             val manifest = serverManager.webSocketRepository(serverId).getStevoraManifestJson()
-            if (manifest != null) Timber.d("STEVORA manifest available for server %d", serverId)
+            if (manifest != null && StevoraHomeProjection.apply(serverId, manifest)) {
+                Timber.d("STEVORA room/entity projection updated for server %d", serverId)
+            } else {
+                StevoraHomeProjection.clear(serverId)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            StevoraHomeProjection.clear(serverId)
             Timber.d(e, "STEVORA unavailable; native Home Assistant remains active")
         }
     }
