@@ -220,7 +220,7 @@ internal class WearOnboardingNavigationTest {
         testNavigation {
             assertTrue(navController.currentBackStackEntry?.destination?.hasRoute<ServerDiscoveryRoute>() == true)
             assertTrue(navController.currentBackStackEntry?.toRoute<ServerDiscoveryRoute>()?.discoveryMode == ServerDiscoveryMode.ADD_EXISTING)
-            onNodeWithText(stringResource(commonR.string.searching_home_network)).assertIsDisplayed()
+            onNodeWithText("Searching for STEVORA Home Hub").assertIsDisplayed()
         }
     }
 
@@ -240,7 +240,7 @@ internal class WearOnboardingNavigationTest {
         val instanceUrl = "http://ha.local"
         testNavigation {
             assertTrue(navController.currentBackStackEntry?.destination?.hasRoute<ServerDiscoveryRoute>() == true)
-            onNodeWithText(stringResource(commonR.string.searching_home_network)).assertIsDisplayed()
+            onNodeWithText("Searching for STEVORA Home Hub").assertIsDisplayed()
 
             instanceChannel.send(HomeAssistantInstance("Test", URL(instanceUrl), HomeAssistantVersion(2025, 9, 1)))
             mainDispatcherRule.testDispatcher.scheduler.advanceTimeBy(DELAY_BEFORE_DISPLAY_DISCOVERY.inWholeMilliseconds)

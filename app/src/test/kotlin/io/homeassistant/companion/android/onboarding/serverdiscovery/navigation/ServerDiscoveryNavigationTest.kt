@@ -147,7 +147,7 @@ internal class ServerDiscoveryNavigationTest : BaseOnboardingNavigationTest() {
             waitForIdle()
             permissionResultRegistry.assertNoPermissionsRequested()
             assertTrue(navController.currentBackStackEntry?.destination?.hasRoute<ServerDiscoveryRoute>() == true)
-            onNodeWithText(stringResource(commonR.string.manual_setup))
+            onNodeWithText("Enter Hub address manually")
                 .performScrollTo()
                 .assertIsDisplayed()
         }
@@ -157,7 +157,7 @@ internal class ServerDiscoveryNavigationTest : BaseOnboardingNavigationTest() {
     fun `Given clicking on connect button when starting the onboarding then show ServerDiscovery then back goes to Welcome`() {
         testNavigation {
             mockCheckPermission(true)
-            onNodeWithText(stringResource(commonR.string.welcome_connect_to_ha))
+            onNodeWithText("Connect to STEVORA")
                 .assertIsDisplayed()
                 .performClick()
             assertTrue(navController.currentBackStackEntry?.destination?.hasRoute<ServerDiscoveryRoute>() == true)
@@ -176,7 +176,7 @@ internal class ServerDiscoveryNavigationTest : BaseOnboardingNavigationTest() {
     fun `Given clicking on connect button with hide existing server and no server to onboard when starting the onboarding then show Discovery screen with existing server hidden then back goes to Welcome`() {
         testNavigation(hideExistingServers = true) {
             mockCheckPermission(true)
-            onNodeWithText(stringResource(commonR.string.welcome_connect_to_ha))
+            onNodeWithText("Connect to STEVORA")
                 .assertIsDisplayed()
                 .performClick()
             assertTrue(navController.currentBackStackEntry?.destination?.hasRoute<ServerDiscoveryRoute>() == true)
@@ -198,7 +198,7 @@ internal class ServerDiscoveryNavigationTest : BaseOnboardingNavigationTest() {
             mockCheckPermission(true)
             navController.navigateToServerDiscovery()
 
-            onNodeWithText(stringResource(commonR.string.manual_setup))
+            onNodeWithText("Enter Hub address manually")
                 .performScrollTo()
                 .performTwoQuickClicks()
             waitForIdle()
@@ -221,7 +221,7 @@ internal class ServerDiscoveryNavigationTest : BaseOnboardingNavigationTest() {
             mockCheckPermission(true)
             navController.navigateToServerDiscovery()
             assertTrue(navController.currentBackStackEntry?.destination?.hasRoute<ServerDiscoveryRoute>() == true)
-            onNodeWithText(stringResource(commonR.string.manual_setup))
+            onNodeWithText("Enter Hub address manually")
                 .performScrollTo()
                 .assertIsDisplayed()
                 .performClick()
@@ -246,7 +246,7 @@ internal class ServerDiscoveryNavigationTest : BaseOnboardingNavigationTest() {
             mockCheckPermission(true)
             navController.navigateToServerDiscovery()
             assertTrue(navController.currentBackStackEntry?.destination?.hasRoute<ServerDiscoveryRoute>() == true)
-            onNodeWithText(stringResource(commonR.string.manual_setup))
+            onNodeWithText("Enter Hub address manually")
                 .performScrollTo()
                 .assertIsDisplayed()
 
@@ -294,7 +294,7 @@ internal class ServerDiscoveryNavigationTest : BaseOnboardingNavigationTest() {
             mockCheckPermission(true)
             navController.navigateToServerDiscovery()
             assertTrue(navController.currentBackStackEntry?.destination?.hasRoute<ServerDiscoveryRoute>() == true)
-            onNodeWithText(stringResource(commonR.string.manual_setup))
+            onNodeWithText("Enter Hub address manually")
                 .performScrollTo()
                 .assertIsDisplayed()
 

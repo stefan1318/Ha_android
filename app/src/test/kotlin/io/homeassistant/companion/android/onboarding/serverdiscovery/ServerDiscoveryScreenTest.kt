@@ -48,7 +48,7 @@ class ServerDiscoveryScreenTest {
     fun `Given Started state when server discovery is displayed then show loading and handle clicks`() {
         composeTestRule.apply {
             testScreen(Started) {
-                onNodeWithText(stringResource(commonR.string.server_discovery_no_server_info))
+                onNodeWithText("No Home Hub detected automatically. Enter its address manually.")
                     .assertIsDisplayed().assertAlpha(0f)
             }
         }
@@ -58,7 +58,7 @@ class ServerDiscoveryScreenTest {
     fun `Given NoServerFound state when server discovery is displayed then show loading and handle clicks`() {
         composeTestRule.apply {
             testScreen(NoServerFound) {
-                onNodeWithText(stringResource(commonR.string.server_discovery_no_server_info))
+                onNodeWithText("No Home Hub detected automatically. Enter its address manually.")
                     .assertIsDisplayed().assertAlpha(1f)
             }
         }
@@ -70,7 +70,7 @@ class ServerDiscoveryScreenTest {
         val url = URL("http://192.168.0.1")
         composeTestRule.apply {
             testScreen(ServerDiscovered(serverName, url, haVersion)) {
-                onNodeWithText(stringResource(commonR.string.server_discovery_no_server_info))
+                onNodeWithText("No Home Hub detected automatically. Enter its address manually.")
                     .assertIsDisplayed().assertAlpha(0f)
                 onNodeWithText(url.toString()).assertIsDisplayed()
                 onNodeWithText(serverName).assertIsDisplayed()
@@ -89,7 +89,7 @@ class ServerDiscoveryScreenTest {
 
         composeTestRule.apply {
             testScreen(ServersDiscovered(listOf(server1, server2))) {
-                onNodeWithText(stringResource(commonR.string.server_discovery_no_server_info)).assertIsNotDisplayed()
+                onNodeWithText("No Home Hub detected automatically. Enter its address manually.").assertIsNotDisplayed()
 
                 fun assertServer(server: ServerDiscovered) {
                     onNodeWithText(server.name).assertIsDisplayed()
@@ -162,9 +162,9 @@ class ServerDiscoveryScreenTest {
                 )
             }
 
-            onNodeWithText(stringResource(commonR.string.searching_home_network)).assertIsDisplayed()
+            onNodeWithText("Searching for STEVORA Home Hub").assertIsDisplayed()
 
-            onNodeWithText(stringResource(commonR.string.manual_setup)).performScrollTo().assertIsDisplayed().performClick()
+            onNodeWithText("Enter Hub address manually").performScrollTo().assertIsDisplayed().performClick()
             assertTrue(manualSetupClicked)
 
             onNodeWithContentDescription(stringResource(commonR.string.navigate_up)).assertIsDisplayed().performClick()

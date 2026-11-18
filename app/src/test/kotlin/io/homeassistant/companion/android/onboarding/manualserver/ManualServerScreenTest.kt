@@ -40,13 +40,13 @@ class ManualServerScreenTest {
     fun `Given empty screen when interacting with the view then handle interactions`() {
         composeTestRule.apply {
             testScreen(serverUrl = "", isServerUrlValid = false) {
-                onNodeWithText(stringResource(commonR.string.manual_server_connect))
+                onNodeWithText("Continue")
                     .assertIsDisplayed()
                     .assertIsNotEnabled()
 
-                onNodeWithText(stringResource(commonR.string.manual_server_wrong_url)).assertIsNotDisplayed()
+                onNodeWithText("Invalid Home Hub address").assertIsNotDisplayed()
 
-                onNodeWithText("http://homeassistant.local").assertIsDisplayed()
+                onNodeWithText("https://hub.example.com").assertIsDisplayed()
                 onNodeWithContentDescription(stringResource(commonR.string.clear_text)).assertIsNotDisplayed()
             }
         }
@@ -57,11 +57,11 @@ class ManualServerScreenTest {
         val invalidUrl = "invalid"
         composeTestRule.apply {
             testScreen(serverUrl = invalidUrl, isServerUrlValid = false) {
-                onNodeWithText(stringResource(commonR.string.manual_server_connect))
+                onNodeWithText("Continue")
                     .assertIsDisplayed()
                     .assertIsNotEnabled()
 
-                onNodeWithText(stringResource(commonR.string.manual_server_wrong_url)).assertIsDisplayed()
+                onNodeWithText("Invalid Home Hub address").assertIsDisplayed()
 
                 onNodeWithText(invalidUrl).assertIsDisplayed()
                 onNodeWithContentDescription(stringResource(commonR.string.clear_text)).assertIsDisplayed().performClick()
@@ -75,14 +75,14 @@ class ManualServerScreenTest {
         val validUrl = "http://openhomefoundation.org"
         composeTestRule.apply {
             testScreen(serverUrl = validUrl, isServerUrlValid = true) {
-                onNodeWithText(stringResource(commonR.string.manual_server_connect))
+                onNodeWithText("Continue")
                     .assertIsDisplayed()
                     .assertIsEnabled()
                     .performClick()
 
                 assertTrue(onConnectClicked)
 
-                onNodeWithText(stringResource(commonR.string.manual_server_wrong_url)).assertIsNotDisplayed()
+                onNodeWithText("Invalid Home Hub address").assertIsNotDisplayed()
 
                 onNodeWithText(validUrl).assertIsDisplayed()
             }
@@ -94,14 +94,14 @@ class ManualServerScreenTest {
         val validUrl = "http://openhomefoundation.org"
         composeTestRule.apply {
             testScreen(serverUrl = validUrl, isServerUrlValid = true) {
-                onNodeWithText(stringResource(commonR.string.manual_server_connect))
+                onNodeWithText("Continue")
                     .assertIsDisplayed()
                     .assertIsEnabled()
                     .performClick()
 
                 assertTrue(onConnectClicked)
 
-                onNodeWithText(stringResource(commonR.string.manual_server_wrong_url)).assertIsNotDisplayed()
+                onNodeWithText("Invalid Home Hub address").assertIsNotDisplayed()
 
                 onNodeWithText(validUrl).assertIsDisplayed().performTextInput("hello")
                 assertEquals("hellohttp://openhomefoundation.org", changedUrl)
@@ -131,7 +131,7 @@ class ManualServerScreenTest {
                     serverUrl = serverUrl,
                 )
             }
-            onNodeWithText(stringResource(commonR.string.manual_server_title)).assertIsDisplayed()
+            onNodeWithText("STEVORA HOME HUB").assertIsDisplayed()
 
             onNodeWithContentDescription(stringResource(commonR.string.navigate_up)).assertIsDisplayed().performClick()
             assertTrue(backClicked)
@@ -139,7 +139,7 @@ class ManualServerScreenTest {
             onNodeWithContentDescription(stringResource(commonR.string.get_help)).assertIsDisplayed().performClick()
             assertTrue(helpClicked)
 
-            onNodeWithText(stringResource(commonR.string.manual_server_connect)).performScrollTo().assertIsDisplayed()
+            onNodeWithText("Continue").performScrollTo().assertIsDisplayed()
 
             dsl()
         }

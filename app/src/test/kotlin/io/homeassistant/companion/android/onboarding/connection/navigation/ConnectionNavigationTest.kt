@@ -44,7 +44,7 @@ internal class ConnectionNavigationTest : BaseOnboardingNavigationTest() {
     @Test
     fun `Given clicking on connect button with server to onboard when starting the onboarding then show Connection screen then back goes to Welcome`() {
         testNavigation("http://homeassistant.local") {
-            onNodeWithText(stringResource(commonR.string.welcome_connect_to_ha))
+            onNodeWithText("Connect to STEVORA")
                 .assertIsDisplayed()
                 .performClick()
             assertTrue(navController.currentBackStackEntry?.destination?.hasRoute<ConnectionRoute>() == true)

@@ -46,8 +46,8 @@ internal class ManualServerNavigationTest : BaseOnboardingNavigationTest() {
             waitForIdle()
             assertTrue(navController.currentBackStackEntry?.destination?.hasRoute<ManualServerRoute>() == true)
 
-            onNodeWithText("http://homeassistant.local").performTextInput("http://ha.local")
-            onNodeWithText(stringResource(commonR.string.connect))
+            onNodeWithText("https://hub.example.com").performTextInput("http://ha.local")
+            onNodeWithText("Continue")
                 .performScrollTo()
                 .performTwoQuickClicks()
             waitForIdle()
@@ -70,7 +70,7 @@ internal class ManualServerNavigationTest : BaseOnboardingNavigationTest() {
             mockCheckPermission(true)
             navController.navigateToServerDiscovery()
             assertTrue(navController.currentBackStackEntry?.destination?.hasRoute<ServerDiscoveryRoute>() == true)
-            onNodeWithText(stringResource(commonR.string.manual_setup))
+            onNodeWithText("Enter Hub address manually")
                 .performScrollTo()
                 .assertIsDisplayed()
                 .performClick()
@@ -80,9 +80,9 @@ internal class ManualServerNavigationTest : BaseOnboardingNavigationTest() {
             onNodeWithContentDescription(stringResource(commonR.string.get_help)).performClick()
             coVerify { any<NavController>().navigateToUri(URL_GETTING_STARTED_DOCUMENTATION, any()) }
 
-            onNodeWithText("http://homeassistant.local").performTextInput("http://ha.local")
+            onNodeWithText("https://hub.example.com").performTextInput("http://ha.local")
 
-            onNodeWithText(stringResource(commonR.string.connect))
+            onNodeWithText("Continue")
                 .performScrollTo()
                 .assertIsDisplayed()
                 .assertIsEnabled()

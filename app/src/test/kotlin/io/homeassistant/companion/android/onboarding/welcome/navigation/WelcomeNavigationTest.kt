@@ -34,7 +34,7 @@ internal class WelcomeNavigationTest : BaseOnboardingNavigationTest() {
     fun `Given Welcome when clicking connect twice quickly then ServerDiscovery is shown only once`() {
         testNavigation {
             mockCheckPermission(true)
-            onNodeWithText(stringResource(commonR.string.welcome_connect_to_ha)).performTwoQuickClicks()
+            onNodeWithText("Connect to STEVORA").performTwoQuickClicks()
             waitForIdle()
             assertTrue(navController.currentBackStackEntry?.destination?.hasRoute<ServerDiscoveryRoute>() == true)
 

@@ -42,7 +42,7 @@ class WelcomeScreenTest {
                 )
             }
 
-            onNodeWithText(stringResource(commonR.string.welcome_connect_to_ha)).assertIsDisplayed().performClick()
+            onNodeWithText("Connect to STEVORA").assertIsDisplayed().performClick()
             assertTrue(connectClicked)
 
             onNodeWithText(stringResource(commonR.string.welcome_learn_more)).performScrollTo().assertIsDisplayed().performClick()

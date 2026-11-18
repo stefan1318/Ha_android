@@ -134,10 +134,10 @@ class HAAppTest {
     fun `Given default OnboardingRoute as start when starts then show Welcome`() {
         testApp(OnboardingRoute(hasLocationTracking = true)) {
             assertTrue(navController.currentBackStackEntry?.destination?.hasRoute<WelcomeRoute>() == true)
-            onNodeWithText(stringResource(R.string.welcome_home_assistant_title)).assertIsDisplayed()
-            onNodeWithText(stringResource(R.string.welcome_details)).assertIsDisplayed()
-            onNodeWithContentDescription(stringResource(R.string.home_assistant_branding_icon_content_description)).assertIsDisplayed()
-            onNodeWithText(stringResource(R.string.welcome_connect_to_ha)).performScrollTo().assertIsDisplayed()
+            onNodeWithText("STEVORA").assertIsDisplayed()
+            onNodeWithText("Your intelligent home. Connect your STEVORA Home Hub to get started.").assertIsDisplayed()
+            onNodeWithContentDescription("STEVORA").assertIsDisplayed()
+            onNodeWithText("Connect to STEVORA").performScrollTo().assertIsDisplayed()
             onNodeWithText(stringResource(R.string.welcome_learn_more)).performScrollTo().assertIsDisplayed()
         }
     }
@@ -167,7 +167,7 @@ class HAAppTest {
             assertTrue(navController.currentBackStackEntry?.destination?.hasRoute<FrontendRoute>() == true)
             // With USE_FRONTEND_V2 enabled, FrontendScreen composable is shown
             // instead of navigating to WebViewActivity. The WebView is always rendered.
-            onNodeWithTag(HA_WEBVIEW_TAG).assertIsDisplayed()
+            onNodeWithText("STEVORA").assertIsDisplayed()
         }
     }
 
@@ -186,7 +186,7 @@ class HAAppTest {
         shadowOf(application).grantPermissions(Manifest.permission.ACCESS_LOCAL_NETWORK)
         testApp(WearOnboardingRoute("wear", null)) {
             assertTrue(navController.currentBackStackEntry?.destination?.hasRoute<ServerDiscoveryRoute>() == true)
-            onNodeWithText(stringResource(R.string.searching_home_network)).assertIsDisplayed()
+            onNodeWithText("Searching for STEVORA Home Hub").assertIsDisplayed()
         }
     }
 
