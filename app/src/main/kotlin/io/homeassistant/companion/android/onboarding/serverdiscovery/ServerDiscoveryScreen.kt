@@ -352,7 +352,7 @@ private fun ServerItemContent(server: ServerDiscovered, onConnectClick: (URL) ->
                 .padding(end = HADimens.SPACE4),
         ) {
             Text(
-                text = "STEVORA Home Hub",
+                text = server.name,
                 style = HATextStyle.Body.copy(textAlign = TextAlign.Start),
             )
             Text(
