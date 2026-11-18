@@ -13,7 +13,7 @@ expected_sha = "58e54712a07d909695a4bbdef5ef0d80dccae05e2485730011b8e588951349e0
 if hashlib.sha256(approved).hexdigest() != expected_sha:
     sys.exit("Approved STEVORA logo checksum mismatch")
 variant = sys.argv[1] if len(sys.argv) > 1 else "full/release"
-if variant not in ("full/release", "minimal/debug"):
+if variant not in ("full/release", "full/debug", "minimal/debug"):
     sys.exit(f"Unsupported APK variant: {variant}")
 apks = sorted((root / "app/build/outputs/apk" / variant).glob("*.apk"))
 if len(apks) != 1:

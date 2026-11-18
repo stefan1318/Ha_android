@@ -64,6 +64,15 @@ jobs:
           path.write_text(json.dumps(data, indent=2) + "\n")
           PY
           python3 -m json.tool app/google-services.json > /dev/null
+      - name: Validate official STEVORA logo and generate safe-zone launcher icons
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/check_stevora_release_gate.py
+          python3 -m pip install --user Pillow==11.3.0
+          python3 scripts/prepare_stevora_branding.py
+          mkdir -p app/src/main/assets/stevora
+          cp app/src/main/res/drawable-nodpi/stevora_logo.png app/src/main/assets/stevora/approved_logo.png
       - name: Compile and run product unit tests
         run: ./gradlew :app:testFullDebugUnitTest --stacktrace --info --refresh-dependencies --no-daemon
       - name: Assemble full debug product
@@ -76,8 +85,9 @@ jobs:
           test "${#apks[@]}" -eq 1
           AAPT="$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)"
           "$AAPT" dump badging "${apks[0]}" | tee apk-identity.txt
-          grep -q "package: name='com.stevora.companion'" apk-identity.txt
+          grep -q "package: name='com.stevora.companion.debug'" apk-identity.txt
           grep -q "versionName='2.1.0'" apk-identity.txt
+          python3 scripts/verify_stevora_apk.py full/debug
           cp "${apks[0]}" STEVORA-Companion-2.1.0-full-debug.apk
           printf 'commit=%s\nbranch=%s\nvariant=fullDebug\n' "$GITHUB_SHA" "$GITHUB_REF_NAME" > build-provenance.txt
       - name: Upload validated STEVORA APK

@@ -8,7 +8,7 @@
         <item name="android:navigationBarColor">@color/stevora_background</item>
         <item name="alertDialogTheme">@style/Theme.HomeAssistant.Dialog.Alert.Launch</item>
         <item name="android:windowSplashScreenBackground">@color/stevora_background</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/stevora_logo</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/stevora_adaptive_foreground</item>
     </style>
 
     <style name="Theme.HomeAssistant.DynamicColorWidget">
