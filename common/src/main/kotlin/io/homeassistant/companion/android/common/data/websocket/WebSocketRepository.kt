@@ -40,8 +40,10 @@ interface WebSocketRepository {
     fun shutdown()
     suspend fun sendPing(): Boolean
     suspend fun getCurrentUser(): CurrentUserResponse?
+
     /** Read STEVORA manifest via the existing authenticated HA socket; null means native HA fallback. */
     suspend fun getStevoraManifestJson(): String?
+
     suspend fun getConfig(): GetConfigResponse?
     suspend fun getStates(): List<EntityResponse>?
     suspend fun getAreaRegistry(): List<AreaRegistryResponse>?
