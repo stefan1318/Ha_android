@@ -87,13 +87,13 @@ internal fun HAApp(
             // Removing it on FrontendRoute destroys the navigation graph during onboarding.
             Box(Modifier.fillMaxSize().alpha(if (onHome) 0f else 1f)) {
                 HANavHost(
-                navController = navController,
-                startDestination = startDestination,
-                onRequestFullscreen = onRequestFullscreen,
-                onPipReadinessChanged = onPipReadinessChanged,
-                onShowSnackbar = { message, action ->
-                    snackbarHostState.showSnackbar(message, action, duration = SnackbarDuration.Short) == ActionPerformed
-                },
+                    navController = navController,
+                    startDestination = startDestination,
+                    onRequestFullscreen = onRequestFullscreen,
+                    onPipReadinessChanged = onPipReadinessChanged,
+                    onShowSnackbar = { message, action ->
+                        snackbarHostState.showSnackbar(message, action, duration = SnackbarDuration.Short) == ActionPerformed
+                    },
                 )
             }
             if (onHome) {
