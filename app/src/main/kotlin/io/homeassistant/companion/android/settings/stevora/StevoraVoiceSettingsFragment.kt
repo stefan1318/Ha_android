@@ -47,7 +47,7 @@ class StevoraVoiceSettingsFragment : PreferenceFragmentCompat() {
         val file = File(sampleDir(), "sample_%02d.m4a".format(index))
         var instance: MediaRecorder? = null
         try {
-            instance = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) MediaRecorder(requireContext()) else @Suppress("DEPRECATION") MediaRecorder()
+            instance = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) MediaRecorder(requireContext()) else MediaRecorder()
             instance.setAudioSource(MediaRecorder.AudioSource.MIC)
             instance.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
             instance.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
