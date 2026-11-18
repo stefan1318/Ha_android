@@ -185,7 +185,9 @@ jobs:
       # silently skipped without it. This is also why the build compiles the analyzed variants.
       # Since `build-logic` is added with `includeBuild` we have to call detektMain explicitly on `:convention`.
       - name: Validate Detekt
-        run: ./gradlew detektMain :build-logic:convention:detektMain --continue
+        # Avoid concurrent ASM/Hilt generated-class reads while preserving type-resolved Detekt.
+        # Configuration cache is disabled for this job to prevent stale generated classpaths.
+        run: ./gradlew detektMain :build-logic:convention:detektMain --continue --stacktrace --no-configuration-cache --max-workers=2
 
       - uses: $/.github/actions/upload-sarif-results
         if: always()
@@ -240,22 +242,22 @@ jobs:
       - name: Validate Screenshot Previews - app
         uses: $/.github/actions/monitor-resources
         with:
-          run: ./gradlew :app:testFullDebugScreenshotTestDefaultTestSuite
+          run: ./gradlew :app:testFullDebugScreenshotTestDefaultTestSuite --no-configuration-cache --max-workers=2
 
       - name: Validate Screenshot Previews - wear
         uses: $/.github/actions/monitor-resources
         with:
-          run: ./gradlew :wear:testDebugScreenshotTestDefaultTestSuite
+          run: ./gradlew :wear:testDebugScreenshotTestDefaultTestSuite --no-configuration-cache --max-workers=2
 
       - name: Validate Screenshot Previews - common
         uses: $/.github/actions/monitor-resources
         with:
-          run: ./gradlew :common:testDebugScreenshotTestDefaultTestSuite
+          run: ./gradlew :common:testDebugScreenshotTestDefaultTestSuite --no-configuration-cache --max-workers=2
 
       - name: Validate Screenshot Previews - webrtc
         uses: $/.github/actions/monitor-resources
         with:
-          run: ./gradlew :webrtc:testDebugScreenshotTestDefaultTestSuite
+          run: ./gradlew :webrtc:testDebugScreenshotTestDefaultTestSuite --no-configuration-cache --max-workers=2
 
       - uses: $/.github/actions/upload-test-results
         if: always()
@@ -324,20 +326,22 @@ jobs:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
           mock-google-services: "true"
       - name: Generate dummy keystore
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/ci_dummy_keystore.keystore
         run: |
           keytool -genkeypair -v \
           -alias androiddebugkey \
           -keyalg RSA \
           -keysize 2048 \
           -validity 10000 \
-          -keystore /home/runner/work/android/android/ci_dummy_keystore.keystore \
+          -keystore "$KEYSTORE_PATH" \
           -dname "CN=Android CI dummy, O=Android, C=FR" \
           -storepass android \
           -keypass android
       - name: Build Release
         uses: $/.github/actions/monitor-resources
         env:
-          KEYSTORE_PATH: /home/runner/work/android/android/ci_dummy_keystore.keystore
+          KEYSTORE_PATH: ${{ github.workspace }}/ci_dummy_keystore.keystore
           KEYSTORE_ALIAS: androiddebugkey
           KEYSTORE_ALIAS_PASSWORD: android
           KEYSTORE_PASSWORD: android
@@ -363,7 +367,7 @@ jobs:
         # No minimal flavor specific tests currently exist, but minimal is compiled to avoid breaking
         # it silently.
         run: |
-          ./gradlew test \
+          ./gradlew test --no-configuration-cache --max-workers=2 \
             -x :automotive:test \
             -x :app:testMinimalDebugUnitTest \
             :app:compileMinimalDebugUnitTestKotlin
@@ -389,7 +393,7 @@ jobs:
           mock-google-services: "true"
 
       - name: Build x86 and x86_64 APKs
-        run: ./gradlew :app:assembleDebug :app:assembleAndroidTest -Pabis=x86,x86_64
+        run: ./gradlew :app:assembleDebug :app:assembleAndroidTest -Pabis=x86,x86_64 --no-configuration-cache --max-workers=2
 
       - name: Build device list
         run: |
@@ -488,7 +492,7 @@ jobs:
           system-image-api-level: ${{ matrix.configuration.system-image-api-level }}
           # emulator-runner executes every script line in a separate shell, so the monitor
           # must be started and killed within a single command.
-          script: .github/actions/monitor-resources/monitor.sh ./gradlew ${{ matrix.configuration.gradle_target }}
+          script: .github/actions/monitor-resources/monitor.sh ./gradlew ${{ matrix.configuration.gradle_target }} --no-configuration-cache --max-workers=2
 
       - uses: $/.github/actions/upload-test-results
         if: always()

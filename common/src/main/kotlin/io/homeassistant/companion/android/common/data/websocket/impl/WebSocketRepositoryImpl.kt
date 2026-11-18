@@ -81,6 +81,12 @@ class WebSocketRepositoryImpl internal constructor(
 
     override suspend fun sendPing(): Boolean = webSocketCore.ping()
 
+    override suspend fun getStevoraManifestJson(): String? {
+        val response = webSocketCore.sendMessage(mapOf("type" to "stevora/manifest"))
+        if (response?.success != true) return null
+        return response.result?.toString()
+    }
+
     override suspend fun getConfig(): GetConfigResponse? {
         val socketResponse = webSocketCore.sendMessage(
             mapOf(
