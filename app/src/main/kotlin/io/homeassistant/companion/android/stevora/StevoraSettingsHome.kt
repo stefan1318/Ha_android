@@ -518,6 +518,33 @@ private fun StevoraNativeSettingsSection(
                 } else {
                     tr("Не е потвърден STEVORA manifest · режимът е неизвестен", "STEVORA manifest not confirmed · server mode unknown")
                 })
+                // Registry-only discovery preview: no device actions or inferred permissions.
+                // Always scope the projection to the active Home Assistant server.
+                val discovered = activeServerId?.let { detectedHomes[it] }
+                if (discovered != null) {
+                    val mappedCount = discovered.entityMappings.values.sumOf { it.size }
+                    SettingsInfo(
+                        tr("Открит дом", "Discovered home"),
+                        tr("Стаи: ", "Rooms: ") + discovered.rooms.size +
+                            tr(" · Свързани обекти: ", " · Mapped entities: ") + mappedCount +
+                            " · Manifest v" + discovered.revision,
+                    )
+                    discovered.rooms.forEach { room ->
+                        SettingsInfo(
+                            room.name,
+                            tr("Обекти: ", "Entities: ") +
+                                discovered.entityMappings[room.id].orEmpty().size,
+                        )
+                    }
+                    Text(
+                        tr(
+                            "Това е преглед само за четене. Управлението на устройства се разрешава отделно от Home Assistant.",
+                            "Read-only discovery. Device control is authorized separately by Home Assistant.",
+                        ),
+                        color = muted,
+                        fontSize = 12.sp,
+                    )
+                }
                 if (manifestStatus != null) Text(manifestStatus.orEmpty(), color = muted, fontSize = 13.sp)
                 if (manifestChecking) CircularProgressIndicator()
                 if (server == null) {
