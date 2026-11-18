@@ -39,6 +39,7 @@ import io.homeassistant.companion.android.frontend.navigation.FrontendTarget
 import io.homeassistant.companion.android.launch.intentLaunchOnboarding
 import io.homeassistant.companion.android.launch.intentLaunchWithNavigateTo
 import io.homeassistant.companion.android.nfc.NfcSetupActivity
+import io.homeassistant.companion.android.stevora.StevoraHomeProjection
 import io.homeassistant.companion.android.settings.assist.AssistSettingsFragment
 import io.homeassistant.companion.android.settings.assist.DefaultAssistantManager
 import io.homeassistant.companion.android.settings.controls.ManageControlsSettingsFragment
@@ -95,6 +96,29 @@ class SettingsFragment(
         preferenceManager.preferenceDataStore = presenter.getPreferenceDataStore()
 
         setPreferencesFromResource(R.xml.preferences, rootKey)
+
+        // Informational only: a successful authenticated manifest probe identifies STEVORA.
+        // No manifest means native HA mode, not proof that the server is unmodified.
+        val ecosystemPreference = Preference(requireContext()).apply {
+            key = "stevora_ecosystem_connection_status"
+            title = "STEVORA Ecosystem · Connection"
+            summary = "Checking server configuration / Проверка на сървъра"
+            isSelectable = false
+        }
+        preferenceScreen.addPreference(ecosystemPreference)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                StevoraHomeProjection.home.collect { installations ->
+                    ecosystemPreference.summary = if (installations.isEmpty()) {
+                        "Home Assistant (native mode) · STEVORA не е открита"
+                    } else {
+                        "STEVORA Ecosystem · Свързани инсталации: " +
+                            installations.keys.sorted().joinToString(", ") { "HA #$it" }
+                    }
+                }
+            }
+        }
+
 
         // STEVORA voice settings are intentionally available before the wake model ships.
         // The screen explains which capabilities are pending instead of enabling a fake listener.
