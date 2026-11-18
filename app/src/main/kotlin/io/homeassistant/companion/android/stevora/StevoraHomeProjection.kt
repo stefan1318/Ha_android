@@ -64,6 +64,12 @@ object StevoraHomeProjection {
         }
     }
 
+    /** Read-only, server-scoped room/entity data for native STEVORA screen adapters. */
+    fun roomsFor(serverId: Int): List<StevoraRoomUi> = home.value[serverId]?.rooms.orEmpty()
+
+    fun entitiesFor(serverId: Int, mappingKey: String): List<String> =
+        home.value[serverId]?.entityMappings?.get(mappingKey).orEmpty()
+
     @Synchronized
     fun clear(serverId: Int) {
         mutableHome.value = mutableHome.value - serverId
