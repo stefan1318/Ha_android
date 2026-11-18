@@ -100,7 +100,7 @@ class SettingsFragment(
         // Server-specific status: never label all servers STEVORA because one matched.
         val ecosystemPreference = Preference(requireContext()).apply {
             key = "stevora_ecosystem_connection_status"
-            title = "STEVORA Ecosystem · Connection"
+            title = "STEVORA · Connection & Ecosystem"
             summary = "Проверка на свързаните сървъри"
             isSelectable = false
         }
@@ -111,9 +111,9 @@ class SettingsFragment(
                     // Status is a list of detected server IDs; never assert that
                     // unprobed or disconnected servers are standard Home Assistant.
                     ecosystemPreference.summary = if (installations.isEmpty()) {
-                        "STEVORA не е потвърдена · Home Assistant режим"
+                        "Режимът не е потвърден · изчаква се STEVORA manifest от сървъра"
                     } else {
-                        "STEVORA открита: " +
+                        "STEVORA manifest потвърден: " +
                             installations.keys.sorted().joinToString(", ") { "HA #$it" } +
                             " · Останалите сървъри: непотвърден режим"
                     }
