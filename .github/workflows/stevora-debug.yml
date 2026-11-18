@@ -25,7 +25,7 @@ jobs:
           python3 -m pip install --user Pillow==11.3.0
           python3 scripts/prepare_stevora_branding.py
       - name: Set up Android build environment
-        uses: ./.github/actions/setup-build-env
+        uses: $/.github/actions/setup-build-env
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
           mock-google-services: "true"
