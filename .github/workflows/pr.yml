@@ -185,7 +185,7 @@ jobs:
       # silently skipped without it. This is also why the build compiles the analyzed variants.
       # Since `build-logic` is added with `includeBuild` we have to call detektMain explicitly on `:convention`.
       - name: Validate Detekt
-        run: ./gradlew detektMain :build-logic:convention:detektMain --continue
+        run: ./gradlew detektMain :build-logic:convention:detektMain --continue --stacktrace
 
       - uses: $/.github/actions/upload-sarif-results
         if: always()
