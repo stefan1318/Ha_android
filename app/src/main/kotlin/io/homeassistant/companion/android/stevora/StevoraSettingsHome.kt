@@ -380,6 +380,8 @@ private fun StevoraNativeSettingsSection(
     var pipelineStatus by remember { mutableStateOf("") }
     var micAllowed by remember { mutableStateOf(false) }
     var notificationsAllowed by remember { mutableStateOf(false) }
+    var manifestStatus by remember { mutableStateOf<String?>(null) }
+    var manifestChecking by remember { mutableStateOf(false) }
     val detectedHomes by StevoraHomeProjection.home.collectAsState()
     var recording by remember { mutableStateOf<MediaRecorder?>(null) }
     var pendingAudio by remember { mutableStateOf<File?>(null) }
@@ -436,6 +438,30 @@ private fun StevoraNativeSettingsSection(
             context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
                 PackageManager.PERMISSION_GRANTED
         } else true
+        if (section == "hub" && current != null) {
+            manifestChecking = true
+            manifestStatus = tr("Проверка на STEVORA manifest…", "Checking STEVORA manifest…")
+            try {
+                val json = manager.webSocketRepository().getStevoraManifestJson()
+                val valid = json != null && StevoraHomeProjection.apply(current.id, json)
+                if (!valid) StevoraHomeProjection.clear(current.id)
+                manifestStatus = if (valid) tr(
+                    "STEVORA manifest е получен и валидиран.",
+                    "STEVORA manifest received and validated.",
+                ) else tr(
+                    "Няма валиден manifest. Проверете интеграцията и администраторските права.",
+                    "No valid manifest. Check integration setup and administrator permissions.",
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                StevoraHomeProjection.clear(current.id)
+                manifestStatus = tr("Грешка при проверка: ", "Discovery failed: ") +
+                    (e.message ?: "Unknown error")
+            } finally {
+                manifestChecking = false
+            }
+        }
         if (section == "voice" && current != null) {
             try {
                 val socket = manager.webSocketRepository()
@@ -492,6 +518,8 @@ private fun StevoraNativeSettingsSection(
                 } else {
                     tr("Не е потвърден STEVORA manifest · режимът е неизвестен", "STEVORA manifest not confirmed · server mode unknown")
                 })
+                if (manifestStatus != null) Text(manifestStatus.orEmpty(), color = muted, fontSize = 13.sp)
+                if (manifestChecking) CircularProgressIndicator()
                 if (server == null) {
                     SettingsInfo("Home Hub", tr("Няма свързан сървър", "No server connected"))
                 } else {
