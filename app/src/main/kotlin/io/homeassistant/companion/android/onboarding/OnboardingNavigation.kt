@@ -169,6 +169,22 @@ internal fun NavGraphBuilder.onboarding(
         nameYourDeviceScreen(
             onBackClick = navController::popBackStack,
             onDeviceNamed = { serverId, hasPlainTextAccess, isPubliclyAccessible ->
+                // Navigation must execute synchronously with the registration callback.
+                // Restoring optional STEVORA preferences is best-effort and must never
+                // delay or suppress first-time pairing on another HA installation.
+                navController.navigateAfterDeviceRegistration(
+                    serverId = serverId,
+                    hasPlainTextAccess = hasPlainTextAccess,
+                    isPubliclyAccessible = isPubliclyAccessible,
+                    hasLocationTracking = hasLocationTracking,
+                    navOptions = navOptions {
+                        // The one-use authorization code must never be revisited.
+                        popUpTo(startDestination) {
+                            inclusive = true
+                        }
+                    },
+                    onOnboardingDone = onOnboardingDone,
+                )
                 CoroutineScope(Dispatchers.Main).launch {
                     try {
                         val context = navController.context.applicationContext
@@ -182,20 +198,6 @@ internal fun NavGraphBuilder.onboarding(
                     } catch (e: Exception) {
                         Timber.e(e, "STEVORA Home Hub settings restore failed")
                     }
-                    navController.navigateAfterDeviceRegistration(
-                    serverId = serverId,
-                    hasPlainTextAccess = hasPlainTextAccess,
-                    isPubliclyAccessible = isPubliclyAccessible,
-                    hasLocationTracking = hasLocationTracking,
-                    navOptions = navOptions {
-                        // We don't want to come back to name your device once the device
-                        // is named since the auth_code has already been used.
-                        popUpTo(startDestination) {
-                            inclusive = true
-                        }
-                    },
-                    onOnboardingDone = onOnboardingDone,
-                    )
                 }
             },
             onShowSnackbar = onShowSnackbar,
