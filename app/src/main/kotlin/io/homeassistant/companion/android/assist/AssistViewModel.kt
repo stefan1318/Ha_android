@@ -199,8 +199,19 @@ class AssistViewModel internal constructor(
                     ),
                 )
             } else {
+                // STEVORA server configuration takes precedence over cached or
+                // role-derived pipeline choices. Non-STEVORA HA keeps native fallback.
+                val managedPipeline = try {
+                    serverManager.webSocketRepository(selectedServerId)
+                        .stevoraManagerCommand("stevora/assistants/resolve")
+                        ?.let { org.json.JSONObject(it).optString("pipeline_id").takeIf(String::isNotBlank) }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    null
+                }
                 setPipeline(
-                    when {
+                    managedPipeline ?: when {
                         pipelineId == PIPELINE_LAST_USED -> serverManager.integrationRepository(
                             selectedServerId,
                         ).getLastUsedPipelineId()
