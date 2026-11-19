@@ -11,6 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,12 +44,17 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
     var status by remember { mutableStateOf("") }
     var refresh by remember { mutableStateOf(0) }
     var busy by remember { mutableStateOf(false) }
+    var roomNames by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
 
     LaunchedEffect(manager, refresh) {
         busy = true
         try {
             val socket = manager.webSocketRepository()
             rooms = socket.stevoraManagerCommand("stevora/admin/rooms/get")?.let(::JSONObject)
+            val aliases = rooms?.optJSONObject("room_aliases")
+            roomNames = buildMap {
+                aliases?.keys()?.forEach { key -> put(key, aliases.optString(key)) }
+            }
             assistants = socket.stevoraManagerCommand("stevora/admin/assistants/get")?.let(::JSONObject)
             status = if (rooms != null && assistants != null) "" else
                 tr("Нужна е STEVORA интеграция и администраторски достъп.",
@@ -101,6 +107,35 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
                 val result = manager.webSocketRepository()
                     .stevoraManagerCommand("stevora/admin/assistants/update", fields)
                 status = if (result != null) tr("Асистентът е запазен", "Assistant saved") else
+                    tr("Отказано или конфликт на версията", "Denied or revision conflict")
+                refresh++
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                status = e.message ?: "Error"
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    fun saveRooms() {
+        val snapshot = rooms ?: return
+        val aliases = snapshot.optJSONObject("entity_aliases")
+        val entityAliases = mutableMapOf<String, String>()
+        aliases?.keys()?.forEach { key -> entityAliases[key] = aliases.optString(key) }
+        val roomOrder = snapshot.optJSONArray("room_order")
+        val order = (0 until (roomOrder?.length() ?: 0)).map { roomOrder!!.optString(it) }
+        scope.launch {
+            busy = true
+            try {
+                val result = manager.webSocketRepository().stevoraManagerCommand(
+                    "stevora/admin/rooms/aliases/update",
+                    mapOf("expected_revision" to snapshot.optInt("revision"),
+                          "room_aliases" to roomNames, "entity_aliases" to entityAliases,
+                          "room_order" to order)
+                )
+                status = if (result != null) tr("Имената са запазени", "Room names saved") else
                     tr("Отказано или конфликт на версията", "Denied or revision conflict")
                 refresh++
             } catch (e: CancellationException) {
@@ -187,6 +222,20 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
             }
         }
         Text("Device & Room Manager", color = StevoraDesign.foreground)
+        val areaList = rooms?.optJSONArray("rooms")
+        for (i in 0 until (areaList?.length() ?: 0)) {
+            val area = areaList?.optJSONObject(i) ?: continue
+            val areaId = area.optString("id")
+            OutlinedTextField(
+                value = roomNames[areaId] ?: area.optString("name"),
+                onValueChange = { name -> roomNames = roomNames + (areaId to name) },
+                label = { Text(tr("Име на стая", "Room name")) },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        OutlinedButton(onClick = { saveRooms() }, enabled = !busy) {
+            Text(tr("Запази имената", "Save room names"))
+        }
         val inventory = rooms?.optJSONArray("entities")
         for (i in 0 until (inventory?.length() ?: 0)) {
             val entity = inventory?.optJSONObject(i) ?: continue
