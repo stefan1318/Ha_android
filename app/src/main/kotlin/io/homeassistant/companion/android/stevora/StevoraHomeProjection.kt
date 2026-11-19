@@ -32,7 +32,7 @@ object StevoraHomeProjection {
             if (revision !in 0L..4294967295L) return false
             val roomsJson = obj.optJSONArray("rooms") ?: return false
             val mappingsJson = obj.optJSONObject("mappings") ?: return false
-            val rooms = buildList {
+            val rooms = buildList<StevoraRoomUi> {
                 for (i in 0 until roomsJson.length()) {
                     val room = roomsJson.optJSONObject(i) ?: continue
                     val id = room.optString("id")
