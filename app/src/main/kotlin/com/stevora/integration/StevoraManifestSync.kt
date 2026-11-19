@@ -18,7 +18,9 @@ data class StevoraManifest(
 object StevoraManifestSync {
     const val REQUEST_TYPE = "stevora/manifest"
 
-    fun request(id: Int): String = JSONObject().put("id", id).put("type", REQUEST_TYPE).toString()
+    fun request(id: Int, language: String = java.util.Locale.getDefault().language): String =
+        JSONObject().put("id", id).put("type", REQUEST_TYPE)
+            .put("language", if (language == "bg") "bg" else "en").toString()
 
     fun parseResponse(payload: String): StevoraManifest? {
         val message = JSONObject(payload)
