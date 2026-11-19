@@ -85,7 +85,7 @@ class WebSocketRepositoryImpl internal constructor(
     override suspend fun stevoraManagerCommand(command: String, fields: Map<String, Any?>): String? {
         val allowed = setOf(
             "stevora/admin/rooms/get", "stevora/admin/rooms/update",
-            "stevora/admin/rooms/aliases/update", "stevora/admin/assistants/get",
+            "stevora/admin/rooms/aliases/update", "stevora/admin/devices/update", "stevora/admin/assistants/get",
             "stevora/admin/assistants/update", "stevora/assistants/resolve"
         )
         require(command in allowed) { "Unsupported STEVORA manager command" }
