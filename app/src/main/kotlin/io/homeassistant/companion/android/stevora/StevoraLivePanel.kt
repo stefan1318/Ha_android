@@ -68,47 +68,24 @@ private val cyan = StevoraDesign.accent
 private val white = StevoraDesign.foreground
 private val secondary = StevoraDesign.muted
 
-// This is a curated STEVORA panel, NOT the HA entity/device inspector.
-// Add a control here only when it belongs in the STEVORA user panel.
-// Do not add backlights, duplicate switch channels, diagnostic entities or raw sensors.
+// Server-controlled room/entity inventory; never carry Dunav entity IDs into another home.
+// The server manifest is authoritative when present; stock HA fallback is read-only.
 private data class StevoraControl(
     val id: String,
     val room: String,
     val labelBg: String,
     val labelEn: String,
+    val canControl: Boolean = false,
 )
 
-private val roomOrder = listOf("living", "kitchen", "hall", "bathroom", "terrace")
-private val roomNames = mapOf(
-    "living" to ("Хол" to "Living Room"),
-    "kitchen" to ("Кухня" to "Kitchen"),
-    "hall" to ("Коридор" to "Hall"),
-    "bathroom" to ("Баня" to "Bathroom"),
-    "terrace" to ("Тераса" to "Terrace"),
+private val visibleDomains = setOf(
+    "climate", "light", "switch", "fan", "media_player", "cover",
+    "lock", "sensor", "binary_sensor",
 )
-
-// Explicit IDs avoid re-introducing things removed from the STEVORA dashboard.
-// The room here is intentional: HA currently assigns a terrace light to Kitchen.
-private val panelControls = listOf(
-    StevoraControl("climate.air_conditioner", "living", "Климатик", "Air conditioner"),
-    StevoraControl("light.rgb_cct", "living", "LED лента", "LED strip"),
-    StevoraControl("media_player.living_room_tv_2", "living", "Телевизор", "Living Room TV"),
-    StevoraControl("light.living_room_switch_1", "living", "Лява светлина", "Left light"),
-    StevoraControl("light.living_room_switch_2", "living", "Средна светлина", "Middle light"),
-    StevoraControl("light.living_room_switch_3", "living", "Дясна светлина", "Right light"),
-    StevoraControl("light.wifi_bel_2gang_switch_2", "kitchen", "Осветление", "Kitchen light"),
-    StevoraControl("light.terrace_switch_1", "hall", "Осветление", "Hall light"),
-    StevoraControl("light.bathroom_switch_2", "bathroom", "Осветление", "Bathroom light"),
-    StevoraControl("fan.bathroom_switch_1", "bathroom", "Вентилатор", "Bathroom fan"),
-    StevoraControl("light.wifi_bel_2gang_switch_1", "terrace", "Осветление", "Terrace light"),
-)
-private val controlById = panelControls.associateBy { it.id }
-
-// Only the two HomePod display helpers used by STEVORA. These are read-only
-// telemetry, not switches, and must never appear in the device control list.
-private const val HOMEPOD_TEMP = "sensor.realna_temperatura_homepod"
-private const val HOMEPOD_HUMIDITY = "sensor.realna_vlazhnost_homepod"
-private val visibleEntityIds = controlById.keys + setOf(HOMEPOD_TEMP, HOMEPOD_HUMIDITY)
+private fun shownInStevora(entityId: String, friendlyName: String = ""): Boolean =
+    entityId.substringBefore('.') in visibleDomains &&
+        !entityId.contains("backlight", ignoreCase = true) &&
+        !friendlyName.contains("backlight", ignoreCase = true)
 
 private fun localized(bgLanguage: Boolean, bgText: String, enText: String): String =
     if (bgLanguage) bgText else enText
@@ -147,72 +124,161 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
     var busy by remember { mutableStateOf<String?>(null) }
     var liveConnected by remember { mutableStateOf(false) }
     var selectedRoom by remember(initialRoom) { mutableStateOf(initialRoom) }
+    var roomOrder by remember { mutableStateOf<List<String>>(emptyList()) }
+    var roomNames by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var panelControls by remember { mutableStateOf<List<StevoraControl>>(emptyList()) }
+    var activeControlIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var activeServerId by remember { mutableStateOf<Int?>(null) }
+    var temperatureSensorId by remember { mutableStateOf<String?>(null) }
+    var humiditySensorId by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
-    // STEVORA 2.1: one initial snapshot per connection, then push updates.
-    // Reconnect after stream completion/errors; never poll the entire home every 5s.
+    // Discover against the currently active HA server. Never use another home's
+    // cached manifest or hardcoded Dunav entity IDs after switching servers.
     LaunchedEffect(manager, bgLanguage) {
         while (isActive) {
             liveConnected = false
             try {
-                if (manager.getServer() == null) {
+                val server = manager.getServer()
+                if (server == null) {
+                    activeServerId = null
+                    roomOrder = emptyList()
+                    roomNames = emptyMap()
+                    panelControls = emptyList()
+                    activeControlIds = emptySet()
                     entities = emptyList()
+                    temperatureSensorId = null
+                    humiditySensorId = null
                     status = localized(bgLanguage, "Добавете Home Hub в настройките", "Connect a Home Hub in Settings")
                 } else {
-                    val repo = manager.webSocketRepository()
-                    // Subscribe before the snapshot to avoid losing changes during initialization.
+                    if (activeServerId != server.id) {
+                        // Clear the prior home's visible UI before any network request.
+                        entities = emptyList()
+                        roomOrder = emptyList()
+                        roomNames = emptyMap()
+                        panelControls = emptyList()
+                        activeControlIds = emptySet()
+                        temperatureSensorId = null
+                        humiditySensorId = null
+                        activeServerId = server.id
+                    }
+                    val repo = manager.webSocketRepository(server.id)
                     val changes = repo.getStateChanges()
                     if (changes == null) {
                         status = localized(bgLanguage, "Няма връзка — нов опит…", "Hub unavailable — retrying")
                     } else {
-                        // Fail closed if visibility cannot be verified; never expose hidden controls.
-                        val hiddenIds = try {
-                            repo.getEntityRegistry().orEmpty()
-                                .filter { it.hiddenBy != null || it.entityCategory != null }
-                                .map { it.entityId }
-                                .toSet()
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            visibleEntityIds
-                        }
-                        val allowedIds = visibleEntityIds - hiddenIds
+                        val manifestRaw = repo.getStevoraManifestJson()
+                        val manifestOk = manifestRaw != null &&
+                            StevoraHomeProjection.apply(server.id, manifestRaw)
+                        if (!manifestOk) StevoraHomeProjection.clear(server.id)
+                        val manifest = if (manifestOk) StevoraHomeProjection.home.value[server.id] else null
+
+                        // The entity registry marks HA-hidden and config/diagnostic helpers.
+                        // A missing registry must never make actions available.
+                        val registry = repo.getEntityRegistry().orEmpty()
+                        val excludedIds = registry.filter {
+                            it.hiddenBy != null || it.entityCategory != null
+                        }.map { it.entityId }.toSet()
                         val snapshot = repo.getStates()
                         if (snapshot == null) {
                             status = localized(bgLanguage, "Няма връзка — нов опит…", "Hub unavailable — retrying")
                         } else {
-                            entities = snapshot.filter { it.entityId in allowedIds }
-                            liveConnected = true
-                            status = localized(bgLanguage, "Свързано • на живо", "Connected • Live") + " • " +
-                                entities.count { it.entityId in controlById } + " " +
-                                localized(bgLanguage, "контроли", "controls")
-                            changes.collect { event ->
-                                if (event.entityId in allowedIds) {
-                                    entities = entities.filterNot { it.entityId == event.entityId } +
-                                        listOfNotNull(event.newState)
+                            val sourceRooms: List<StevoraRoomUi>
+                            val mappedEntities: Map<String, List<String>>
+                            if (manifest != null) {
+                                sourceRooms = manifest.rooms
+                                mappedEntities = manifest.entityMappings
+                            } else {
+                                // Standard Home Assistant without STEVORA: show a read-only
+                                // discovery view; never assume an entity can be controlled.
+                                val areas = repo.getAreaRegistry().orEmpty()
+                                val deviceAreas = repo.getDeviceRegistry().orEmpty()
+                                    .associate { it.id to it.areaId }
+                                sourceRooms = areas.map { StevoraRoomUi(it.areaId, it.name) }
+                                mappedEntities = sourceRooms.associate { room ->
+                                    room.id to registry.filter {
+                                        (it.areaId ?: it.deviceId?.let(deviceAreas::get)) == room.id
+                                    }.map { it.entityId }
                                 }
                             }
-                            // A completed subscription is not a healthy live connection.
-                            status = localized(bgLanguage, "Възстановяване на връзката…", "Reconnecting…")
+                            val byId = snapshot.associateBy { it.entityId }
+                            val display = sourceRooms.flatMap { room ->
+                                mappedEntities[room.id].orEmpty().distinct().mapNotNull { id ->
+                                    val entity = byId[id] ?: return@mapNotNull null
+                                    val name = entity.attributes["friendly_name"] as? String
+                                        ?: id.substringAfter('.').replace('_', ' ')
+                                    if (id in excludedIds || !shownInStevora(id, name)) null
+                                    else StevoraControl(
+                                        id = id,
+                                        room = room.id,
+                                        labelBg = name,
+                                        labelEn = name,
+                                        canControl = manifest != null &&
+                                            id in manifest.controllableEntityIds &&
+                                            entity.domain in setOf("climate", "light", "switch", "fan", "media_player"),
+                                    )
+                                }
+                            }.distinctBy { it.id }
+                            val allowed = display.map { it.id }.toSet()
+                            activeServerId = server.id
+                            roomOrder = sourceRooms.map { it.id }
+                            roomNames = sourceRooms.associate { it.id to it.name }
+                            panelControls = display
+                            activeControlIds = display.filter { it.canControl }.map { it.id }.toSet()
+                            if (selectedRoom != "all" && selectedRoom !in roomOrder) selectedRoom = "all"
+                            entities = snapshot.filter { it.entityId in allowed }
+                            // Informational telemetry is picked by HA device class, not a
+                            // particular home's HomePod entity ID.
+                            val sensors = entities.filter { it.domain == "sensor" }
+                            temperatureSensorId = sensors.firstOrNull {
+                                it.attributes["device_class"] == "temperature"
+                            }?.entityId
+                            humiditySensorId = sensors.firstOrNull {
+                                it.attributes["device_class"] == "humidity"
+                            }?.entityId
+                            liveConnected = true
+                            status = localized(bgLanguage,
+                                if (manifest != null) "STEVORA manifest • свързано" else "HA резервен режим • само преглед",
+                                if (manifest != null) "STEVORA manifest • connected" else "HA fallback • read-only",
+                            ) + " • " + display.size + " entities"
+
+                            // Refresh active server + manifest at least every 20 s, even if
+                            // state-change events keep the previous server's stream alive.
+                            kotlinx.coroutines.withTimeoutOrNull(20_000L) {
+                                changes.collect { event ->
+                                    if (event.entityId in allowed) {
+                                        entities = entities.filterNot { it.entityId == event.entityId } +
+                                            listOfNotNull(event.newState)
+                                    }
+                                }
+                            }
+                            status = localized(bgLanguage, "Опресняване на STEVORA…", "Refreshing STEVORA…")
                         }
                     }
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                liveConnected = false
                 status = localized(bgLanguage, "Проблем с връзката — нов опит…", "Connection unavailable — retrying")
             }
             liveConnected = false
-            delay(5_000L) // Retry only after disconnect; not a state refresh interval.
+            delay(2_000L)
         }
     }
 
     fun execute(entity: Entity, service: String, data: Map<String, Any?> = emptyMap()) {
-        if (!liveConnected || busy != null || entity.entityId !in controlById) return
+        if (!liveConnected || busy != null || entity.entityId !in activeControlIds) return
+        val targetServerId = activeServerId ?: return
         busy = entity.entityId
         scope.launch {
             try {
-                manager.integrationRepository().callAction(
+                // Never dispatch a command to a previous home after server switching.
+                if (manager.getServer()?.id != targetServerId) {
+                    status = localized(bgLanguage, "Домът е сменен — обновете екрана", "Home changed — refresh the view")
+                    return@launch
+                }
+                manager.integrationRepository(targetServerId).callAction(
                     entity.domain,
                     service,
                     data + ("entity_id" to entity.entityId),
@@ -247,7 +313,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                     Text(localized(bgLanguage, "HOME • КОНТРОЛЕН ЦЕНТЪР", "HOME • COMMAND CENTER"),
                         fontSize = 11.sp, color = cyan, letterSpacing = 1.sp)
                 }
-                Text(if (status.startsWith("Connected") || status.startsWith("Свързано")) "● ONLINE" else "● OFFLINE",
+                Text(if (liveConnected) "● ONLINE" else "● OFFLINE",
                     color = if (status.startsWith("Connected") || status.startsWith("Свързано")) Color(0xFF4CE0B3) else secondary,
                     fontSize = 12.sp)
             }
@@ -268,8 +334,8 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                     Text("⌂", color = cyan, fontSize = 38.sp)
                 }
             }
-            val temp = entities.firstOrNull { it.entityId == HOMEPOD_TEMP }
-            val humidity = entities.firstOrNull { it.entityId == HOMEPOD_HUMIDITY }
+            val temp = entities.firstOrNull { it.entityId == temperatureSensorId }
+            val humidity = entities.firstOrNull { it.entityId == humiditySensorId }
             if (temp != null || humidity != null) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -285,7 +351,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                         StevoraMetricCard(
                             label = label,
                             value = if (state == null) "—" else "$state $unit",
-                            detail = "HomePod",
+                            detail = localized(bgLanguage, "HA датчик", "HA sensor"),
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -299,7 +365,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
             ) {
                 (listOf("all") + roomOrder).forEach { room ->
                     val title = if (room == "all") localized(bgLanguage, "Всички", "All rooms")
-                        else roomNames[room]?.let { if (bgLanguage) it.first else it.second } ?: room
+                        else roomNames[room] ?: room
                     val active = selectedRoom == room
                     Card(
                         modifier = Modifier.clickable { selectedRoom = room },
@@ -318,8 +384,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                         entities.firstOrNull { it.entityId == control.id }?.let { control to it }
                     }
                 if (items.isNotEmpty()) {
-                    val names = requireNotNull(roomNames[room])
-                    Text(if (bgLanguage) names.first else names.second, color = white, fontSize = 21.sp)
+                    Text(roomNames[room] ?: room, color = white, fontSize = 21.sp)
                     items.chunked(columns).forEach { group ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -364,7 +429,12 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                 }
                             }
                             val available = entity.state != "unavailable" && entity.state != "unknown"
-                            if (entity.domain == "media_player") {
+                            if (!control.canControl) {
+                                Text(
+                                    entity.state + " " + (entity.attributes["unit_of_measurement"] as? String ?: ""),
+                                    color = secondary,
+                                )
+                            } else if (entity.domain == "media_player") {
                                 // HA can report unavailable while the television still accepts
                                 // power commands. Keep controls visible and let the server decide.
                                 Text(
@@ -507,7 +577,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                         ) { Text("+", fontSize = 23.sp) }
                                     }
                                 }
-                            } else if (entity.domain == "light" || entity.domain == "fan") {
+                            } else if (entity.domain == "light" || entity.domain == "fan" || entity.domain == "switch") {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -527,7 +597,12 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                 }
                                 // Fan uses only supported on/off services; no invented speed control.
                                 // The RGB strip is the only color/brightness control.
-                                if (entity.entityId == "light.rgb_cct") {
+                                val colorModes = (entity.attributes["supported_color_modes"] as? List<*>)
+                                    ?.filterIsInstance<String>().orEmpty()
+                                val hasRgb = colorModes.any {
+                                    it in setOf("rgb", "rgbw", "rgbww", "hs", "xy")
+                                }
+                                if (entity.domain == "light" && hasRgb) {
                                     val brightness = (entity.attributes["brightness"] as? Number)?.toInt()
                                     val percent = ((brightness ?: 255) * 100f / 255f).roundToInt().coerceIn(1, 100)
                                     var brightnessPercent by remember(entity.entityId, percent) {
