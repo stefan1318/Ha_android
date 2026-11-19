@@ -68,47 +68,24 @@ private val cyan = StevoraDesign.accent
 private val white = StevoraDesign.foreground
 private val secondary = StevoraDesign.muted
 
-// This is a curated STEVORA panel, NOT the HA entity/device inspector.
-// Add a control here only when it belongs in the STEVORA user panel.
-// Do not add backlights, duplicate switch channels, diagnostic entities or raw sensors.
+// Server-controlled room/entity inventory; never carry Dunav entity IDs into another home.
+// The server manifest is authoritative when present; stock HA fallback is read-only.
 private data class StevoraControl(
     val id: String,
     val room: String,
     val labelBg: String,
     val labelEn: String,
+    val canControl: Boolean = false,
 )
 
-private val roomOrder = listOf("living", "kitchen", "hall", "bathroom", "terrace")
-private val roomNames = mapOf(
-    "living" to ("Хол" to "Living Room"),
-    "kitchen" to ("Кухня" to "Kitchen"),
-    "hall" to ("Коридор" to "Hall"),
-    "bathroom" to ("Баня" to "Bathroom"),
-    "terrace" to ("Тераса" to "Terrace"),
+private val visibleDomains = setOf(
+    "climate", "light", "switch", "fan", "media_player", "cover",
+    "lock", "sensor", "binary_sensor",
 )
-
-// Explicit IDs avoid re-introducing things removed from the STEVORA dashboard.
-// The room here is intentional: HA currently assigns a terrace light to Kitchen.
-private val panelControls = listOf(
-    StevoraControl("climate.air_conditioner", "living", "Климатик", "Air conditioner"),
-    StevoraControl("light.rgb_cct", "living", "LED лента", "LED strip"),
-    StevoraControl("media_player.living_room_tv_2", "living", "Телевизор", "Living Room TV"),
-    StevoraControl("light.living_room_switch_1", "living", "Лява светлина", "Left light"),
-    StevoraControl("light.living_room_switch_2", "living", "Средна светлина", "Middle light"),
-    StevoraControl("light.living_room_switch_3", "living", "Дясна светлина", "Right light"),
-    StevoraControl("light.wifi_bel_2gang_switch_2", "kitchen", "Осветление", "Kitchen light"),
-    StevoraControl("light.terrace_switch_1", "hall", "Осветление", "Hall light"),
-    StevoraControl("light.bathroom_switch_2", "bathroom", "Осветление", "Bathroom light"),
-    StevoraControl("fan.bathroom_switch_1", "bathroom", "Вентилатор", "Bathroom fan"),
-    StevoraControl("light.wifi_bel_2gang_switch_1", "terrace", "Осветление", "Terrace light"),
-)
-private val controlById = panelControls.associateBy { it.id }
-
-// Only the two HomePod display helpers used by STEVORA. These are read-only
-// telemetry, not switches, and must never appear in the device control list.
-private const val HOMEPOD_TEMP = "sensor.realna_temperatura_homepod"
-private const val HOMEPOD_HUMIDITY = "sensor.realna_vlazhnost_homepod"
-private val visibleEntityIds = controlById.keys + setOf(HOMEPOD_TEMP, HOMEPOD_HUMIDITY)
+private fun shownInStevora(entityId: String, friendlyName: String = ""): Boolean =
+    entityId.substringBefore('.') in visibleDomains &&
+        !entityId.contains("backlight", ignoreCase = true) &&
+        !friendlyName.contains("backlight", ignoreCase = true)
 
 private fun localized(bgLanguage: Boolean, bgText: String, enText: String): String =
     if (bgLanguage) bgText else enText
@@ -147,6 +124,13 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
     var busy by remember { mutableStateOf<String?>(null) }
     var liveConnected by remember { mutableStateOf(false) }
     var selectedRoom by remember(initialRoom) { mutableStateOf(initialRoom) }
+    var roomOrder by remember { mutableStateOf<List<String>>(emptyList()) }
+    var roomNames by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var panelControls by remember { mutableStateOf<List<StevoraControl>>(emptyList()) }
+    var activeControlIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var activeServerId by remember { mutableStateOf<Int?>(null) }
+    var temperatureSensorId by remember { mutableStateOf<String?>(null) }
+    var humiditySensorId by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     // STEVORA 2.1: one initial snapshot per connection, then push updates.
