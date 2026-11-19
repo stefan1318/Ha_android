@@ -3,6 +3,11 @@ name: STEVORA Android debug build
 on:
   workflow_dispatch:
   push:
+    branches: [feature/stevora-admin-managers-buildable]
+    paths:
+      - '.github/workflows/stevora-debug.yml'
+      - 'app/src/main/kotlin/com/stevora/integration/**'
+  push:
     branches:
       - feature/stevora-companion
       - fix/stevora-cross-home-discovery-20261119
