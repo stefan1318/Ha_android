@@ -184,7 +184,7 @@ internal fun StevoraHomeOverview(
         ) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("CLIMATE CENTER", color = homeText, fontSize = 20.sp)
-                Text(climateTitle + " • " + if (bg) "данни в реално време" else "live readings",
+                Text(climateTitle + " • " + (if (bg) "данни в реално време" else "live readings"),
                     color = homeMuted, fontSize = 12.sp)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
