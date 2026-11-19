@@ -113,6 +113,36 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
         }
     }
 
+    fun setUserPipeline(userId: String, pipelineId: String?) {
+        val snapshot = assistants ?: return
+        val revision = snapshot.optInt("revision")
+        val settings = snapshot.optJSONObject("settings")
+        val defaultId = settings?.optString("default_pipeline")?.takeIf { it.isNotBlank() }
+        val existing = settings?.optJSONObject("user_pipelines")
+        val overrides = mutableMapOf<String, String>()
+        existing?.keys()?.forEach { key -> overrides[key] = existing.optString(key) }
+        if (pipelineId == null) overrides.remove(userId) else overrides[userId] = pipelineId
+        scope.launch {
+            busy = true
+            try {
+                val result = manager.webSocketRepository().stevoraManagerCommand(
+                    "stevora/admin/assistants/update",
+                    mapOf("expected_revision" to revision, "default_pipeline" to defaultId,
+                          "user_pipelines" to overrides)
+                )
+                status = if (result != null) tr("Запазено", "Saved") else
+                    tr("Отказано или конфликт на версията", "Denied or revision conflict")
+                refresh++
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                status = e.message ?: "Error"
+            } finally {
+                busy = false
+            }
+        }
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().background(StevoraDesign.background)
             .verticalScroll(rememberScrollState()).padding(20.dp),
@@ -136,6 +166,23 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
                 val id = pipeline.optString("id")
                 OutlinedButton(onClick = { setDefaultPipeline(id) }, enabled = !busy) {
                     Text((if (id == selected) "✓ " else "") + pipeline.optString("name", id))
+                }
+            }
+        }
+        Text(tr("Асистент по потребител", "Assistant per user"), color = StevoraDesign.foreground)
+        val users = assistants?.optJSONArray("users")
+        val pipelineOptions = assistants?.optJSONArray("pipelines")
+        for (i in 0 until (users?.length() ?: 0)) {
+            val user = users?.optJSONObject(i) ?: continue
+            val userId = user.optString("id")
+            Text(user.optString("name", userId), color = StevoraDesign.foreground)
+            OutlinedButton(onClick = { setUserPipeline(userId, null) }, enabled = !busy) {
+                Text(tr("Наследи основния", "Use default"))
+            }
+            for (j in 0 until (pipelineOptions?.length() ?: 0)) {
+                val option = pipelineOptions?.optJSONObject(j) ?: continue
+                OutlinedButton(onClick = { setUserPipeline(userId, option.optString("id")) }, enabled = !busy) {
+                    Text(option.optString("name"))
                 }
             }
         }
