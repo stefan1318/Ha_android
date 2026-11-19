@@ -151,6 +151,17 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                     humiditySensorId = null
                     status = localized(bgLanguage, "Добавете Home Hub в настройките", "Connect a Home Hub in Settings")
                 } else {
+                    if (activeServerId != server.id) {
+                        // Clear the prior home's visible UI before any network request.
+                        entities = emptyList()
+                        roomOrder = emptyList()
+                        roomNames = emptyMap()
+                        panelControls = emptyList()
+                        activeControlIds = emptySet()
+                        temperatureSensorId = null
+                        humiditySensorId = null
+                        activeServerId = server.id
+                    }
                     val repo = manager.webSocketRepository(server.id)
                     val changes = repo.getStateChanges()
                     if (changes == null) {
@@ -186,7 +197,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                 sourceRooms = areas.map { StevoraRoomUi(it.areaId, it.name) }
                                 mappedEntities = sourceRooms.associate { room ->
                                     room.id to registry.filter {
-                                        (it.areaId ?: deviceAreas[it.deviceId]) == room.id
+                                        (it.areaId ?: it.deviceId?.let(deviceAreas::get)) == room.id
                                     }.map { it.entityId }
                                 }
                             }
@@ -317,8 +328,8 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                     Text("⌂", color = cyan, fontSize = 38.sp)
                 }
             }
-            val temp = entities.firstOrNull { it.entityId == HOMEPOD_TEMP }
-            val humidity = entities.firstOrNull { it.entityId == HOMEPOD_HUMIDITY }
+            val temp = entities.firstOrNull { it.entityId == temperatureSensorId }
+            val humidity = entities.firstOrNull { it.entityId == humiditySensorId }
             if (temp != null || humidity != null) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -334,7 +345,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                         StevoraMetricCard(
                             label = label,
                             value = if (state == null) "—" else "$state $unit",
-                            detail = "HomePod",
+                            detail = localized(bgLanguage, "HA датчик", "HA sensor"),
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -348,7 +359,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
             ) {
                 (listOf("all") + roomOrder).forEach { room ->
                     val title = if (room == "all") localized(bgLanguage, "Всички", "All rooms")
-                        else roomNames[room]?.let { if (bgLanguage) it.first else it.second } ?: room
+                        else roomNames[room] ?: room
                     val active = selectedRoom == room
                     Card(
                         modifier = Modifier.clickable { selectedRoom = room },
@@ -367,8 +378,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                         entities.firstOrNull { it.entityId == control.id }?.let { control to it }
                     }
                 if (items.isNotEmpty()) {
-                    val names = requireNotNull(roomNames[room])
-                    Text(if (bgLanguage) names.first else names.second, color = white, fontSize = 21.sp)
+                    Text(roomNames[room] ?: room, color = white, fontSize = 21.sp)
                     items.chunked(columns).forEach { group ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -413,7 +423,12 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                 }
                             }
                             val available = entity.state != "unavailable" && entity.state != "unknown"
-                            if (entity.domain == "media_player") {
+                            if (!control.canControl) {
+                                Text(
+                                    entity.state + " " + (entity.attributes["unit_of_measurement"] as? String ?: ""),
+                                    color = secondary,
+                                )
+                            } else if (entity.domain == "media_player") {
                                 // HA can report unavailable while the television still accepts
                                 // power commands. Keep controls visible and let the server decide.
                                 Text(
@@ -556,7 +571,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                         ) { Text("+", fontSize = 23.sp) }
                                     }
                                 }
-                            } else if (entity.domain == "light" || entity.domain == "fan") {
+                            } else if (entity.domain == "light" || entity.domain == "fan" || entity.domain == "switch") {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -576,7 +591,12 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                 }
                                 // Fan uses only supported on/off services; no invented speed control.
                                 // The RGB strip is the only color/brightness control.
-                                if (entity.entityId == "light.rgb_cct") {
+                                val colorModes = (entity.attributes["supported_color_modes"] as? List<*>)
+                                    ?.filterIsInstance<String>().orEmpty()
+                                val hasRgb = colorModes.any {
+                                    it in setOf("rgb", "rgbw", "rgbww", "hs", "xy")
+                                }
+                                if (entity.domain == "light" && hasRgb) {
                                     val brightness = (entity.attributes["brightness"] as? Number)?.toInt()
                                     val percent = ((brightness ?: 255) * 100f / 255f).roundToInt().coerceIn(1, 100)
                                     var brightnessPercent by remember(entity.entityId, percent) {
