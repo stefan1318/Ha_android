@@ -269,10 +269,16 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
 
     fun execute(entity: Entity, service: String, data: Map<String, Any?> = emptyMap()) {
         if (!liveConnected || busy != null || entity.entityId !in activeControlIds) return
+        val targetServerId = activeServerId ?: return
         busy = entity.entityId
         scope.launch {
             try {
-                manager.integrationRepository(activeServerId ?: return@launch).callAction(
+                // Never dispatch a command to a previous home after server switching.
+                if (manager.getServer()?.id != targetServerId) {
+                    status = localized(bgLanguage, "Домът е сменен — обновете екрана", "Home changed — refresh the view")
+                    return@launch
+                }
+                manager.integrationRepository(targetServerId).callAction(
                     entity.domain,
                     service,
                     data + ("entity_id" to entity.entityId),
@@ -307,7 +313,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                     Text(localized(bgLanguage, "HOME • КОНТРОЛЕН ЦЕНТЪР", "HOME • COMMAND CENTER"),
                         fontSize = 11.sp, color = cyan, letterSpacing = 1.sp)
                 }
-                Text(if (status.startsWith("Connected") || status.startsWith("Свързано")) "● ONLINE" else "● OFFLINE",
+                Text(if (liveConnected) "● ONLINE" else "● OFFLINE",
                     color = if (status.startsWith("Connected") || status.startsWith("Свързано")) Color(0xFF4CE0B3) else secondary,
                     fontSize = 12.sp)
             }
