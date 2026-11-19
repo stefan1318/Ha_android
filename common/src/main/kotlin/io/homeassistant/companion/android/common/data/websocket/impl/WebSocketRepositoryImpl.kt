@@ -82,6 +82,18 @@ class WebSocketRepositoryImpl internal constructor(
 
     override suspend fun sendPing(): Boolean = webSocketCore.ping()
 
+    override suspend fun stevoraManagerCommand(command: String, fields: Map<String, Any?>): String? {
+        val allowed = setOf(
+            "stevora/admin/rooms/get", "stevora/admin/rooms/update",
+            "stevora/admin/rooms/aliases/update", "stevora/admin/assistants/get",
+            "stevora/admin/assistants/update", "stevora/assistants/resolve"
+        )
+        require(command in allowed) { "Unsupported STEVORA manager command" }
+        val response = webSocketCore.sendMessage(fields + mapOf("type" to command))
+        if (response?.success != true) return null
+        return response.result?.toString()
+    }
+
     override suspend fun getStevoraManifestJson(): String? {
         val response = webSocketCore.sendMessage(mapOf("type" to "stevora/manifest"))
         if (response?.success != true) return null
