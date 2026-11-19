@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - feature/stevora-companion
+      - fix/stevora-cross-home-discovery-20261119
     paths:
       - 'app/**'
       - 'scripts/check_stevora_release_gate.py'
