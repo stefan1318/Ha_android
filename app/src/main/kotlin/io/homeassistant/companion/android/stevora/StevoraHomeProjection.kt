@@ -13,6 +13,7 @@ data class StevoraHomeUi(
     val rooms: List<StevoraRoomUi>,
     val entityMappings: Map<String, List<String>>,
     val controllableEntityIds: Set<String>,
+    val localizedEntityNames: Map<String, String>,
 )
 
 /** This cache is keyed by the active Companion server, not by a shared home profile. */
@@ -57,6 +58,14 @@ object StevoraHomeProjection {
             val controllable = (0 until (controls?.length() ?: 0)).mapNotNull { i ->
                 controls?.optString(i)?.takeIf { it in visibleIds }
             }.toSet()
+            val namesJson = obj.optJSONArray("entities")
+            val names = buildMap<String, String> {
+                for (i in 0 until (namesJson?.length() ?: 0)) {
+                    val entity = namesJson?.optJSONObject(i) ?: continue
+                    val id = entity.optString("entity_id")
+                    if (id in visibleIds) put(id, entity.optString("name", id))
+                }
+            }
             val model = StevoraHomeUi(
                 installationId = installationId,
                 revision = revision,
@@ -64,6 +73,7 @@ object StevoraHomeProjection {
                 rooms = rooms,
                 entityMappings = mappings,
                 controllableEntityIds = controllable,
+                localizedEntityNames = names,
             )
             mutableHome.value = mutableHome.value + (serverId to model)
             true
