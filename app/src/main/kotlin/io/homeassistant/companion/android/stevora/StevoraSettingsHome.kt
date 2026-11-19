@@ -89,6 +89,7 @@ internal fun StevoraSettingsHome(
     var climateExpanded by remember { mutableStateOf(false) }
     var automationExpanded by remember { mutableStateOf(false) }
     var memoryExpanded by remember { mutableStateOf(false) }
+    var managersExpanded by remember { mutableStateOf(false) }
     var widgetMessage by remember { mutableStateOf<String?>(null) }
     var confirmLogout by remember { mutableStateOf(false) }
     var loggingOut by remember { mutableStateOf(false) }
@@ -118,6 +119,10 @@ internal fun StevoraSettingsHome(
             admin = admin,
             onBack = { nativeSection = null },
         )
+        return
+    }
+    if (managersExpanded) {
+        StevoraManagersHome(onBack = { managersExpanded = false })
         return
     }
     if (memoryExpanded) {
@@ -202,6 +207,9 @@ internal fun StevoraSettingsHome(
             Text(tr("АДМИНИСТРАТОРСКИ ПАНЕЛ", "ADMIN CONTROL CENTER"), fontSize = 12.sp, color = accent)
             // These entries remain informational until STEVORA's protected
             // memory and automation API contracts are verified and implemented.
+            SettingsEntry("Device & Room Manager / Assistant Manager",
+                tr("Управление на стаи, устройства и асистенти", "Manage rooms, devices and assistants"),
+                "▦", { managersExpanded = true })
             SettingsEntry("Memory Manager", tr("Управление на паметта и предложенията", "Manage memory and review proposals"), "▣", { memoryExpanded = true })
             SettingsEntry("Automation Studio", tr("Управление на автоматизациите", "Manage Home Assistant automations"), "◇", { automationExpanded = true })
             SettingsEntry(
