@@ -45,6 +45,13 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
     var refresh by remember { mutableStateOf(0) }
     var busy by remember { mutableStateOf(false) }
     var roomNames by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var editingEntity by remember { mutableStateOf("") }
+    var deviceName by remember { mutableStateOf("") }
+    var deviceIcon by remember { mutableStateOf("") }
+    var deviceLayout by remember { mutableStateOf("compact") }
+    var deviceArea by remember { mutableStateOf("") }
+    var deviceControls by remember { mutableStateOf("") }
+    var deviceUsers by remember { mutableStateOf("") }
 
     LaunchedEffect(manager, refresh) {
         busy = true
@@ -136,6 +143,50 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
                           "room_order" to order)
                 )
                 status = if (result != null) tr("Имената са запазени", "Room names saved") else
+                    tr("Отказано или конфликт на версията", "Denied or revision conflict")
+                refresh++
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                status = e.message ?: "Error"
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    fun editDevice(entityId: String) {
+        val profile = rooms?.optJSONObject("device_profiles")?.optJSONObject(entityId)
+        editingEntity = entityId
+        deviceName = profile?.optString("name") ?: ""
+        deviceIcon = profile?.optString("icon") ?: ""
+        deviceLayout = profile?.optString("layout") ?: "compact"
+        deviceArea = profile?.optString("area_id")?.takeUnless { it == "null" } ?: ""
+        fun values(key: String): String {
+            val items = profile?.optJSONArray(key)
+            return (0 until (items?.length() ?: 0)).joinToString(",") { items!!.optString(it) }
+        }
+        deviceControls = values("controls")
+        deviceUsers = values("user_ids")
+    }
+    fun saveDevice() {
+        val snapshot = rooms ?: return
+        val entityId = editingEntity.takeIf { it.isNotEmpty() } ?: return
+        val profile = mapOf<String, Any?>(
+            "name" to deviceName, "icon" to deviceIcon, "layout" to deviceLayout,
+            "area_id" to deviceArea.ifBlank { null },
+            "controls" to deviceControls.split(",").map(String::trim).filter(String::isNotBlank),
+            "user_ids" to deviceUsers.split(",").map(String::trim).filter(String::isNotBlank)
+        )
+        scope.launch {
+            busy = true
+            try {
+                val result = manager.webSocketRepository().stevoraManagerCommand(
+                    "stevora/admin/devices/update",
+                    mapOf("expected_revision" to snapshot.optInt("revision"),
+                          "profiles" to mapOf(entityId to profile))
+                )
+                status = if (result != null) tr("Устройството е запазено", "Device saved") else
                     tr("Отказано или конфликт на версията", "Denied or revision conflict")
                 refresh++
             } catch (e: CancellationException) {
@@ -241,6 +292,39 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
             val entity = inventory?.optJSONObject(i) ?: continue
             val id = entity.optString("entity_id")
             Text(entity.optString("name", id) + " • " + id, color = StevoraDesign.foreground)
+            OutlinedButton(onClick = { editDevice(id) }, enabled = !busy) {
+                Text(tr("Персонализирай", "Customize"))
+            }
+            if (editingEntity == id) {
+                OutlinedTextField(deviceName, { deviceName = it }, label = { Text(tr("Име", "Name")) })
+                OutlinedTextField(deviceIcon, { deviceIcon = it }, label = { Text("mdi:icon") })
+                Text(tr("Оформление", "Layout"), color = StevoraDesign.foreground)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    for (layout in listOf("info", "compact", "expanded")) {
+                        OutlinedButton(onClick = { deviceLayout = layout }) {
+                            Text((if (deviceLayout == layout) "✓" else "") + layout)
+                        }
+                    }
+                }
+                Text(tr("Стая", "Room"), color = StevoraDesign.foreground)
+                OutlinedButton(onClick = { deviceArea = "" }) {
+                    Text(tr("Автоматично", "Automatic"))
+                }
+                val choices = rooms?.optJSONArray("rooms")
+                for (k in 0 until (choices?.length() ?: 0)) {
+                    val area = choices?.optJSONObject(k) ?: continue
+                    OutlinedButton(onClick = { deviceArea = area.optString("id") }) {
+                        Text((if (deviceArea == area.optString("id")) "✓ " else "") + area.optString("name"))
+                    }
+                }
+                OutlinedTextField(deviceControls, { deviceControls = it },
+                    label = { Text(tr("Контроли (със запетая)", "Controls (comma-separated)")) })
+                OutlinedTextField(deviceUsers, { deviceUsers = it },
+                    label = { Text(tr("Потребителски ID", "User IDs")) })
+                Button(onClick = { saveDevice() }, enabled = !busy) {
+                    Text(tr("Запази устройството", "Save device"))
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (entity.optBoolean("disabled") || entity.optBoolean("hidden")) {
                     Text(tr("Недостъпно в HA", "Unavailable in HA"), color = StevoraDesign.muted)
