@@ -13,9 +13,27 @@ object StevoraAdminApi {
     const val ROOMS_UPDATE = "stevora/admin/rooms/update"
     const val ASSISTANTS_GET = "stevora/admin/assistants/get"
     const val ASSISTANTS_UPDATE = "stevora/admin/assistants/update"
+    const val ASSISTANTS_RESOLVE = "stevora/assistants/resolve"
 
     fun request(id: Int, command: String): String =
         JSONObject().put("id", id).put("type", command).toString()
+
+    data class AssistantPipeline(val id: String, val name: String)
+    data class AssistantSettings(val defaultPipeline: String?, val userPipelines: Map<String, String>)
+
+    fun updateAssistants(id: Int, expectedRevision: Int, settings: AssistantSettings): String {
+        val userPipelines = JSONObject()
+        settings.userPipelines.forEach { (userId, pipelineId) ->
+            userPipelines.put(userId, pipelineId)
+        }
+        return JSONObject()
+            .put("id", id)
+            .put("type", ASSISTANTS_UPDATE)
+            .put("expected_revision", expectedRevision)
+            .put("default_pipeline", settings.defaultPipeline ?: JSONObject.NULL)
+            .put("user_pipelines", userPipelines)
+            .toString()
+    }
 
     enum class Visibility(val wireValue: String) {
         DEFAULT("default"), INCLUDE("include"), EXCLUDE("exclude")
