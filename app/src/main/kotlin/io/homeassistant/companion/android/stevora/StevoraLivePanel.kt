@@ -133,70 +133,135 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
     var humiditySensorId by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
-    // STEVORA 2.1: one initial snapshot per connection, then push updates.
-    // Reconnect after stream completion/errors; never poll the entire home every 5s.
+    // Discover against the currently active HA server. Never use another home's
+    // cached manifest or hardcoded Dunav entity IDs after switching servers.
     LaunchedEffect(manager, bgLanguage) {
         while (isActive) {
             liveConnected = false
             try {
-                if (manager.getServer() == null) {
+                val server = manager.getServer()
+                if (server == null) {
+                    activeServerId = null
+                    roomOrder = emptyList()
+                    roomNames = emptyMap()
+                    panelControls = emptyList()
+                    activeControlIds = emptySet()
                     entities = emptyList()
+                    temperatureSensorId = null
+                    humiditySensorId = null
                     status = localized(bgLanguage, "Добавете Home Hub в настройките", "Connect a Home Hub in Settings")
                 } else {
-                    val repo = manager.webSocketRepository()
-                    // Subscribe before the snapshot to avoid losing changes during initialization.
+                    val repo = manager.webSocketRepository(server.id)
                     val changes = repo.getStateChanges()
                     if (changes == null) {
                         status = localized(bgLanguage, "Няма връзка — нов опит…", "Hub unavailable — retrying")
                     } else {
-                        // Fail closed if visibility cannot be verified; never expose hidden controls.
-                        val hiddenIds = try {
-                            repo.getEntityRegistry().orEmpty()
-                                .filter { it.hiddenBy != null || it.entityCategory != null }
-                                .map { it.entityId }
-                                .toSet()
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            visibleEntityIds
-                        }
-                        val allowedIds = visibleEntityIds - hiddenIds
+                        val manifestRaw = repo.getStevoraManifestJson()
+                        val manifestOk = manifestRaw != null &&
+                            StevoraHomeProjection.apply(server.id, manifestRaw)
+                        if (!manifestOk) StevoraHomeProjection.clear(server.id)
+                        val manifest = if (manifestOk) StevoraHomeProjection.home.value[server.id] else null
+
+                        // The entity registry marks HA-hidden and config/diagnostic helpers.
+                        // A missing registry must never make actions available.
+                        val registry = repo.getEntityRegistry().orEmpty()
+                        val excludedIds = registry.filter {
+                            it.hiddenBy != null || it.entityCategory != null
+                        }.map { it.entityId }.toSet()
                         val snapshot = repo.getStates()
                         if (snapshot == null) {
                             status = localized(bgLanguage, "Няма връзка — нов опит…", "Hub unavailable — retrying")
                         } else {
-                            entities = snapshot.filter { it.entityId in allowedIds }
-                            liveConnected = true
-                            status = localized(bgLanguage, "Свързано • на живо", "Connected • Live") + " • " +
-                                entities.count { it.entityId in controlById } + " " +
-                                localized(bgLanguage, "контроли", "controls")
-                            changes.collect { event ->
-                                if (event.entityId in allowedIds) {
-                                    entities = entities.filterNot { it.entityId == event.entityId } +
-                                        listOfNotNull(event.newState)
+                            val sourceRooms: List<StevoraRoomUi>
+                            val mappedEntities: Map<String, List<String>>
+                            if (manifest != null) {
+                                sourceRooms = manifest.rooms
+                                mappedEntities = manifest.entityMappings
+                            } else {
+                                // Standard Home Assistant without STEVORA: show a read-only
+                                // discovery view; never assume an entity can be controlled.
+                                val areas = repo.getAreaRegistry().orEmpty()
+                                val deviceAreas = repo.getDeviceRegistry().orEmpty()
+                                    .associate { it.id to it.areaId }
+                                sourceRooms = areas.map { StevoraRoomUi(it.areaId, it.name) }
+                                mappedEntities = sourceRooms.associate { room ->
+                                    room.id to registry.filter {
+                                        (it.areaId ?: deviceAreas[it.deviceId]) == room.id
+                                    }.map { it.entityId }
                                 }
                             }
-                            // A completed subscription is not a healthy live connection.
-                            status = localized(bgLanguage, "Възстановяване на връзката…", "Reconnecting…")
+                            val byId = snapshot.associateBy { it.entityId }
+                            val display = sourceRooms.flatMap { room ->
+                                mappedEntities[room.id].orEmpty().distinct().mapNotNull { id ->
+                                    val entity = byId[id] ?: return@mapNotNull null
+                                    val name = entity.attributes["friendly_name"] as? String
+                                        ?: id.substringAfter('.').replace('_', ' ')
+                                    if (id in excludedIds || !shownInStevora(id, name)) null
+                                    else StevoraControl(
+                                        id = id,
+                                        room = room.id,
+                                        labelBg = name,
+                                        labelEn = name,
+                                        canControl = manifest != null &&
+                                            id in manifest.controllableEntityIds &&
+                                            entity.domain in setOf("climate", "light", "switch", "fan", "media_player"),
+                                    )
+                                }
+                            }.distinctBy { it.id }
+                            val allowed = display.map { it.id }.toSet()
+                            activeServerId = server.id
+                            roomOrder = sourceRooms.map { it.id }
+                            roomNames = sourceRooms.associate { it.id to it.name }
+                            panelControls = display
+                            activeControlIds = display.filter { it.canControl }.map { it.id }.toSet()
+                            if (selectedRoom != "all" && selectedRoom !in roomOrder) selectedRoom = "all"
+                            entities = snapshot.filter { it.entityId in allowed }
+                            // Informational telemetry is picked by HA device class, not a
+                            // particular home's HomePod entity ID.
+                            val sensors = entities.filter { it.domain == "sensor" }
+                            temperatureSensorId = sensors.firstOrNull {
+                                it.attributes["device_class"] == "temperature"
+                            }?.entityId
+                            humiditySensorId = sensors.firstOrNull {
+                                it.attributes["device_class"] == "humidity"
+                            }?.entityId
+                            liveConnected = true
+                            status = localized(bgLanguage,
+                                if (manifest != null) "STEVORA manifest • свързано" else "HA резервен режим • само преглед",
+                                if (manifest != null) "STEVORA manifest • connected" else "HA fallback • read-only",
+                            ) + " • " + display.size + " entities"
+
+                            // Refresh active server + manifest at least every 20 s, even if
+                            // state-change events keep the previous server's stream alive.
+                            kotlinx.coroutines.withTimeoutOrNull(20_000L) {
+                                changes.collect { event ->
+                                    if (event.entityId in allowed) {
+                                        entities = entities.filterNot { it.entityId == event.entityId } +
+                                            listOfNotNull(event.newState)
+                                    }
+                                }
+                            }
+                            status = localized(bgLanguage, "Опресняване на STEVORA…", "Refreshing STEVORA…")
                         }
                     }
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                liveConnected = false
                 status = localized(bgLanguage, "Проблем с връзката — нов опит…", "Connection unavailable — retrying")
             }
             liveConnected = false
-            delay(5_000L) // Retry only after disconnect; not a state refresh interval.
+            delay(2_000L)
         }
     }
 
     fun execute(entity: Entity, service: String, data: Map<String, Any?> = emptyMap()) {
-        if (!liveConnected || busy != null || entity.entityId !in controlById) return
+        if (!liveConnected || busy != null || entity.entityId !in activeControlIds) return
         busy = entity.entityId
         scope.launch {
             try {
-                manager.integrationRepository().callAction(
+                manager.integrationRepository(activeServerId ?: return@launch).callAction(
                     entity.domain,
                     service,
                     data + ("entity_id" to entity.entityId),
