@@ -69,56 +69,95 @@ internal fun StevoraHomeOverview(
     var climate by remember { mutableStateOf("—") }
     var bathroomFan by remember { mutableStateOf("—") }
 
-    // 2.1: WebSocket event-driven overview, no periodic state polling.
-    LaunchedEffect(manager) {
-        val relevantIds = setOf(
-            "sensor.realna_temperatura_homepod", "sensor.realna_vlazhnost_homepod",
-            "climate.air_conditioner", "fan.bathroom_switch_1",
-            "light.rgb_cct", "light.living_room_switch_1", "light.living_room_switch_2",
-            "light.living_room_switch_3", "light.wifi_bel_2gang_switch_2",
-            "light.terrace_switch_1", "light.bathroom_switch_2",
-            "light.wifi_bel_2gang_switch_1",
-        )
+    var climateTitle by remember { mutableStateOf(if (bg) "Климатизация" else "Climate") }
+    // Overview derives all measurements from the active HA installation.
+    LaunchedEffect(manager, bg) {
+        var previousServerId: Int? = null
         while (isActive) {
             try {
-                val repo = if (manager.getServer() != null) manager.webSocketRepository() else null
-                val events = repo?.getStateChanges()
-                val snapshot = if (events != null) repo.getStates() else null
-                if (snapshot == null) {
+                val server = manager.getServer()
+                if (server == null) {
+                    previousServerId = null
                     online = false
-                    // Retain the last known values as read-only while offline.
+                    temperature = "—"
+                    humidity = "—"
+                    activeLights = null
+                    climate = "—"
+                    bathroomFan = "—"
                 } else {
-                    val current = snapshot.filter { it.entityId in relevantIds }
-                        .associateBy { it.entityId }.toMutableMap()
-                    fun publish() {
-                        fun state(id: String): String = current[id]?.state
-                            ?.takeUnless { it == "unavailable" || it == "unknown" } ?: "—"
-                        temperature = state("sensor.realna_temperatura_homepod")
-                        humidity = state("sensor.realna_vlazhnost_homepod")
-                        climate = state("climate.air_conditioner")
-                        bathroomFan = state("fan.bathroom_switch_1")
-                        activeLights = current.values.count {
-                            it.entityId.startsWith("light.") && it.state == "on"
-                        }
+                    if (server.id != previousServerId) {
+                        temperature = "—"
+                        humidity = "—"
+                        activeLights = null
+                        climate = "—"
+                        bathroomFan = "—"
+                        online = false
+                        previousServerId = server.id
                     }
-                    online = true
-                    publish()
-                    events?.collect { event ->
-                        if (event.entityId in relevantIds) {
-                            val newState = event.newState
-                            if (newState == null) current.remove(event.entityId)
-                            else current[event.entityId] = newState
-                            publish()
+                    val repo = manager.webSocketRepository(server.id)
+                    val changes = repo.getStateChanges()
+                    val snapshot = repo.getStates()
+                    if (snapshot == null || changes == null) {
+                        online = false
+                    } else {
+                        val raw = repo.getStevoraManifestJson()
+                        val valid = raw != null && StevoraHomeProjection.apply(server.id, raw)
+                        if (!valid) StevoraHomeProjection.clear(server.id)
+                        val manifest = if (valid) StevoraHomeProjection.home.value[server.id] else null
+                        val readableIds = if (manifest != null) {
+                            manifest.entityMappings.values.flatten().toSet()
+                        } else {
+                            // Stock Home Assistant fallback is read-only.
+                            repo.getEntityRegistry().orEmpty()
+                                .filter { it.hiddenBy == null && it.entityCategory == null }
+                                .map { it.entityId }.toSet()
                         }
+                        val current = snapshot.filter {
+                            it.entityId in readableIds &&
+                                !it.entityId.contains("backlight", ignoreCase = true)
+                        }.associateBy { it.entityId }.toMutableMap()
+                        fun publish() {
+                            fun available(s: String?): String =
+                                s?.takeUnless { it == "unavailable" || it == "unknown" } ?: "—"
+                            val temp = current.values.firstOrNull {
+                                it.domain == "sensor" && it.attributes["device_class"] == "temperature"
+                            }
+                            val humid = current.values.firstOrNull {
+                                it.domain == "sensor" && it.attributes["device_class"] == "humidity"
+                            }
+                            val ac = current.values.firstOrNull { it.domain == "climate" }
+                            val fan = current.values.firstOrNull { it.domain == "fan" }
+                            temperature = available(temp?.state)
+                            humidity = available(humid?.state)
+                            climate = available(ac?.state)
+                            climateTitle = (ac?.attributes?.get("friendly_name") as? String)
+                                ?: if (bg) "Климатизация" else "Climate"
+                            bathroomFan = available(fan?.state)
+                            activeLights = current.values.count {
+                                it.domain == "light" && it.state == "on"
+                            }
+                        }
+                        online = true
+                        publish()
+                        kotlinx.coroutines.withTimeoutOrNull(20_000L) {
+                            changes.collect { event ->
+                                if (event.entityId in readableIds) {
+                                    val next = event.newState
+                                    if (next == null) current.remove(event.entityId)
+                                    else current[event.entityId] = next
+                                    publish()
+                                }
+                            }
+                        }
+                        online = false
                     }
-                    online = false
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 online = false
             }
-            delay(5_000L) // Reconnect backoff only.
+            delay(2_000L)
         }
     }
     Column(
@@ -145,7 +184,7 @@ internal fun StevoraHomeOverview(
         ) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("CLIMATE CENTER", color = homeText, fontSize = 20.sp)
-                Text(if (bg) "Дневна • комфорт в реално време" else "Living Room • real-time comfort",
+                Text(climateTitle + " • " + if (bg) "данни в реално време" else "live readings",
                     color = homeMuted, fontSize = 12.sp)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -203,7 +242,7 @@ internal fun StevoraHomeOverview(
                 HomeMetric(if (bg) "Светлини ON" else "Lights ON", activeLights?.toString() ?: "—")
             }
             Box(Modifier.weight(1f)) {
-                HomeMetric(if (bg) "Вентилатор" else "Bathroom fan", bathroomFan)
+                HomeMetric(if (bg) "Вентилатор" else "Fan", bathroomFan)
             }
         }
         StevoraSectionHeading(
