@@ -16,8 +16,7 @@ those services and implements platform-specific UX, platform permissions and
 local client presentation without redefining the OS data model.
 
 **Built-in STEVORA OS subsystems, never separate products:** Stevora Core,
-Stevora Universal Integration, Stevora Home Panel 7.1.1 Premium, Stevora
-Home Hub, Stevora Frontend, Stevora People & Presence and Stevora Manifest.
+Stevora Universal Integration, Stevora Home Panel 7.1.1 Premium, Stevora Home Hub, Stevora Frontend, Stevora People & Presence and Stevora Manifest.
 All future common functionality and cross-device UI specifications belong
 to the STEVORA OS roadmap. Android releases implement compatible native views
 of available OS functionality, rather than adding independent home logic.
