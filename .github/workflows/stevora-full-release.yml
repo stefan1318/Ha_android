@@ -154,7 +154,7 @@ jobs:
           set -euo pipefail
           mapfile -t apks < <(find app/build/outputs/apk/full/release -name '*.apk' -type f)
           test "${#apks[@]}" -eq 1
-          npm install --global firebase-tools@15.34.2
+          npm install --global firebase-tools@15.34.2 # zizmor: ignore[adhoc-packages] explicitly pinned Firebase CLI for opt-in signed distribution
           options=()
           if [[ -n "$STEVORA_FIREBASE_TESTER_GROUPS" ]]; then
             options+=(--groups "$STEVORA_FIREBASE_TESTER_GROUPS")
