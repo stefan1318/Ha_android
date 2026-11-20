@@ -14,6 +14,11 @@ stevora_dir = ROOT / "app/src/main/kotlin/io/homeassistant/companion/android/ste
 sources = "\n".join(p.read_text(encoding="utf-8") for p in stevora_dir.rglob("*.kt"))
 checks = {
     "Ecosystem contract exists": "STEVORA Ecosystem" in contract,
+    "Ecosystem contains OS + two native apps only": "STEVORA Ecosystem = STEVORA OS + STEVORA App for Android + STEVORA App for iOS" in contract,
+    "Android is native STEVORA OS client": "native client of STEVORA OS" in contract and "source of truth" in contract,
+    "System modules bundled into OS": all(term in contract for term in ("Stevora Core", "Stevora Universal Integration", "Stevora Home Panel 7.1.1 Premium", "Stevora Home Hub", "Stevora Frontend", "Stevora People & Presence", "Stevora Manifest")),
+    "Hey Stevora uses installed providers and customer package": all(term in contract for term in ("Hey Stevora is a built-in", "purchased", "configured")),
+    "Memory is private owner-only OS extension": all(term in contract for term in ("owner's homes only", "NOT bundled in Android", "NOT enabled by default")),
     "Android product ownership": "[STE-02]" in contract and "[STE-00]" in contract,
     "Release history ownership": "[STE-06]" in contract,
     "App identity preserved": 'applicationId = "com.stevora.companion"' in app,
