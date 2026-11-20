@@ -1,8 +1,14 @@
 name: STEVORA Companion 2.1 Full Release
 # Trigger full signed build after STEVORA logo resource retention fix
 
-on:
+'on':
   workflow_dispatch:
+    inputs:
+      firebase_distribution:
+        description: Upload verified signed APK to Firebase App Distribution
+        type: boolean
+        required: true
+        default: false
   push:
     branches:
       - feature/stevora-companion
@@ -19,12 +25,19 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ste-vora-android-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   full-release:
+    name: Build signed STEVORA full APK
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Validate full release credentials
         env:
           STEVORA_KEYSTORE_BASE64: ${{ secrets.STEVORA_KEYSTORE_BASE64 }}
@@ -68,11 +81,11 @@ jobs:
           python3 scripts/prepare_stevora_branding.py
           mkdir -p app/src/main/assets/stevora
           cp app/src/main/res/drawable-nodpi/stevora_logo.png app/src/main/assets/stevora/approved_logo.png
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
       - name: Build signed STEVORA full release
         env:
           KEYSTORE_PATH: ${{ runner.temp }}/stevora-release.keystore
@@ -99,9 +112,60 @@ jobs:
           python3 scripts/verify_stevora_apk.py
           sha256sum "$APK"
       - name: Upload STEVORA Companion 2.1 Full signed APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: stevora-companion-2.1-full-signed-apk
           path: app/build/outputs/apk/full/release/*.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Prepare Firebase service account credentials
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.firebase_distribution }}
+        shell: bash
+        env:
+          STEVORA_FIREBASE_SERVICE_ACCOUNT_BASE64: ${{ secrets.STEVORA_FIREBASE_SERVICE_ACCOUNT_BASE64 }}
+          STEVORA_FIREBASE_APP_ID: ${{ secrets.STEVORA_FIREBASE_APP_ID }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$STEVORA_FIREBASE_SERVICE_ACCOUNT_BASE64" || -z "$STEVORA_FIREBASE_APP_ID" ]]; then
+            echo "::error::Set STEVORA_FIREBASE_SERVICE_ACCOUNT_BASE64 and STEVORA_FIREBASE_APP_ID in GitHub Actions secrets."
+            exit 1
+          fi
+          printf '%s' "$STEVORA_FIREBASE_SERVICE_ACCOUNT_BASE64" | base64 --decode > "$RUNNER_TEMP/stevora-firebase-sa.json"
+          chmod 600 "$RUNNER_TEMP/stevora-firebase-sa.json"
+          python3 - "$RUNNER_TEMP/stevora-firebase-sa.json" <<'PY'
+          import json
+          import sys
+          with open(sys.argv[1], encoding="utf-8") as source:
+              credentials = json.load(source)
+          assert credentials.get("type") == "service_account", "Firebase service account JSON required"
+          assert all(credentials.get(key) for key in ("project_id", "client_email", "private_key"))
+          print("Firebase service account validated without exposing its credentials")
+          PY
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/stevora-firebase-sa.json" >> "$GITHUB_ENV"
+
+      - name: Publish signed full APK to Firebase App Distribution
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.firebase_distribution }}
+        shell: bash
+        env:
+          STEVORA_FIREBASE_APP_ID: ${{ secrets.STEVORA_FIREBASE_APP_ID }}
+          STEVORA_FIREBASE_TESTER_GROUPS: ${{ secrets.STEVORA_FIREBASE_TESTER_GROUPS }}
+        run: |
+          set -euo pipefail
+          mapfile -t apks < <(find app/build/outputs/apk/full/release -name '*.apk' -type f)
+          test "${#apks[@]}" -eq 1
+          npm install --global firebase-tools@15.34.2
+          options=()
+          if [[ -n "$STEVORA_FIREBASE_TESTER_GROUPS" ]]; then
+            options+=(--groups "$STEVORA_FIREBASE_TESTER_GROUPS")
+          fi
+          firebase appdistribution:distribute "${apks[0]}" \
+            --app "$STEVORA_FIREBASE_APP_ID" \
+            --release-notes "STEVORA Android 2.1.0-full | commit $GITHUB_SHA" \
+            "${options[@]}"
+
+      - name: Remove temporary signing and Firebase credentials
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/stevora-release.keystore" "$RUNNER_TEMP/stevora-firebase-sa.json"
