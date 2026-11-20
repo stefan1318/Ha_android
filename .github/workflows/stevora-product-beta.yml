@@ -26,7 +26,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout actual STEVORA product source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Assert STEVORA product source identity
@@ -42,7 +42,7 @@ jobs:
             exit 1
           fi
       - name: Setup Android build environment
-        uses: ./.github/actions/setup-build-env
+        uses: ./.github/actions/setup-build-env # zizmor: ignore[self-repository] GitHub local actions require a checked-out relative path
         with:
           mock-google-services: "true"
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
@@ -91,7 +91,7 @@ jobs:
           cp "${apks[0]}" STEVORA-Companion-2.1.0-full-debug.apk
           printf 'commit=%s\nbranch=%s\nvariant=fullDebug\n' "$GITHUB_SHA" "$GITHUB_REF_NAME" > build-provenance.txt
       - name: Upload validated STEVORA APK
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: STEVORA-Companion-2.1.0-full-debug
           path: |
