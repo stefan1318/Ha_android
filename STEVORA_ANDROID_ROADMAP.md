@@ -2,6 +2,9 @@
 
 Approved by project owner: 2026-11-17. Baseline: installed and device-tested **2.0.0 Full Release**.
 
+**Нова задължителна архитектура — 2026-11-20:** STEVORA Ecosystem включва само **STEVORA OS + Android + iOS**. Android е нативен клиент на STEVORA OS, а Core, Universal Integration, Home Panel Premium, Hub, Frontend, People & Presence и Manifest са **вътрешни OS подсистеми**. Всички нови общи функции и UI договори принадлежат към STEVORA OS; Android реализира нативното им представяне. Hey Stevora е обща вградена функция (с реално наличен OS provider и клиентски пакет), не самостоятелно приложение. Memory & Sync е частен опционален OS модул само за домовете на собственика и никога не влиза в стандартния Android release. Този нов договор има предимство пред историческото описание на отделни продукти по-долу.
+
+
 ## Immutable upgrade contract
 - Keep Android application ID `com.stevora.companion` and the **same release signing key/certificate**.
 - Increase Android `versionCode` above the version installed on the device; update `versionName` for each shipped release.
@@ -60,7 +63,19 @@ Approved by project owner: 2026-11-17. Baseline: installed and device-tested **2
 - **Next planned version:** **2.2 AI Control Center** — AI chat, Bulgarian/English voice, trained wake word, diagnostics, and safe automation authoring. Subsequent planned versions remain 2.3 Presence & Automation, 2.4 Premium Ecosystem, 3.0 Unified STEVORA.
 - **Upgrade invariants:** keep application ID `com.stevora.companion`, signing identity, and user data; increase versionCode; test upgrades on device. Develop 2.2 separately from the known-good 2.1 baseline.
 
-## Ecosystem-wide dependency order — 2026-11-18
+## Ecosystem-wide dependency order — superseded on 2026-11-20
+
+**Нов приоритет:** STEVORA OS versioned backend/Manifest/API → нативни STEVORA Android/iOS клиенти → Hey Stevora capability routing през реално инсталираните OS voice/AI assistants и закупените пакети → multi-home acceptance.
+
+Предходният план от 18.11 остава запис като исторически етап. Техническите наименования Home Panel и Home Hub вече не обозначават отделни продукти. Android 2.2–3.0 са клиентски release версии с OS-owned общи функции, а не самостоятелен backend roadmap.
+
+- Преходното директно HA OAuth/WebSocket свързване запазва работещото 2.1 приложение само като временно compatibility решение.
+- Новият production onboarding избира STEVORA OS инсталация, не произволен независим HA endpoint.
+- Нативната геолокация/People & Presence се синхронизира със системния OS identity/consent договор; не се създава дублирана домашна логика.
+- Новата Hey Stevora UI се показва спрямо действителния provider/pipeline/entitlement status от STEVORA OS, а не според hardcoded покупка или фиктивен локален модул.
+- Изискват се source-of-truth и compatibility тестове срещу OS API преди native release.
+
+## Legacy dependency log — 2026-11-18
 - **Priority before 2.2 AI:** [STE-00] Universal Home Discovery v1 contract → [STE-01] optional Home Panel manifest → [STE-02]/[STE-03] Android/iOS discovery adapters → [STE-04] Hey Stevora AI and voice → [STE-06] multi-home acceptance.
 - **Current Android implementation is NOT universal:** `StevoraHomeOverview.kt` and `StevoraLivePanel.kt` still reference creator-home entity IDs. The new ecosystem compliance CI gate documents constraints but does not dynamically discover devices.
 - **Next Android implementation milestone:** replace fixed panel entity mapping with a server/account-scoped discovery model and per-home user overrides, while keeping existing 2.1 upgrade and offline safety behavior.

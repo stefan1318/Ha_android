@@ -696,6 +696,7 @@ private fun StevoraNativeSettingsSection(
                 if (!micAllowed) Button(onClick = {
                     micPermission.launch(android.Manifest.permission.RECORD_AUDIO)
                 }) { Text(tr("Разреши микрофона", "Allow microphone")) }
+                StevoraCopyFcmToken(bg)
                 SettingsInfo(tr("Известия", "Notifications"),
                     if (notificationsAllowed) tr("Разрешени", "Allowed") else tr("Не са разрешени", "Not allowed"))
                 if (!notificationsAllowed && Build.VERSION.SDK_INT >= 33) {
