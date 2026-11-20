@@ -12,6 +12,7 @@ name: STEVORA Companion 2.1 Full Release
   push:
     branches:
       - feature/stevora-companion
+      - policy/stevora-os-client-20261120 # temporary opt-in signing smoke branch
     paths:
       - '.github/workflows/stevora-full-release.yml'
       - 'scripts/verify_stevora_apk.py'
