@@ -150,11 +150,11 @@ jobs:
         env:
           STEVORA_FIREBASE_APP_ID: ${{ secrets.STEVORA_FIREBASE_APP_ID }}
           STEVORA_FIREBASE_TESTER_GROUPS: ${{ secrets.STEVORA_FIREBASE_TESTER_GROUPS }}
-        run: |
+        run: | # zizmor: ignore[adhoc-packages] Firebase CLI pinned for manual, service-account-gated distribution
           set -euo pipefail
           mapfile -t apks < <(find app/build/outputs/apk/full/release -name '*.apk' -type f)
           test "${#apks[@]}" -eq 1
-          npm install --global firebase-tools@15.34.2 # zizmor: ignore[adhoc-packages] explicitly pinned Firebase CLI for opt-in signed distribution
+          npm install --global firebase-tools@15.34.2
           options=()
           if [[ -n "$STEVORA_FIREBASE_TESTER_GROUPS" ]]; then
             options+=(--groups "$STEVORA_FIREBASE_TESTER_GROUPS")
