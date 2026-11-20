@@ -56,14 +56,15 @@ import io.homeassistant.companion.android.database.server.ServerUserInfo
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.Flow
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.intOrNull
 import okhttp3.WebSocketListener
 
+private const val MAX_STEVORA_CLIMATE_SENSORS = 4
 private val matterTimeout = 2.minutes
 
 class WebSocketRepositoryImpl internal constructor(
@@ -157,12 +158,10 @@ class WebSocketRepositoryImpl internal constructor(
     }
 
     override suspend fun validateStevoraAutomation(config: JsonObject): JsonObject? {
-        val user = getCurrentUser() ?: return null
-        if (!user.isAdmin && !user.isOwner) return null
+        if (getCurrentUser()?.let { it.isAdmin || it.isOwner } != true) return null
         val fields = listOf("triggers", "conditions", "actions")
         val payload = fields.mapNotNull { field ->
-            val value = config[field] ?: return@mapNotNull null
-            field to value
+            config[field]?.let { field to it }
         }.toMap()
         val response = webSocketCore.sendMessage(
             mapOf("type" to "validate_config") + payload,
@@ -171,9 +170,9 @@ class WebSocketRepositoryImpl internal constructor(
     }
 
     override suspend fun getStevoraAutomationConfig(entityId: String): JsonObject? {
-        if (!entityId.startsWith("automation.")) return null
-        val user = getCurrentUser() ?: return null
-        if (!user.isAdmin && !user.isOwner) return null
+        if (!entityId.startsWith("automation.") || getCurrentUser()?.let { it.isAdmin || it.isOwner } != true) {
+            return null
+        }
         val response = webSocketCore.sendMessage(
             mapOf("type" to "automation/config", "entity_id" to entityId),
         )
@@ -185,8 +184,13 @@ class WebSocketRepositoryImpl internal constructor(
         endTime: String,
         entityIds: List<String>,
     ): JsonArray? {
-        if (entityIds.isEmpty() || entityIds.size > 4 ||
-            entityIds.any { !it.startsWith("sensor.") }) return null
+        if (
+            entityIds.isEmpty() ||
+            entityIds.size > MAX_STEVORA_CLIMATE_SENSORS ||
+            entityIds.any { !it.startsWith("sensor.") }
+        ) {
+            return null
+        }
         val response = webSocketCore.sendMessage(
             mapOf(
                 "type" to "history/history_during_period",
@@ -205,8 +209,7 @@ class WebSocketRepositoryImpl internal constructor(
         parameters: Map<String, Any?>,
     ): JsonObject? {
         require(command in setOf("health", "read", "search", "proposals", "decide"))
-        val user = getCurrentUser() ?: return null
-        if (!user.isAdmin && !user.isOwner) return null
+        if (getCurrentUser()?.let { it.isAdmin || it.isOwner } != true) return null
         val response = webSocketCore.sendMessage(
             mapOf("type" to "stevora_memory/$command") + parameters,
         )
