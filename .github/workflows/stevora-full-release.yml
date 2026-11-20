@@ -50,6 +50,8 @@ jobs:
           STEVORA_KEY_ALIAS: ${{ secrets.STEVORA_KEY_ALIAS }}
           STEVORA_KEY_PASSWORD: ${{ secrets.STEVORA_KEY_PASSWORD }}
           STEVORA_FIREBASE_CONFIG_BASE64: ${{ secrets.STEVORA_FIREBASE_CONFIG_BASE64 }}
+          STEVORA_ACTION_EVENT: ${{ github.event_name }}
+          STEVORA_FIREBASE_DISTRIBUTION: ${{ inputs.firebase_distribution }}
         run: |
           for key in STEVORA_KEYSTORE_BASE64 STEVORA_KEYSTORE_PASSWORD STEVORA_KEY_ALIAS STEVORA_KEY_PASSWORD; do
             if [ -z "${!key}" ]; then
@@ -76,7 +78,7 @@ jobs:
           else
             # A CI-only Firebase fixture may compile a signed smoke APK, but it cannot be
             # used for FCM, App Distribution, or a customer release.
-            if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.firebase_distribution }}" == "true" ]]; then
+            if [[ "$STEVORA_ACTION_EVENT" == "workflow_dispatch" && "$STEVORA_FIREBASE_DISTRIBUTION" == "true" ]]; then
               echo "::error::Real STEVORA_FIREBASE_CONFIG_BASE64 required for Firebase distribution."
               exit 1
             fi
