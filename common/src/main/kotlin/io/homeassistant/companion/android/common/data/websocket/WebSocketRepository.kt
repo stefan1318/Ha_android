@@ -43,7 +43,7 @@ interface WebSocketRepository {
     suspend fun sendPing(): Boolean
     suspend fun getCurrentUser(): CurrentUserResponse?
     /** Optional STEVORA manifest through the existing authenticated connection. */
-    suspend fun getStevoraManifestJson(): String?
+    suspend fun getStevoraManifestJson(language: String = java.util.Locale.getDefault().language): String?
     suspend fun stevoraManagerCommand(command: String, fields: Map<String, Any?> = emptyMap()): String?
     suspend fun getConfig(): GetConfigResponse?
     suspend fun getStevoraMemory(command: String, parameters: Map<String, Any?> = emptyMap()): JsonObject?

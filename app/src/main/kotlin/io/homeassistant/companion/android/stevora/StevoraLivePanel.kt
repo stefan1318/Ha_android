@@ -69,7 +69,7 @@ private val white = StevoraDesign.foreground
 private val secondary = StevoraDesign.muted
 
 // Server-controlled room/entity inventory; never carry Dunav entity IDs into another home.
-// The server manifest is authoritative when present; stock HA fallback is read-only.
+// Only the selected OS manifest may populate this panel.
 private data class StevoraControl(
     val id: String,
     val room: String,
@@ -167,11 +167,24 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                     if (changes == null) {
                         status = localized(bgLanguage, "Няма връзка — нов опит…", "Hub unavailable — retrying")
                     } else {
-                        val manifestRaw = repo.getStevoraManifestJson()
+                        val manifestRaw = repo.getStevoraManifestJson(if (bgLanguage) "bg" else "en")
                         val manifestOk = manifestRaw != null &&
                             StevoraHomeProjection.apply(server.id, manifestRaw)
                         if (!manifestOk) StevoraHomeProjection.clear(server.id)
                         val manifest = if (manifestOk) StevoraHomeProjection.home.value[server.id] else null
+
+                        if (manifest == null) {
+                            entities = emptyList()
+                            roomOrder = emptyList()
+                            roomNames = emptyMap()
+                            panelControls = emptyList()
+                            activeControlIds = emptySet()
+                            temperatureSensorId = null
+                            humiditySensorId = null
+                            status = localized(bgLanguage, "Липсва съвместим STEVORA OS манифест", "Compatible STEVORA OS manifest unavailable")
+                            kotlinx.coroutines.delay(5_000)
+                            continue
+                        }
 
                         // The entity registry marks HA-hidden and config/diagnostic helpers.
                         // A missing registry must never make actions available.
@@ -183,24 +196,8 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                         if (snapshot == null) {
                             status = localized(bgLanguage, "Няма връзка — нов опит…", "Hub unavailable — retrying")
                         } else {
-                            val sourceRooms: List<StevoraRoomUi>
-                            val mappedEntities: Map<String, List<String>>
-                            if (manifest != null) {
-                                sourceRooms = manifest.rooms
-                                mappedEntities = manifest.entityMappings
-                            } else {
-                                // Standard Home Assistant without STEVORA: show a read-only
-                                // discovery view; never assume an entity can be controlled.
-                                val areas = repo.getAreaRegistry().orEmpty()
-                                val deviceAreas = repo.getDeviceRegistry().orEmpty()
-                                    .associate { it.id to it.areaId }
-                                sourceRooms = areas.map { StevoraRoomUi(it.areaId, it.name) }
-                                mappedEntities = sourceRooms.associate { room ->
-                                    room.id to registry.filter {
-                                        (it.areaId ?: it.deviceId?.let(deviceAreas::get)) == room.id
-                                    }.map { it.entityId }
-                                }
-                            }
+                            val sourceRooms = manifest.rooms
+                            val mappedEntities = manifest.entityMappings
                             val byId = snapshot.associateBy { it.entityId }
                             val display = sourceRooms.flatMap { room ->
                                 mappedEntities[room.id].orEmpty().distinct().mapNotNull { id ->
@@ -213,8 +210,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                         room = room.id,
                                         labelBg = name,
                                         labelEn = name,
-                                        canControl = manifest != null &&
-                                            id in manifest.controllableEntityIds &&
+                                        canControl = id in manifest.controllableEntityIds &&
                                             entity.domain in setOf("climate", "light", "switch", "fan", "media_player"),
                                     )
                                 }
@@ -238,8 +234,8 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                             }?.entityId
                             liveConnected = true
                             status = localized(bgLanguage,
-                                if (manifest != null) "STEVORA manifest • свързано" else "HA резервен режим • само преглед",
-                                if (manifest != null) "STEVORA manifest • connected" else "HA fallback • read-only",
+                                "STEVORA manifest • свързано",
+                                "STEVORA manifest • connected",
                             ) + " • " + display.size + " entities"
 
                             // Refresh active server + manifest at least every 20 s, even if

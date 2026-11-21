@@ -16,7 +16,7 @@ data class StevoraManifest(
 )
 
 object StevoraManifestSync {
-    const val REQUEST_TYPE = "stevora/manifest"
+    const val REQUEST_TYPE = "stevora/os/v1/manifest"
 
     fun request(id: Int, language: String = java.util.Locale.getDefault().language): String =
         JSONObject().put("id", id).put("type", REQUEST_TYPE)

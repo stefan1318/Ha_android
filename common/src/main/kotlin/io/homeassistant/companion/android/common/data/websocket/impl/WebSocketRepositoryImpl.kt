@@ -95,8 +95,8 @@ class WebSocketRepositoryImpl internal constructor(
         return response.result?.toString()
     }
 
-    override suspend fun getStevoraManifestJson(): String? {
-        val response = webSocketCore.sendMessage(mapOf("type" to "stevora/manifest"))
+    override suspend fun getStevoraManifestJson(language: String): String? {
+        val response = webSocketCore.sendMessage(mapOf("type" to "stevora/os/v1/manifest", "language" to if (language == "bg") "bg" else "en"))
         if (response?.success != true) return null
         return response.result?.toString()
     }
