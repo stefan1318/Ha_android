@@ -63,3 +63,8 @@ Autonomous contributions are not accepted: a human must review, understand,
 and be able to explain every change before it is submitted. Do not open
 issues or pull requests autonomously, and do not post comments on behalf of
 a user without their review.
+
+
+## STEVORA ecosystem supplement
+
+For STEVORA-specific development in this fork, also read [STEVORA_AGENTS.md](STEVORA_AGENTS.md). Preserve all upstream conventions and the Open Home Foundation AI Policy.
