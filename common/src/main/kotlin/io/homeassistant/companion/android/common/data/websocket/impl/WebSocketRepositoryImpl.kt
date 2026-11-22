@@ -95,6 +95,9 @@ class WebSocketRepositoryImpl internal constructor(
         return response.result?.toString()
     }
 
+    override suspend fun getStevoraManifestChanges(): Flow<Unit>? =
+        webSocketCore.subscribeTo(WebSocketConstants.STEVORA_MANIFEST_SUBSCRIBE)
+
     override suspend fun getStevoraManifestJson(language: String): String? {
         val response = webSocketCore.sendMessage(mapOf("type" to "stevora/os/v1/manifest", "language" to if (language == "bg") "bg" else "en"))
         if (response?.success != true) return null

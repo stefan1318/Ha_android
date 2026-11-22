@@ -71,11 +71,20 @@ internal fun StevoraHomeOverview(
 
     var climateTitle by remember { mutableStateOf(if (bg) "Климатизация" else "Climate") }
     // Overview derives all measurements from the active HA installation.
-    LaunchedEffect(manager, bg) {
+    var activeServerId by remember { mutableStateOf<Int?>(null) }
+    var manifestGeneration by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    LaunchedEffect(manager, activeServerId) {
+        val id = activeServerId ?: return@LaunchedEffect
+        manager.webSocketRepository(id).getStevoraManifestChanges()?.collect {
+            manifestGeneration++
+        }
+    }
+    LaunchedEffect(manager, bg, manifestGeneration) {
         var previousServerId: Int? = null
         while (isActive) {
             try {
                 val server = manager.getServer()
+                activeServerId = server?.id
                 if (server == null) {
                     previousServerId = null
                     online = false

@@ -1,6 +1,7 @@
 package io.homeassistant.companion.android.common.data.websocket.impl
 
 internal object WebSocketConstants {
+    const val STEVORA_MANIFEST_SUBSCRIBE = "stevora/os/v1/manifest/subscribe"
 
     const val EVENT_STATE_CHANGED = "state_changed"
     const val EVENT_AREA_REGISTRY_UPDATED = "area_registry_updated"

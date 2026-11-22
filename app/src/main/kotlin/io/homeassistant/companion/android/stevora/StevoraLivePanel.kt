@@ -135,7 +135,14 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
 
     // Discover against the currently active HA server. Never use another home's
     // cached manifest or hardcoded Dunav entity IDs after switching servers.
-    LaunchedEffect(manager, bgLanguage) {
+    var manifestGeneration by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    LaunchedEffect(manager, activeServerId) {
+        val id = activeServerId ?: return@LaunchedEffect
+        manager.webSocketRepository(id).getStevoraManifestChanges()?.collect {
+            manifestGeneration++
+        }
+    }
+    LaunchedEffect(manager, bgLanguage, manifestGeneration) {
         while (isActive) {
             liveConnected = false
             try {

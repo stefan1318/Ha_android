@@ -959,6 +959,8 @@ internal class WebSocketCoreImpl(
         val message: Any =
             if ((response.event as? JsonObject)?.contains("hass_confirm_id") == true) {
                 kotlinJsonMapper.decodeFromJsonElement<Map<String, Any?>>(MapAnySerializer, response.event)
+            } else if (subscriptionType == WebSocketConstants.STEVORA_MANIFEST_SUBSCRIBE) {
+                Unit
             } else if (subscriptionType == SUBSCRIBE_TYPE_SUBSCRIBE_ENTITIES) {
                 if (response.event != null) {
                     kotlinJsonMapper.decodeFromJsonElement<CompressedStateChangedEvent>(response.event)
