@@ -61,7 +61,7 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
     var busy by remember { mutableStateOf<String?>(null) }
     var pendingAction by remember { mutableStateOf<Pair<String, String>?>(null) }
     var refresh by remember { mutableStateOf(0) }
-    var filter by remember { mutableStateOf("") }
+    var selectedAutomation by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     var onlyEnabled by remember { mutableStateOf(false) }
     var inspecting by remember { mutableStateOf<String?>(null) }
     var config by remember { mutableStateOf<JsonObject?>(null) }
@@ -378,12 +378,6 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
     ) {
         Text("STEVORA • AUTOMATION STUDIO", color = Color(0xFF27B9F5))
         Text(status, color = Color.White)
-        Text(
-            tr("Управление на състоянието на съществуващи автоматизации. " +
-                "Създаването и редактирането на правила ще бъдат добавени след защитена API интеграция.",
-                "Manage existing automation enabled states. Creating and editing rules requires a future protected API integration."),
-            color = Color(0xFFA6BCCD),
-        )
         if (loading) Text(tr("Зареждане…", "Loading…"), color = Color.White)
         if (!loading && automations.isEmpty()) {
             Text(tr("Няма достъпни автоматизации.", "No available automations."),
@@ -402,26 +396,18 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
             sourceEntityId = null
             editError = ""
         }) { Text(tr("Нова автоматизация", "New automation")) }
-        OutlinedTextField(
-            value = filter,
-            onValueChange = { filter = it.take(100) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            label = { Text(tr("Търси автоматизация", "Search automations")) },
-        )
         FilterChip(
             selected = onlyEnabled,
             onClick = { onlyEnabled = !onlyEnabled },
             label = { Text(tr("Само активни", "Enabled only")) },
         )
-        val visibleAutomations = automations.filter { (id, state) ->
-            (!onlyEnabled || state == "on") && id.contains(filter.trim(), ignoreCase = true)
-        }
-        Text(
-            tr("Показани: ", "Showing: ") + visibleAutomations.size + " / " + automations.size,
-            color = Color(0xFFA6BCCD),
-        )
-        visibleAutomations.forEach { (id, state) ->
+        val available = remember(automations, onlyEnabled) { automations.filter { !onlyEnabled || it.second == "on" } }
+        val choices = remember(available) { available.map { (id, _) ->
+            StevoraChoice(id, id.removePrefix("automation.").replace('_', ' '), id)
+        } }
+        StevoraSettingsPicker(androidx.compose.ui.res.stringResource(io.homeassistant.companion.android.common.R.string.stevora_choose_routine),
+            choices, selectedAutomation) { selectedAutomation = it }
+        available.firstOrNull { it.first == selectedAutomation }?.let { (id, state) ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),

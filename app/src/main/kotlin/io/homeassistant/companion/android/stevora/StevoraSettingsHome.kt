@@ -24,6 +24,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import io.homeassistant.companion.android.sensors.LocationSensorManager
 import io.homeassistant.companion.android.settings.SettingsActivity
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import io.homeassistant.companion.android.common.R
 import android.content.Intent
 import android.media.MediaRecorder
 import java.io.File
@@ -65,6 +70,20 @@ private val accent = StevoraDesign.accent
 private val foreground = StevoraDesign.foreground
 private val muted = StevoraDesign.muted
 
+internal enum class StevoraSettingsPage {
+    Home, Account, Tools, Management, Rooms, Devices, Assistants, Automation, Climate, Connection, Voice, Privacy, Appearance;
+
+    val parent: StevoraSettingsPage
+        get() = when (this) {
+            Rooms, Devices, Assistants, Automation, Connection -> Management
+            Climate -> Tools
+            Appearance -> Account
+            else -> Home
+        }
+
+    val requiresAdmin: Boolean get() = this == Management || parent == Management
+}
+
 /**
  * STEVORA-owned settings landing page. The existing Companion settings remain
  * the authoritative source for credentials, sensor permissions and HA options.
@@ -86,19 +105,29 @@ internal fun StevoraSettingsHome(
     var admin by remember { mutableStateOf(false) }
     var checked by remember { mutableStateOf(false) }
     var accountName by remember { mutableStateOf("—") }
-    var nativeSection by remember { mutableStateOf<String?>(null) }
-    var climateExpanded by remember { mutableStateOf(false) }
-    var automationExpanded by remember { mutableStateOf(false) }
-    var managersExpanded by remember { mutableStateOf(false) }
+    var page by rememberSaveable { mutableStateOf(StevoraSettingsPage.Home) }
+    var verifiedServer by remember { mutableStateOf<Int?>(null) }
+    var verification by remember { mutableStateOf(0) }
+    LifecycleResumeEffect(manager) {
+        verification++
+        onPauseOrDispose { }
+    }
     var widgetMessage by remember { mutableStateOf<String?>(null) }
     var confirmLogout by remember { mutableStateOf(false) }
     var loggingOut by remember { mutableStateOf(false) }
     var logoutError by remember { mutableStateOf<String?>(null) }
     var accountVerified by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(manager) {
+    LaunchedEffect(manager, verification) {
         try {
-            val user = if (manager.getServer() != null) manager.webSocketRepository().getCurrentUser() else null
+            val id = manager.getServer()?.id
+            if (verifiedServer != null && verifiedServer != id) {
+                page = StevoraSettingsPage.Home
+                accountVerified = false
+                admin = false
+            }
+            val user = id?.let { manager.webSocketRepository(it).getCurrentUser() }
+            verifiedServer = id
             admin = user?.isAdmin == true || user?.isOwner == true
             accountVerified = user != null
             accountName = user?.name ?: "—"
@@ -111,27 +140,28 @@ internal fun StevoraSettingsHome(
             checked = true
         }
     }
+    val active = if (page.requiresAdmin && !admin || !accountVerified) StevoraSettingsPage.Home else page
+    val back: () -> Unit = { if (active == StevoraSettingsPage.Home) onBack() else page = active.parent }
+    BackHandler(onBack = back)
+    val nativeSection = when (active) {
+        StevoraSettingsPage.Connection -> "hub"
+        StevoraSettingsPage.Voice -> "voice"
+        StevoraSettingsPage.Privacy -> "privacy"
+        StevoraSettingsPage.Appearance -> "appearance"
+        else -> null
+    }
     if (nativeSection != null) {
-        StevoraNativeSettingsSection(
-            section = nativeSection ?: "",
-            bg = bg,
-            accountName = accountName,
-            admin = admin,
-            onBack = { nativeSection = null },
-        )
+        StevoraNativeSettingsSection(nativeSection, bg, accountName, admin, back)
         return
     }
-    if (managersExpanded) {
-        StevoraManagersHome(onBack = { managersExpanded = false })
-        return
-    }
-    if (automationExpanded) {
-        StevoraAutomationStudio(onBack = { automationExpanded = false })
-        return
-    }
-    if (climateExpanded) {
-        StevoraClimateAnalytics(onBack = { climateExpanded = false })
-        return
+    when (active) {
+        StevoraSettingsPage.Rooms, StevoraSettingsPage.Devices, StevoraSettingsPage.Assistants -> {
+            verifiedServer?.let { StevoraManagersHome(active, it, back) }
+            return
+        }
+        StevoraSettingsPage.Automation -> { StevoraAutomationStudio(onBack = back); return }
+        StevoraSettingsPage.Climate -> { StevoraClimateAnalytics(onBack = back); return }
+        else -> Unit
     }
     if (confirmLogout) {
         AlertDialog(
@@ -190,93 +220,68 @@ internal fun StevoraSettingsHome(
     Column(
         modifier = Modifier.fillMaxSize().background(StevoraDesign.gradient)
             .verticalScroll(rememberScrollState()).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text("STEVORA", fontSize = 28.sp, color = foreground, letterSpacing = 3.sp)
-        Text(tr("НАСТРОЙКИ • КОНТРОЛЕН ЦЕНТЪР", "SETTINGS • CONTROL CENTER"), fontSize = 12.sp, color = accent)
-        Text(
-            if (!checked) tr("Проверка на правата…", "Checking account permissions…")
-            else if (!accountVerified) tr("Профилът не е потвърден", "Account verification unavailable") else accountName,
-            fontSize = 14.sp, color = muted,
-        )
-        if (checked && accountVerified && admin) {
-            Text(tr("АДМИНИСТРАТОРСКИ ПАНЕЛ", "ADMIN CONTROL CENTER"), fontSize = 12.sp, color = accent)
-            // These entries remain informational until STEVORA's protected
-            // memory and automation API contracts are verified and implemented.
-            SettingsEntry("Device & Room Manager / Assistant Manager",
-                tr("Управление на стаи, устройства и асистенти", "Manage rooms, devices and assistants"),
-                "▦", { managersExpanded = true })
-            SettingsEntry("Automation Studio", tr("Управление на автоматизациите", "Manage Home Assistant automations"), "◇", { automationExpanded = true })
-            SettingsEntry(
-                tr("STEVORA widgets", "STEVORA widgets"),
-                tr("Добави състояние на устройство на началния екран", "Pin an entity status widget to the home screen"),
-                "▦",
-                {
-                    val appWidgets = AppWidgetManager.getInstance(context)
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
-                        appWidgets.isRequestPinAppWidgetSupported
-                    ) {
-                        val provider = ComponentName(context, EntityWidget::class.java)
-                        val requested = appWidgets.requestPinAppWidget(provider, null, null)
-                        widgetMessage = if (requested) tr(
-                            "Потвърди добавянето на widget от Android.",
-                            "Confirm the widget in the Android launcher.",
-                        ) else tr(
-                            "Launcher-ът отказа заявката. Добави widget през началния екран.",
-                            "Launcher declined the request. Add a widget from your home screen.",
-                        )
-                    } else {
-                        widgetMessage = tr(
-                            "Отвори Widgets от началния екран и избери STEVORA.",
-                            "Open Widgets from your home screen and choose STEVORA.",
-                        )
-                    }
-                },
-            )
-            widgetMessage?.let { Text(it, color = muted, fontSize = 12.sp) }
-            SettingsEntry(tr("Климатична статистика", "Climate analytics"), tr("Датчици от този дом и история на измерванията", "Sensors in this home and their history"), "◉", { climateExpanded = true })
-            SettingsEntry(tr("Връзка и система", "Connection & Ecosystem"), tr("Връзка, сървър и STEVORA manifest", "Server connection and STEVORA manifest"), "⌂", { nativeSection = "hub" })
-            SettingsEntry("Hey Stevora · Voice Training", tr("Гласови образци, асистент и микрофон", "Voice samples, assistant and microphone"), "✦", { nativeSection = "voice" })
-            SettingsEntry(tr("Устройство и поверителност", "Device & privacy"), tr("Разрешения, известия и сигурност", "Permissions, notifications and security"), "◈", { nativeSection = "privacy" })
-            SettingsEntry(tr("Приложение и външен вид", "App & appearance"), tr("Език, тема и системна интеграция", "Language, theme and system integration"), "◐", { nativeSection = "appearance" })
-        } else if (checked && accountVerified) {
-            Text(tr("ЛИЧНИ НАСТРОЙКИ", "STEVORA PERSONAL"), fontSize = 12.sp, color = accent)
-            Text("Device control, climate statistics and the personalized voice assistant.",
-                fontSize = 14.sp, color = muted)
-            SettingsEntry(
-                tr("STEVORA widgets", "STEVORA widgets"),
-                tr("Добави състояние на устройство на началния екран", "Pin an entity status widget to the home screen"),
-                "▦",
-                {
-                    val appWidgets = AppWidgetManager.getInstance(context)
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
-                        appWidgets.isRequestPinAppWidgetSupported
-                    ) {
-                        val provider = ComponentName(context, EntityWidget::class.java)
-                        val requested = appWidgets.requestPinAppWidget(provider, null, null)
-                        widgetMessage = if (requested) tr(
-                            "Потвърди добавянето на widget от Android.",
-                            "Confirm the widget in the Android launcher.",
-                        ) else tr(
-                            "Launcher-ът отказа заявката. Добави widget през началния екран.",
-                            "Launcher declined the request. Add a widget from your home screen.",
-                        )
-                    } else {
-                        widgetMessage = tr(
-                            "Отвори Widgets от началния екран и избери STEVORA.",
-                            "Open Widgets from your home screen and choose STEVORA.",
-                        )
-                    }
-                },
-            )
-            widgetMessage?.let { Text(it, color = muted, fontSize = 12.sp) }
-            SettingsEntry(tr("Климатична статистика", "Climate analytics"), tr("Датчици от този дом и история на измерванията", "Sensors in this home and their history"), "◉", { climateExpanded = true })
-            SettingsEntry("Hey Stevora · Voice Training", tr("Запис на гласови образци и настройки", "Record voice samples and configure voice"), "✦", { nativeSection = "voice" })
-            SettingsEntry(tr("Устройство и поверителност", "Device & privacy"), tr("Разрешения и известия", "Permissions and notifications"), "◈", { nativeSection = "privacy" })
-            SettingsEntry(tr("Приложение и външен вид", "App & appearance"), tr("Език и тема", "Language and theme"), "◐", { nativeSection = "appearance" })
+        OutlinedButton(onClick = back) { Text(tr("‹ Назад", "‹ Back")) }
+        Text(when (active) {
+            StevoraSettingsPage.Account -> stringResource(R.string.stevora_account)
+            StevoraSettingsPage.Tools -> stringResource(R.string.stevora_tools)
+            StevoraSettingsPage.Management -> stringResource(R.string.stevora_manage)
+            else -> tr("Настройки", "Settings")
+        }, fontSize = 26.sp, color = foreground)
+        if (active == StevoraSettingsPage.Home) {
+            Text(if (!checked) tr("Проверка на правата…", "Checking access…")
+                else if (!accountVerified) tr("Профилът не е потвърден", "Account verification unavailable")
+                else accountName + " · " + if (admin) tr("Администратор", "Administrator") else tr("Потребител", "User"),
+                color = muted)
+            if (checked && !accountVerified) OutlinedButton(onClick = { verification++ }) { Text(tr("Опитай отново", "Retry")) }
+            if (accountVerified) {
+                SettingsEntry(stringResource(R.string.stevora_account), stringResource(R.string.stevora_account_hint), "◐") { page = StevoraSettingsPage.Account }
+                SettingsEntry(tr("Устройство и поверителност", "Device & privacy"), tr("Локация, микрофон и известия", "Location, microphone and notifications"), "◎") { page = StevoraSettingsPage.Privacy }
+                SettingsEntry("Hey Stevora", tr("Асистент и гласови образци", "Assistant and voice samples"), "✦") { page = StevoraSettingsPage.Voice }
+                SettingsEntry(stringResource(R.string.stevora_tools), stringResource(R.string.stevora_tools_hint), "◉") { page = StevoraSettingsPage.Tools }
+                if (admin) SettingsEntry(stringResource(R.string.stevora_manage), stringResource(R.string.stevora_manage_hint), "⌂") { page = StevoraSettingsPage.Management }
+            }
         }
-        if (checked && accountVerified) {
-            Text(tr("ПРОФИЛ И СИГУРНОСТ", "ACCOUNT & SECURITY"), fontSize = 12.sp, color = accent)
+        if (active == StevoraSettingsPage.Management && admin) {
+            SettingsEntry(stringResource(R.string.stevora_rooms), stringResource(R.string.stevora_room_hint), "⌂") { page = StevoraSettingsPage.Rooms }
+            SettingsEntry(stringResource(R.string.stevora_devices), stringResource(R.string.stevora_device_hint), "▦") { page = StevoraSettingsPage.Devices }
+            SettingsEntry(stringResource(R.string.stevora_assistants), stringResource(R.string.stevora_assistant_hint), "✦") { page = StevoraSettingsPage.Assistants }
+            SettingsEntry("Automation Studio", tr("Правила и състояние", "Rules and status"), "◇") { page = StevoraSettingsPage.Automation }
+            SettingsEntry(tr("Връзка и система", "Connection & ecosystem"), tr("Адреси и открит дом", "Addresses and discovered home"), "◎") { page = StevoraSettingsPage.Connection }
+        }
+        if (active == StevoraSettingsPage.Tools) {
+            SettingsEntry(tr("Климатична статистика", "Climate analytics"), tr("Датчици и история", "Sensors and history"), "◉") { page = StevoraSettingsPage.Climate }
+            SettingsEntry(
+                tr("STEVORA widgets", "STEVORA widgets"),
+                tr("Добави състояние на устройство на началния екран", "Pin an entity status widget to the home screen"),
+                "▦",
+                {
+                    val appWidgets = AppWidgetManager.getInstance(context)
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
+                        appWidgets.isRequestPinAppWidgetSupported
+                    ) {
+                        val provider = ComponentName(context, EntityWidget::class.java)
+                        val requested = appWidgets.requestPinAppWidget(provider, null, null)
+                        widgetMessage = if (requested) tr(
+                            "Потвърди добавянето на widget от Android.",
+                            "Confirm the widget in the Android launcher.",
+                        ) else tr(
+                            "Launcher-ът отказа заявката. Добави widget през началния екран.",
+                            "Launcher declined the request. Add a widget from your home screen.",
+                        )
+                    } else {
+                        widgetMessage = tr(
+                            "Отвори Widgets от началния екран и избери STEVORA.",
+                            "Open Widgets from your home screen and choose STEVORA.",
+                        )
+                    }
+                },
+            )
+            widgetMessage?.let { Text(it, color = muted, fontSize = 12.sp) }
+        }
+        if (active == StevoraSettingsPage.Account) {
+            SettingsEntry(tr("Език и външен вид", "Language & appearance"), "Български · English", "◐") { page = StevoraSettingsPage.Appearance }
             SettingsEntry(
                 tr("Отвори STEVORA OS", "Open STEVORA OS"),
                 tr("Системни настройки и профил в свързания дом", "System settings and account in the active home"),
@@ -310,8 +315,7 @@ internal fun StevoraSettingsHome(
             }
         }
         logoutError?.let { Text(it, color = Color(0xFFFFA76B), fontSize = 12.sp) }
-        SettingsEntry(tr("Към началото", "Back to home"), tr("Връщане към контролния панел", "Return to your command center"), "‹", onBack)
-        Text("STEVORA Companion 2.1 • Native Experience", fontSize = 12.sp, color = muted)
+
     }
 }
 
@@ -328,7 +332,7 @@ private fun SettingsEntry(
         colors = CardDefaults.cardColors(containerColor = surface),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(18.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -419,6 +423,7 @@ private fun StevoraNativeSettingsSection(
         pendingAudio = null
         refreshCount()
     }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { stopRecording() } }
     fun startRecording() {
         if (recording != null || sampleCount >= 20) return
         val index = (1..20).firstOrNull { !File(sampleFolder, "sample_%02d.m4a".format(it)).exists() } ?: return
@@ -515,7 +520,7 @@ private fun StevoraNativeSettingsSection(
         } catch (_: Exception) { false }
     }
     val title = when (section) {
-        "hub" -> "Connection & Ecosystem"
+        "hub" -> tr("Връзка и система", "Connection & ecosystem")
         "voice" -> "STEVORA AI"
         "privacy" -> tr("Устройство и поверителност", "Device & privacy")
         else -> tr("Приложение и външен вид", "App & appearance")
@@ -527,7 +532,6 @@ private fun StevoraNativeSettingsSection(
     ) {
         OutlinedButton(onClick = onBack) { Text(tr("‹ Назад", "‹ Back")) }
         Text(title, fontSize = 27.sp, color = foreground)
-        Text("STEVORA • NATIVE SETTINGS", color = accent, fontSize = 11.sp)
         when (section) {
             "hub" -> {
                 SettingsInfo(tr("Активен профил", "Active account"), accountName)
@@ -551,43 +555,17 @@ private fun StevoraNativeSettingsSection(
                             tr(" · Свързани обекти: ", " · Mapped entities: ") + mappedCount +
                             " · Manifest v" + discovered.revision,
                     )
-                    // Expand one discovered room at a time. The manifest contains
-                    // entity IDs, not live states or service permissions.
-                    var expandedRoomId by remember(activeServerId) { mutableStateOf<String?>(null) }
-                    discovered.rooms.forEach { room ->
-                        val entityIds = discovered.entityMappings[room.id].orEmpty()
-                        OutlinedButton(
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = {
-                                expandedRoomId = if (expandedRoomId == room.id) null else room.id
-                            },
-                        ) {
-                            Text(
-                                room.name + " · " + entityIds.size + " " +
-                                    tr("обекта", "entities") +
-                                    if (expandedRoomId == room.id) " ▲" else " ▼",
-                            )
-                        }
-                        if (expandedRoomId == room.id) {
-                            if (entityIds.isEmpty()) {
-                                Text(
-                                    tr("Няма открити обекти", "No discovered entities"),
-                                    color = muted, fontSize = 12.sp,
-                                )
-                            } else {
-                                entityIds.groupBy { it.substringBefore('.') }
-                                    .toSortedMap()
-                                    .forEach { (domain, ids) ->
-                                        Text(
-                                            domain + " (" + ids.size + ")",
-                                            color = foreground, fontSize = 13.sp,
-                                        )
-                                        ids.sorted().forEach { entityId ->
-                                            Text(discovered.localizedEntityNames[entityId] ?: entityId, color = muted, fontSize = 12.sp)
-                                        }
-                                    }
+                    var roomId by rememberSaveable(activeServerId) { mutableStateOf<String?>(null) }
+                    val rooms = remember(discovered) { discovered.rooms.map { StevoraChoice(it.id, it.name) } }
+                    StevoraSettingsPicker(stringResource(R.string.stevora_choose_room), rooms, roomId) { roomId = it }
+                    roomId?.let { selected ->
+                        val choices = remember(discovered, selected) {
+                            discovered.entityMappings[selected].orEmpty().distinct().map { id ->
+                                StevoraChoice(id, discovered.localizedEntityNames[id] ?: id, id)
                             }
                         }
+                        var entity by rememberSaveable(selected) { mutableStateOf<String?>(null) }
+                        StevoraSettingsPicker(stringResource(R.string.stevora_choose_device), choices, entity) { entity = it }
                     }
                     Text(
                         tr(

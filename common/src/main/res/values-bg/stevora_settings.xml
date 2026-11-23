@@ -1,0 +1,23 @@
+<resources>
+    <string name="stevora_catalog_search">Търси по име или ID</string>
+    <string name="stevora_catalog_empty">Няма съвпадения</string>
+    <string name="stevora_choose_room">Избери стая</string>
+    <string name="stevora_choose_device">Избери устройство</string>
+    <string name="stevora_choose_user">Избери потребител</string>
+    <string name="stevora_choose_routine">Избери автоматизация</string>
+    <string name="stevora_account">Профил и език</string>
+    <string name="stevora_account_hint">Език, достъп до дома и изход</string>
+    <string name="stevora_tools">Инструменти за дома</string>
+    <string name="stevora_tools_hint">История на климата и уиджети</string>
+    <string name="stevora_manage">Управление на дома</string>
+    <string name="stevora_manage_hint">Стаи, устройства, асистенти и автоматизации</string>
+    <string name="stevora_rooms">Стаи</string>
+    <string name="stevora_devices">Устройства</string>
+    <string name="stevora_assistants">Асистенти</string>
+    <string name="stevora_room_hint">Имена и преводи</string>
+    <string name="stevora_device_hint">Видимост, стая и контроли</string>
+    <string name="stevora_assistant_hint">Основен асистент и избор по потребител</string>
+    <string name="stevora_visible">Включи</string>
+    <string name="stevora_hidden">Изключи</string>
+    <string name="stevora_settings_update">Настройките обединяват личните предпочитания и управлението на дома в отделни раздели. Потърсете стая, устройство или потребител за редактиране.</string>
+</resources>

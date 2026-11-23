@@ -28,6 +28,10 @@ internal val currentChangelog = Changelog(
     ),
     improved = listOf(
         ChangelogEntry(
+            contentRes = commonR.string.stevora_settings_update,
+            platforms = setOf(ChangelogPlatform.APP),
+        ),
+        ChangelogEntry(
             contentRes = commonR.string.changelog_stevora_dev4_home,
             platforms = setOf(ChangelogPlatform.APP),
         ),

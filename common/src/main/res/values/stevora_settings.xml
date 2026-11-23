@@ -1,0 +1,23 @@
+<resources>
+    <string name="stevora_catalog_search">Search by name or ID</string>
+    <string name="stevora_catalog_empty">No matches</string>
+    <string name="stevora_choose_room">Choose room</string>
+    <string name="stevora_choose_device">Choose device</string>
+    <string name="stevora_choose_user">Choose user</string>
+    <string name="stevora_choose_routine">Choose automation</string>
+    <string name="stevora_account">Account and language</string>
+    <string name="stevora_account_hint">Language, home access and sign out</string>
+    <string name="stevora_tools">Home tools</string>
+    <string name="stevora_tools_hint">Climate history and home screen widgets</string>
+    <string name="stevora_manage">Manage home</string>
+    <string name="stevora_manage_hint">Rooms, devices, assistants and automations</string>
+    <string name="stevora_rooms">Rooms</string>
+    <string name="stevora_devices">Devices</string>
+    <string name="stevora_assistants">Assistants</string>
+    <string name="stevora_room_hint">Names and translations</string>
+    <string name="stevora_device_hint">Visibility, room and controls</string>
+    <string name="stevora_assistant_hint">Default assistant and per-user selection</string>
+    <string name="stevora_visible">Include</string>
+    <string name="stevora_hidden">Exclude</string>
+    <string name="stevora_settings_update">Settings now group personal and home administration options. Search for a room, device or person to edit it.</string>
+</resources>

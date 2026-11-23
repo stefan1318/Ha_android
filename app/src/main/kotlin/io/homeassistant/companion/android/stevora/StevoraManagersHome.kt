@@ -27,11 +27,18 @@ import androidx.compose.ui.unit.dp
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import org.json.JSONArray
 import org.json.JSONObject
+import androidx.compose.ui.res.stringResource
+import androidx.compose.runtime.saveable.rememberSaveable
+import io.homeassistant.companion.android.common.R
+
+private fun JSONArray?.records(): List<JSONObject> =
+    (0 until (this?.length() ?: 0)).mapNotNull { index -> this?.optJSONObject(index) }
 
 /** Admin authorization is enforced by the STEVORA integration, never by Compose. */
 @Composable
-internal fun StevoraManagersHome(onBack: () -> Unit) {
+internal fun StevoraManagersHome(page: StevoraSettingsPage, serverId: Int, onBack: () -> Unit) {
     val context = LocalContext.current.applicationContext
     val bg = LocalConfiguration.current.locales[0].language == "bg"
     fun tr(a: String, b: String) = if (bg) a else b
@@ -56,11 +63,12 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
     var localizedRoomNames by remember { mutableStateOf<Map<String, Map<String, String>>>(emptyMap()) }
     var localizedDeviceNames by remember { mutableStateOf<Map<String, Map<String, String>>>(emptyMap()) }
 
-    LaunchedEffect(manager, refresh) {
+    LaunchedEffect(manager, serverId, page, refresh) {
         busy = true
         try {
-            val socket = manager.webSocketRepository()
-            rooms = socket.stevoraManagerCommand("stevora/admin/rooms/get")?.let(::JSONObject)
+            val socket = manager.webSocketRepository(serverId)
+            rooms = if (page == StevoraSettingsPage.Assistants) null
+            else socket.stevoraManagerCommand("stevora/admin/rooms/get")?.let(::JSONObject)
             val aliases = rooms?.optJSONObject("room_aliases")
             roomNames = buildMap {
                 aliases?.keys()?.forEach { key -> put(key, aliases.optString(key)) }
@@ -78,13 +86,16 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
             }
             localizedRoomNames = readLabels("rooms")
             localizedDeviceNames = readLabels("entities")
-            assistants = socket.stevoraManagerCommand("stevora/admin/assistants/get")?.let(::JSONObject)
-            status = if (rooms != null && assistants != null) "" else
+            assistants = if (page == StevoraSettingsPage.Assistants)
+                socket.stevoraManagerCommand("stevora/admin/assistants/get")?.let(::JSONObject) else null
+            if (rooms == null && assistants == null) status =
                 tr("Нужна е STEVORA интеграция и администраторски достъп.",
                    "STEVORA integration and administrator access are required.")
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            rooms = null
+            assistants = null
             status = e.message ?: tr("Няма връзка", "Connection unavailable")
         } finally {
             busy = false
@@ -99,7 +110,7 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
                     "expected_revision" to revision,
                     "entities" to listOf(mapOf("entity_id" to entityId, "visibility" to mode))
                 )
-                val result = manager.webSocketRepository()
+                val result = manager.webSocketRepository(serverId)
                     .stevoraManagerCommand("stevora/admin/rooms/update", fields)
                 status = if (result != null) tr("Запазено", "Saved") else
                     tr("Отказано или конфликт на версията", "Denied or revision conflict")
@@ -127,7 +138,7 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
                     "default_pipeline" to id,
                     "user_pipelines" to userPipelines
                 )
-                val result = manager.webSocketRepository()
+                val result = manager.webSocketRepository(serverId)
                     .stevoraManagerCommand("stevora/admin/assistants/update", fields)
                 status = if (result != null) tr("Асистентът е запазен", "Assistant saved") else
                     tr("Отказано или конфликт на версията", "Denied or revision conflict")
@@ -142,21 +153,24 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
         }
     }
 
-    fun saveRooms() {
+    fun saveRooms(areaId: String, order: List<String>?) {
         val snapshot = rooms ?: return
         val aliases = snapshot.optJSONObject("entity_aliases")
         val entityAliases = mutableMapOf<String, String>()
         aliases?.keys()?.forEach { key -> entityAliases[key] = aliases.optString(key) }
-        val roomOrder = snapshot.optJSONArray("room_order")
-        val order = (0 until (roomOrder?.length() ?: 0)).map { roomOrder!!.optString(it) }
+        val existingNames = snapshot.optJSONObject("room_aliases")
+        val names = mutableMapOf<String, String>()
+        existingNames?.keys()?.forEach { key -> names[key] = existingNames.optString(key) }
+        roomNames[areaId]?.let { names[areaId] = it }
+        val fields = mutableMapOf<String, Any?>("expected_revision" to snapshot.optInt("revision"),
+            "room_aliases" to names, "entity_aliases" to entityAliases)
+        if (order != null) fields["room_order"] = order
         scope.launch {
             busy = true
             try {
-                val result = manager.webSocketRepository().stevoraManagerCommand(
+                val result = manager.webSocketRepository(serverId).stevoraManagerCommand(
                     "stevora/admin/rooms/aliases/update",
-                    mapOf("expected_revision" to snapshot.optInt("revision"),
-                          "room_aliases" to roomNames, "entity_aliases" to entityAliases,
-                          "room_order" to order)
+                    fields
                 )
                 status = if (result != null) tr("Имената са запазени", "Room names saved") else
                     tr("Отказано или конфликт на версията", "Denied or revision conflict")
@@ -182,7 +196,7 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
             val items = profile?.optJSONArray(key)
             return (0 until (items?.length() ?: 0)).joinToString(",") { items!!.optString(it) }
         }
-        automaticControls = profile?.has("controls") != true
+        automaticControls = profile?.optJSONArray("controls") == null
         deviceControls = values("controls")
         deviceUsers = values("user_ids")
     }
@@ -200,7 +214,7 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
         scope.launch {
             busy = true
             try {
-                val result = manager.webSocketRepository().stevoraManagerCommand(
+                val result = manager.webSocketRepository(serverId).stevoraManagerCommand(
                     "stevora/admin/devices/update",
                     mapOf("expected_revision" to snapshot.optInt("revision"),
                           "profiles" to mapOf(entityId to profile))
@@ -224,7 +238,7 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
         scope.launch {
             busy = true
             try {
-                val result = manager.webSocketRepository().stevoraManagerCommand(
+                val result = manager.webSocketRepository(serverId).stevoraManagerCommand(
                     "stevora/admin/translations/update",
                     mapOf("expected_revision" to snapshot.optInt("revision"),
                           "rooms" to (if (kind == "rooms") mapOf(id to (labels ?: emptyMap())) else emptyMap<String, Any>()),
@@ -247,7 +261,7 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
         val snapshot = assistants ?: return
         val revision = snapshot.optInt("revision")
         val settings = snapshot.optJSONObject("settings")
-        val defaultId = settings?.optString("default_pipeline")?.takeIf { it.isNotBlank() }
+        val defaultId = settings?.optString("default_pipeline")?.takeIf { it.isNotBlank() && it != "null" }
         val existing = settings?.optJSONObject("user_pipelines")
         val overrides = mutableMapOf<String, String>()
         existing?.keys()?.forEach { key -> overrides[key] = existing.optString(key) }
@@ -255,7 +269,7 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
         scope.launch {
             busy = true
             try {
-                val result = manager.webSocketRepository().stevoraManagerCommand(
+                val result = manager.webSocketRepository(serverId).stevoraManagerCommand(
                     "stevora/admin/assistants/update",
                     mapOf("expected_revision" to revision, "default_pipeline" to defaultId,
                           "user_pipelines" to overrides)
@@ -278,144 +292,157 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
             .verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("STEVORA • " + tr("МЕНИДЖЪРИ", "MANAGERS"), color = StevoraDesign.foreground)
-        OutlinedButton(onClick = onBack) { Text(tr("Назад", "Back")) }
+        OutlinedButton(onClick = onBack) { Text(tr("‹ Назад", "‹ Back")) }
+        Text(stringResource(when (page) {
+            StevoraSettingsPage.Rooms -> R.string.stevora_rooms
+            StevoraSettingsPage.Devices -> R.string.stevora_devices
+            else -> R.string.stevora_assistants
+        }), color = StevoraDesign.foreground)
+        if (busy) androidx.compose.material3.LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         if (status.isNotEmpty()) Text(status, color = StevoraDesign.accent)
-        Text("Assistant Manager", color = StevoraDesign.foreground)
-        val snapshot = assistants
-        if (snapshot != null) {
-            val selected = snapshot.optJSONObject("settings")?.optString("default_pipeline")
-            Text(tr("Основен асистент: ", "Default assistant: ") + (selected ?: "—"),
-                color = StevoraDesign.muted)
-            OutlinedButton(onClick = { setDefaultPipeline(null) }, enabled = !busy) {
-                Text(tr("HA по подразбиране", "HA default"))
+        assistants?.let { snapshot ->
+            val inherit = StevoraChoice("", tr("Автоматично", "Automatic"))
+            val pipelines = remember(snapshot) {
+                snapshot.optJSONArray("pipelines").records().map { StevoraChoice(it.getString("id"), it.optString("name")) }
             }
-            val pipelines = snapshot.optJSONArray("pipelines")
-            for (i in 0 until (pipelines?.length() ?: 0)) {
-                val pipeline = pipelines?.optJSONObject(i) ?: continue
-                val id = pipeline.optString("id")
-                OutlinedButton(onClick = { setDefaultPipeline(id) }, enabled = !busy) {
-                    Text((if (id == selected) "✓ " else "") + pipeline.optString("name", id))
+            val settings = snapshot.optJSONObject("settings")
+            val default = settings?.optString("default_pipeline").orEmpty().takeUnless { it == "null" }.orEmpty()
+            if (!busy) StevoraSettingsPicker(tr("Основен асистент", "Default assistant"), listOf(inherit) + pipelines, default) {
+                setDefaultPipeline(it.ifEmpty { null })
+            }
+            var user by rememberSaveable(serverId) { mutableStateOf<String?>(null) }
+            val users = remember(snapshot) {
+                snapshot.optJSONArray("users").records().map { StevoraChoice(it.getString("id"), it.optString("name")) }
+            }
+            StevoraSettingsPicker(stringResource(R.string.stevora_choose_user), users, user) { user = it }
+            val selected = users.firstOrNull { it.id == user }
+            if (selected != null && !busy) {
+                val pipeline = settings?.optJSONObject("user_pipelines")?.optString(selected.id).orEmpty()
+                StevoraSettingsPicker(tr("Личен асистент", "Personal assistant"),
+                    listOf(StevoraChoice("", tr("Наследи основния", "Use default"))) + pipelines, pipeline) {
+                    setUserPipeline(selected.id, it.ifEmpty { null })
                 }
             }
         }
-        Text(tr("Асистент по потребител", "Assistant per user"), color = StevoraDesign.foreground)
-        val users = assistants?.optJSONArray("users")
-        val pipelineOptions = assistants?.optJSONArray("pipelines")
-        for (i in 0 until (users?.length() ?: 0)) {
-            val user = users?.optJSONObject(i) ?: continue
-            val userId = user.optString("id")
-            Text(user.optString("name", userId), color = StevoraDesign.foreground)
-            OutlinedButton(onClick = { setUserPipeline(userId, null) }, enabled = !busy) {
-                Text(tr("Наследи основния", "Use default"))
-            }
-            for (j in 0 until (pipelineOptions?.length() ?: 0)) {
-                val option = pipelineOptions?.optJSONObject(j) ?: continue
-                OutlinedButton(onClick = { setUserPipeline(userId, option.optString("id")) }, enabled = !busy) {
-                    Text(option.optString("name"))
-                }
+        val areas = remember(rooms) { rooms?.optJSONArray("rooms").records() }
+        val roomOptions = remember(rooms, bg) {
+            areas.map { area ->
+                val id = area.getString("id")
+                StevoraChoice(id, localizedRoomNames[id]?.get(if (bg) "bg" else "en").orEmpty().ifBlank {
+                    roomNames[id].orEmpty().ifBlank { area.optString("name", id) }
+                }, area.optString("name"))
             }
         }
-        Text("Device & Room Manager", color = StevoraDesign.foreground)
-        val areaList = rooms?.optJSONArray("rooms")
-        for (i in 0 until (areaList?.length() ?: 0)) {
-            val area = areaList?.optJSONObject(i) ?: continue
-            val areaId = area.optString("id")
-            OutlinedTextField(
-                value = roomNames[areaId] ?: area.optString("name"),
-                onValueChange = { name -> roomNames = roomNames + (areaId to name) },
-                label = { Text(tr("Име на стая", "Room name")) },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-        for (i in 0 until (areaList?.length() ?: 0)) {
-            val area = areaList?.optJSONObject(i) ?: continue
-            val id = area.optString("id")
-            Text(area.optString("name") + " · BG/EN", color = StevoraDesign.foreground)
-            for (locale in listOf("bg", "en")) {
+        if (page == StevoraSettingsPage.Rooms && rooms != null) {
+            var selectedRoom by rememberSaveable(serverId) { mutableStateOf<String?>(null) }
+            StevoraSettingsPicker(stringResource(R.string.stevora_choose_room), roomOptions, selectedRoom) { selectedRoom = it }
+            areas.firstOrNull { it.optString("id") == selectedRoom }?.let { area ->
+                val areaId = area.getString("id")
                 OutlinedTextField(
-                    value = localizedRoomNames[id]?.get(locale) ?: "",
-                    onValueChange = { value ->
-                        localizedRoomNames = localizedRoomNames + (id to
-                            ((localizedRoomNames[id] ?: emptyMap()) + (locale to value)))
-                    },
-                    label = { Text(locale.uppercase()) }
+                    value = roomNames[areaId] ?: area.optString("name"),
+                    onValueChange = { name -> roomNames = roomNames + (areaId to name) },
+                    label = { Text(tr("Име на стая", "Room name")) },
+                    modifier = Modifier.fillMaxWidth()
                 )
-            }
-            OutlinedButton(onClick = { saveTranslation("rooms", id) }, enabled = !busy) {
-                Text("Save BG/EN")
-            }
-        }
-        OutlinedButton(onClick = { saveRooms() }, enabled = !busy) {
-            Text(tr("Запази имената", "Save room names"))
-        }
-        val inventory = rooms?.optJSONArray("entities")
-        for (i in 0 until (inventory?.length() ?: 0)) {
-            val entity = inventory?.optJSONObject(i) ?: continue
-            val id = entity.optString("entity_id")
-            Text(entity.optString("name", id) + " • " + id, color = StevoraDesign.foreground)
-            OutlinedButton(onClick = { editDevice(id) }, enabled = !busy) {
-                Text(tr("Персонализирай", "Customize"))
-            }
-            if (editingEntity == id) {
+                val order = remember(rooms) {
+                    val stored = rooms?.optJSONArray("room_order")
+                    val ids = areas.map { it.optString("id") }
+                    ((0 until (stored?.length() ?: 0)).map { stored!!.getString(it) }.filter { it in ids } + ids).distinct()
+                }
+                val position = order.indexOf(areaId)
+                var rank by remember(areaId, rooms) { mutableStateOf(position) }
+                val positions = remember(order) { order.indices.map { StevoraChoice(it.toString(), (it + 1).toString()) } }
+                StevoraSettingsPicker(tr("Позиция", "Position"), positions, rank.toString()) { rank = it.toInt() }
+                OutlinedButton(onClick = {
+                    val next = if (rank != position && rank in order.indices) order.toMutableList().apply {
+                        remove(areaId)
+                        add(rank, areaId)
+                    } else null
+                    saveRooms(areaId, next)
+                }, enabled = !busy) {
+                    Text(tr("Запази името", "Save name"))
+                }
+                val id = areaId
                 for (locale in listOf("bg", "en")) {
                     OutlinedTextField(
-                        value = localizedDeviceNames[id]?.get(locale) ?: "",
+                        value = localizedRoomNames[id]?.get(locale) ?: "",
                         onValueChange = { value ->
-                            localizedDeviceNames = localizedDeviceNames + (id to
-                                ((localizedDeviceNames[id] ?: emptyMap()) + (locale to value)))
+                            localizedRoomNames = localizedRoomNames + (id to
+                                ((localizedRoomNames[id] ?: emptyMap()) + (locale to value)))
                         },
-                        label = { Text("Name " + locale.uppercase()) }
+                        label = { Text(locale.uppercase()) }
                     )
                 }
-                OutlinedButton(onClick = { saveTranslation("entities", id) }, enabled = !busy) {
-                    Text("Save BG/EN")
-                }
-                OutlinedTextField(deviceName, { deviceName = it }, label = { Text(tr("Име", "Name")) })
-                OutlinedTextField(deviceIcon, { deviceIcon = it }, label = { Text("mdi:icon") })
-                Text(tr("Оформление", "Layout"), color = StevoraDesign.foreground)
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    for (layout in listOf("info", "compact", "expanded")) {
-                        OutlinedButton(onClick = { deviceLayout = layout }) {
-                            Text((if (deviceLayout == layout) "✓" else "") + layout)
-                        }
-                    }
-                }
-                Text(tr("Стая", "Room"), color = StevoraDesign.foreground)
-                OutlinedButton(onClick = { deviceArea = "" }) {
-                    Text(tr("Автоматично", "Automatic"))
-                }
-                val choices = rooms?.optJSONArray("rooms")
-                for (k in 0 until (choices?.length() ?: 0)) {
-                    val area = choices?.optJSONObject(k) ?: continue
-                    OutlinedButton(onClick = { deviceArea = area.optString("id") }) {
-                        Text((if (deviceArea == area.optString("id")) "✓ " else "") + area.optString("name"))
-                    }
-                }
-                OutlinedButton(onClick = { automaticControls = !automaticControls }) {
-                    Text(if (automaticControls) tr("Контроли: автоматични", "Controls: automatic") else tr("Контроли: избрани", "Controls: selected"))
-                }
-                if (!automaticControls) OutlinedTextField(deviceControls, { deviceControls = it },
-                    label = { Text(tr("Контроли (със запетая)", "Controls (comma-separated)")) })
-                OutlinedTextField(deviceUsers, { deviceUsers = it },
-                    label = { Text(tr("Потребителски ID", "User IDs")) })
-                Button(onClick = { saveDevice() }, enabled = !busy) {
-                    Text(tr("Запази устройството", "Save device"))
+                OutlinedButton(onClick = { saveTranslation("rooms", id) }, enabled = !busy) {
+                    Text(tr("Запази преводите", "Save translations"))
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        }
+        if (page == StevoraSettingsPage.Devices && rooms != null) {
+            val inventory = remember(rooms) { rooms?.optJSONArray("entities").records() }
+            val options = remember(rooms, bg) {
+                val names = roomOptions.associate { it.id to it.name }
+                inventory.map { entity ->
+                    val id = entity.getString("entity_id")
+                    val original = entity.optString("name", id)
+                    val label = localizedDeviceNames[id]?.get(if (bg) "bg" else "en").orEmpty().ifBlank {
+                        rooms?.optJSONObject("device_profiles")?.optJSONObject(id)?.optString("name").orEmpty().ifBlank { original }
+                    }
+                    StevoraChoice(id, label, listOfNotNull(names[entity.optString("area_id")], original.takeIf { it != label }, id).joinToString(" · "))
+                }
+            }
+            var selectedDevice by rememberSaveable(serverId) { mutableStateOf<String?>(null) }
+            StevoraSettingsPicker(stringResource(R.string.stevora_choose_device), options, selectedDevice) { selectedDevice = it }
+            val entity = inventory.firstOrNull { it.optString("entity_id") == selectedDevice }
+            if (entity != null) {
+                val id = entity.getString("entity_id")
+                LaunchedEffect(id, rooms) { editDevice(id) }
+                if (editingEntity == id) {
+                    for (locale in listOf("bg", "en")) {
+                        OutlinedTextField(
+                            value = localizedDeviceNames[id]?.get(locale) ?: "",
+                            onValueChange = { value ->
+                                localizedDeviceNames = localizedDeviceNames + (id to
+                                    ((localizedDeviceNames[id] ?: emptyMap()) + (locale to value)))
+                            },
+                            label = { Text(tr("Име", "Name") + " · " + locale.uppercase()) }
+                        )
+                    }
+                    OutlinedButton(onClick = { saveTranslation("entities", id) }, enabled = !busy) {
+                        Text(tr("Запази преводите", "Save translations"))
+                    }
+                    OutlinedTextField(deviceName, { deviceName = it }, label = { Text(tr("Име", "Name")) })
+                    OutlinedTextField(deviceIcon, { deviceIcon = it }, label = { Text("mdi:icon") })
+                    Text(tr("Оформление", "Layout"), color = StevoraDesign.foreground)
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        for (layout in listOf("info", "compact", "expanded")) {
+                            OutlinedButton(onClick = { deviceLayout = layout }) {
+                                Text((if (deviceLayout == layout) "✓" else "") + layout)
+                            }
+                        }
+                    }
+                    StevoraSettingsPicker(stringResource(R.string.stevora_choose_room),
+                        listOf(StevoraChoice("", tr("Автоматично", "Automatic"))) + roomOptions, deviceArea) { deviceArea = it }
+                    OutlinedButton(onClick = { automaticControls = !automaticControls }) {
+                        Text(if (automaticControls) tr("Контроли: автоматични", "Controls: automatic") else tr("Контроли: избрани", "Controls: selected"))
+                    }
+                    if (!automaticControls) OutlinedTextField(deviceControls, { deviceControls = it },
+                        label = { Text(tr("Контроли (със запетая)", "Controls (comma-separated)")) })
+                    OutlinedTextField(deviceUsers, { deviceUsers = it },
+                        label = { Text(tr("Потребителски ID", "User IDs")) })
+                    Button(onClick = { saveDevice() }, enabled = !busy) {
+                        Text(tr("Запази устройството", "Save device"))
+                    }
+                }
                 if (entity.optBoolean("disabled") || entity.optBoolean("hidden")) {
                     Text(tr("Недостъпно в HA", "Unavailable in HA"), color = StevoraDesign.muted)
-                } else {
-                    OutlinedButton(onClick = { changeVisibility(id, "default") }, enabled = !busy) {
-                        Text(tr("Авто", "Auto"))
-                    }
-                    OutlinedButton(onClick = { changeVisibility(id, "include") }, enabled = !busy) {
-                        Text("+")
-                    }
-                    OutlinedButton(onClick = { changeVisibility(id, "exclude") }, enabled = !busy) {
-                        Text("−")
-                    }
+                } else if (!busy) {
+                    val visibility = rooms?.optJSONObject("visibility")?.optString(id).orEmpty().ifBlank { "default" }
+                    StevoraSettingsPicker(tr("Видимост", "Visibility"), listOf(
+                        StevoraChoice("default", tr("Автоматично", "Automatic")),
+                        StevoraChoice("include", stringResource(R.string.stevora_visible)),
+                        StevoraChoice("exclude", stringResource(R.string.stevora_hidden)),
+                    ), visibility) { changeVisibility(id, it) }
                 }
             }
         }
