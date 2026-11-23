@@ -56,7 +56,6 @@ import io.homeassistant.companion.android.database.server.ServerUserInfo
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.Flow
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
@@ -186,7 +185,7 @@ class WebSocketRepositoryImpl internal constructor(
         startTime: String,
         endTime: String,
         entityIds: List<String>,
-    ): JsonArray? {
+    ): JsonObject? {
         if (
             entityIds.isEmpty() ||
             entityIds.size > MAX_STEVORA_CLIMATE_SENSORS ||
@@ -203,18 +202,6 @@ class WebSocketRepositoryImpl internal constructor(
                 "minimal_response" to true,
                 "no_attributes" to true,
             ),
-        )
-        return response?.takeIf { it.success == true }?.result as? JsonArray
-    }
-
-    override suspend fun getStevoraMemory(
-        command: String,
-        parameters: Map<String, Any?>,
-    ): JsonObject? {
-        require(command in setOf("health", "read", "search", "proposals", "decide"))
-        if (getCurrentUser()?.let { it.isAdmin || it.isOwner } != true) return null
-        val response = webSocketCore.sendMessage(
-            mapOf("type" to "stevora_memory/$command") + parameters,
         )
         return response?.takeIf { it.success == true }?.result as? JsonObject
     }

@@ -32,7 +32,6 @@ import io.homeassistant.companion.android.common.data.websocket.impl.entities.Tr
 import io.homeassistant.companion.android.common.data.websocket.impl.entities.WebRtcCandidate
 import io.homeassistant.companion.android.common.data.websocket.impl.entities.WebRtcEvent
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonArray
 import javax.inject.Inject
 import javax.inject.Provider
 import kotlinx.coroutines.flow.Flow
@@ -48,8 +47,7 @@ interface WebSocketRepository {
     suspend fun getStevoraManifestJson(language: String = java.util.Locale.getDefault().language): String?
     suspend fun stevoraManagerCommand(command: String, fields: Map<String, Any?> = emptyMap()): String?
     suspend fun getConfig(): GetConfigResponse?
-    suspend fun getStevoraMemory(command: String, parameters: Map<String, Any?> = emptyMap()): JsonObject?
-    suspend fun getStevoraClimateHistory(startTime: String, endTime: String, entityIds: List<String>): JsonArray?
+    suspend fun getStevoraClimateHistory(startTime: String, endTime: String, entityIds: List<String>): JsonObject?
     suspend fun getStevoraAutomationConfig(entityId: String): JsonObject?
     suspend fun validateStevoraAutomation(config: JsonObject): JsonObject?
     suspend fun getStates(): List<EntityResponse>?

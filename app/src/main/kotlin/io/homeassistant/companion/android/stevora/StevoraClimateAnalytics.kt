@@ -66,7 +66,11 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
     var historyValues by remember { mutableStateOf<List<Double>>(emptyList()) }
     var humidityHistory by remember { mutableStateOf<List<Double>>(emptyList()) }
     var historyStatus by remember { mutableStateOf("") }
-    LaunchedEffect(manager, historyHours, historyRefresh) {
+    var sourceServer by remember { mutableStateOf<Int?>(null) }
+    var tempId by remember { mutableStateOf<String?>(null) }
+    var humidityId by remember { mutableStateOf<String?>(null) }
+    var tempUnit by remember { mutableStateOf("") }
+    LaunchedEffect(sourceServer, tempId, humidityId, historyHours, historyRefresh) {
         historyLoading = true
         historyValues = emptyList()
         humidityHistory = emptyList()
@@ -74,23 +78,18 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
         try {
             val end = Instant.now()
             val start = end.minus(historyHours.toLong(), ChronoUnit.HOURS)
-            val result = if (manager.getServer() == null) null else
-                manager.webSocketRepository().getStevoraClimateHistory(
-                    start.toString(), end.toString(),
-                    listOf("sensor.realna_temperatura_homepod", "sensor.realna_vlazhnost_homepod"),
-                )
-            val series = result?.mapNotNull { group ->
-                val entries = group as? kotlinx.serialization.json.JsonArray
-                    ?: return@mapNotNull null
-                val id = entries.firstOrNull()?.jsonObject?.get("entity_id")
-                    ?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-                id to entries.mapNotNull { item ->
-                    item.jsonObject["state"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
-                        ?.takeIf { it.isFinite() }
+            val ids = listOfNotNull(tempId, humidityId)
+            val result = sourceServer?.takeIf { manager.getServer()?.id == it && ids.isNotEmpty() }?.let {
+                manager.webSocketRepository(it).getStevoraClimateHistory(start.toString(), end.toString(), ids)
+            }
+            fun readings(id: String?): List<Double> {
+                val entries = id?.let { result?.get(it) } as? kotlinx.serialization.json.JsonArray ?: return emptyList()
+                return entries.mapNotNull { item ->
+                    item.jsonObject["s"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()?.takeIf { it.isFinite() }
                 }.takeLast(600)
-            }?.toMap().orEmpty()
-            historyValues = series["sensor.realna_temperatura_homepod"].orEmpty()
-            humidityHistory = series["sensor.realna_vlazhnost_homepod"].orEmpty()
+            }
+            historyValues = readings(tempId)
+            humidityHistory = readings(humidityId)
             historyStatus = if (historyValues.isEmpty() && humidityHistory.isEmpty()) {
                 tr("Няма записани измервания или Recorder не е достъпен",
                     "No recorded samples or Recorder unavailable")
@@ -107,11 +106,25 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
     LaunchedEffect(manager) {
         while (isActive) {
             try {
-                val states = if (manager.getServer() != null) manager.webSocketRepository().getStates() else null
-                online = states != null
-                if (states != null) {
-                    temperature = states.firstOrNull { it.entityId == "sensor.realna_temperatura_homepod" }?.state?.toDoubleOrNull()
-                    humidity = states.firstOrNull { it.entityId == "sensor.realna_vlazhnost_homepod" }?.state?.toDoubleOrNull()
+                val id = manager.getServer()?.id
+                val repo = id?.let { manager.webSocketRepository(it) }
+                val raw = repo?.getStevoraManifestJson(if (bg) "bg" else "en")
+                val manifest = if (id != null && raw != null && StevoraHomeProjection.apply(id, raw)) {
+                    StevoraHomeProjection.home.value[id]
+                } else null
+                val allowed = manifest?.entityMappings?.values?.flatten().orEmpty().toSet()
+                val states = repo?.getStates()?.filter { it.entityId in allowed && it.domain == "sensor" }
+                val temp = states?.firstOrNull { it.attributes["device_class"] == "temperature" }
+                val humid = states?.firstOrNull { it.attributes["device_class"] == "humidity" }
+                if (id != sourceServer || temp?.entityId != tempId || humid?.entityId != humidityId) samples = emptyList()
+                sourceServer = id
+                tempId = temp?.entityId
+                humidityId = humid?.entityId
+                tempUnit = temp?.attributes?.get("unit_of_measurement") as? String ?: ""
+                online = manifest != null && states != null
+                if (online) {
+                    temperature = temp?.state?.toDoubleOrNull()
+                    humidity = humid?.state?.toDoubleOrNull()
                     val t = temperature
                     val h = humidity
                     if (t != null && h != null) samples = (samples + (t to h)).takeLast(360)
@@ -122,6 +135,10 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
+                sourceServer = null
+                tempId = null
+                humidityId = null
+                samples = emptyList()
                 online = false
                 temperature = null
                 humidity = null
@@ -144,11 +161,11 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
             color = climateMuted,
         )
         listOf(
-            tr("Температура • HomePod", "Temperature • HomePod") to (temperature?.let { "$it °C" } ?: "—"),
-            tr("Влажност • HomePod", "Humidity • HomePod") to (humidity?.let { "$it %" } ?: "—"),
+            tr("Температура", "Temperature") to (temperature?.let { "$it $tempUnit" } ?: "—"),
+            tr("Влажност", "Humidity") to (humidity?.let { "$it %" } ?: "—"),
             tr("Измервания в сесията", "Samples this session") to samples.size.toString(),
             tr("Средна температура в сесията", "Session average temperature") to
-                (if (samples.isEmpty()) "—" else "%.1f °C".format(samples.map { it.first }.average())),
+                (if (samples.isEmpty()) "—" else "%.1f $tempUnit".format(samples.map { it.first }.average())),
             tr("Средна влажност в сесията", "Session average humidity") to
                 (if (samples.isEmpty()) "—" else "%.1f %%".format(samples.map { it.second }.average())),
         ).forEach { (label, value) ->
@@ -196,7 +213,7 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
                     }
                     drawPath(trace, climateCyan, style = Stroke(width = 3.dp.toPx()))
                 }
-                Text("%.1f – %.1f °C".format(low, high),
+                Text("%.1f – %.1f $tempUnit".format(low, high),
                     modifier = Modifier.padding(16.dp), color = climateMuted)
             }
         }
@@ -245,8 +262,8 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
                     drawPath(trace, climateCyan, style = Stroke(width = 3.dp.toPx()))
                 }
                 Text(
-                    tr("Минимум", "Minimum") + ": %.1f °C".format(low) +
-                        "  •  " + tr("Максимум", "Maximum") + ": %.1f °C".format(high),
+                    tr("Минимум", "Minimum") + ": %.1f $tempUnit".format(low) +
+                        "  •  " + tr("Максимум", "Maximum") + ": %.1f $tempUnit".format(high),
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     color = climateMuted,
                 )

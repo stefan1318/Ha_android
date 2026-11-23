@@ -44,7 +44,7 @@ private val aiCyan = StevoraDesign.accent
 
 @Composable
 internal fun StevoraAiHome(
-    onStartConversation: () -> Unit,
+    onStartConversation: (Int, String) -> Unit,
     onConfigurePipeline: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -55,6 +55,8 @@ internal fun StevoraAiHome(
     val scope = rememberCoroutineScope()
     var input by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    val bg = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "bg"
+    var routeServer by remember { mutableStateOf<Int?>(null) }
     var pipelineId by remember { mutableStateOf<String?>(null) }
     var pipelineHasStt by remember { mutableStateOf(false) }
     var refreshPipelines by remember { mutableStateOf(0) }
@@ -67,7 +69,8 @@ internal fun StevoraAiHome(
         try {
             pipelineId = null
             pipelineHasStt = false
-            val socket = if (manager.getServer() != null) manager.webSocketRepository() else null
+            val server = manager.getServer()
+            val socket = server?.let { manager.webSocketRepository(it.id) }
             val user = socket?.getCurrentUser()
             if (user == null) {
                 accountRole = "UNVERIFIED"
@@ -75,26 +78,11 @@ internal fun StevoraAiHome(
             } else {
                 val admin = user.isAdmin || user.isOwner
                 accountRole = if (admin) "ADMIN" else "USER / PANEL"
-                val expectedEngine = if (admin) {
-                    "conversation.living_room_openai_conversation"
-                } else {
-                    "conversation.openai_conversation_for_panels"
-                }
-                val pipelines = socket.getAssistPipelines()
-                // Select by configured conversation agent, not the editable pipeline name.
-                // Never fall back to the preferred pipeline or the other role's agent.
-                val matches = pipelines?.pipelines?.filter {
-                    it.conversationEngine.equals(expectedEngine, ignoreCase = true)
-                }.orEmpty()
-                val selected = matches.singleOrNull()
+                val selected = socket.resolveStevoraPipeline()
                 pipelineId = selected?.id
                 pipelineHasStt = selected?.sttEngine != null
-                pipelineStatus = when {
-                    selected != null -> "● " + selected.name + " • " + accountRole
-                    matches.size > 1 -> "Multiple pipelines use $expectedEngine — select one in Home Assistant"
-                    pipelines == null -> "Assist pipeline list unavailable"
-                    else -> "No Assist pipeline uses $expectedEngine"
-                }
+                routeServer = server?.id
+                pipelineStatus = selected?.name ?: if (bg) "Няма избран асистент" else "No assistant selected"
                 conversationId = null
                 messages = emptyList()
             }
@@ -154,7 +142,13 @@ internal fun StevoraAiHome(
                     busy = true
                     scope.launch {
                         try {
-                            val events = manager.webSocketRepository().runAssistPipelineForText(
+                            val id = routeServer ?: return@launch
+                            val socket = manager.webSocketRepository(id)
+                            if (manager.getServer()?.id != id || socket.resolveStevoraPipeline()?.id != selected) {
+                                refreshPipelines++
+                                return@launch
+                            }
+                            val events = socket.runAssistPipelineForText(
                                 text = message, pipelineId = selected, conversationId = conversationId,
                             )
                             if (events == null) {
@@ -191,15 +185,17 @@ internal fun StevoraAiHome(
                 },
             ) { Text(if (busy) "Sending…" else "Send") }
             OutlinedButton(
-                enabled = pipelineId != null && !busy,
+                enabled = pipelineId != null && pipelineHasStt && !busy,
                 onClick = {
                     val selected = pipelineId ?: return@OutlinedButton
                     scope.launch {
                         try {
-                            // Upstream AssistActivity reads the last-used pipeline.
-                            // Persist the role-specific selection before launching voice.
-                            manager.integrationRepository().setLastUsedPipeline(selected, pipelineHasStt)
-                            onStartConversation()
+                            val id = routeServer ?: return@launch
+                            if (manager.getServer()?.id == id && manager.webSocketRepository(id).resolveStevoraPipeline()?.id == selected) {
+                                onStartConversation(id, selected)
+                            } else {
+                                refreshPipelines++
+                            }
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {

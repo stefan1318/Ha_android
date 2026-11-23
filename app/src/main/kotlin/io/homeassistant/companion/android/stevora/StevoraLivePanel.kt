@@ -75,7 +75,7 @@ private data class StevoraControl(
     val room: String,
     val labelBg: String,
     val labelEn: String,
-    val canControl: Boolean = false,
+    val actions: Set<String>,
 )
 
 private val visibleDomains = setOf(
@@ -215,10 +215,9 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                     else StevoraControl(
                                         id = id,
                                         room = room.id,
-                                        labelBg = name,
-                                        labelEn = name,
-                                        canControl = id in manifest.controllableEntityIds &&
-                                            entity.domain in setOf("climate", "light", "switch", "fan", "media_player"),
+                                        labelBg = manifest.localizedEntityNames[id] ?: name,
+                                        labelEn = manifest.localizedEntityNames[id] ?: name,
+                                        actions = manifest.controlsByEntity[id].orEmpty(),
                                     )
                                 }
                             }.distinctBy { it.id }
@@ -227,7 +226,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                             roomOrder = sourceRooms.map { it.id }
                             roomNames = sourceRooms.associate { it.id to it.name }
                             panelControls = display
-                            activeControlIds = display.filter { it.canControl }.map { it.id }.toSet()
+                            activeControlIds = display.filter { it.actions.isNotEmpty() }.map { it.id }.toSet()
                             if (selectedRoom != "all" && selectedRoom !in roomOrder) selectedRoom = "all"
                             entities = snapshot.filter { it.entityId in allowed }
                             // Informational telemetry is picked by HA device class, not a
@@ -281,6 +280,21 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                     status = localized(bgLanguage, "Домът е сменен — обновете екрана", "Home changed — refresh the view")
                     return@launch
                 }
+                val required = when (service) {
+                    "turn_on", "turn_off" -> when {
+                        "brightness" in data -> "brightness"
+                        "rgb_color" in data -> "color"
+                        else -> "toggle"
+                    }
+                    "media_play_pause" -> "play_pause"
+                    "volume_set" -> "volume"
+                    "set_temperature" -> "temperature"
+                    "set_hvac_mode" -> "hvac_mode"
+                    "open_cover", "stop_cover", "close_cover" -> service.removeSuffix("_cover")
+                    else -> return@launch
+                }
+                val allowed = StevoraHomeProjection.home.value[targetServerId]?.controlsByEntity?.get(entity.entityId).orEmpty()
+                if (required !in allowed || entity.state in setOf("unknown", "unavailable")) return@launch
                 manager.integrationRepository(targetServerId).callAction(
                     entity.domain,
                     service,
@@ -432,58 +446,35 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                 }
                             }
                             val available = entity.state != "unavailable" && entity.state != "unknown"
-                            if (!control.canControl) {
+                            if (control.actions.isEmpty() || !available || !liveConnected) {
                                 Text(
                                     entity.state + " " + (entity.attributes["unit_of_measurement"] as? String ?: ""),
                                     color = secondary,
                                 )
                             } else if (entity.domain == "media_player") {
-                                // HA can report unavailable while the television still accepts
-                                // power commands. Keep controls visible and let the server decide.
-                                Text(
-                                    localized(bgLanguage, "Развлечения • Дневна", "Entertainment • Living Room"),
-                                    color = cyan, fontSize = 12.sp, letterSpacing = 1.sp,
-                                )
-                                Text(
-                                    if (available) entity.state else localized(bgLanguage,
-                                        "Няма връзка • командите остават достъпни",
-                                        "Offline status • controls remain available"),
-                                    color = secondary, fontSize = 12.sp,
-                                )
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    Button(
-                                        modifier = Modifier.weight(1f),
-                                        enabled = liveConnected && busy != entity.entityId,
-                                        onClick = { execute(entity, "turn_on") },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF254158)),
-                                    ) { Text(localized(bgLanguage, "⏻ Включи", "⏻ Power on"), fontSize = 12.sp) }
-                                    OutlinedButton(
-                                        modifier = Modifier.weight(1f),
-                                        enabled = busy != entity.entityId,
-                                        onClick = { execute(entity, "turn_off") },
-                                    ) { Text(localized(bgLanguage, "Изключи", "Power off"), fontSize = 12.sp) }
-                                }
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    listOf(
-                                        "−" to "volume_down",
-                                        "⏯" to "media_play_pause",
-                                        "+" to "volume_up",
-                                    ).forEach { (label, service) ->
-                                        OutlinedButton(
-                                            modifier = Modifier.weight(1f),
-                                            enabled = busy != entity.entityId,
-                                            onClick = { execute(entity, service) },
-                                        ) { Text(label, fontSize = 18.sp) }
+                                if ("play_pause" in control.actions) {
+                                    OutlinedButton(onClick = { execute(entity, "media_play_pause") }) {
+                                        Text(localized(bgLanguage, "Пусни / пауза", "Play / pause"))
                                     }
                                 }
-                            } else if (!available) {
-                                Text(localized(bgLanguage, "Недостъпно", "Unavailable"), color = secondary)
+                                val volume = (entity.attributes["volume_level"] as? Number)?.toFloat()
+                                if ("volume" in control.actions && volume != null) {
+                                    var level by remember(entity.entityId, volume) { mutableStateOf(volume.coerceIn(0f, 1f)) }
+                                    Text(localized(bgLanguage, "Сила на звука", "Volume"), color = secondary)
+                                    Slider(value = level, onValueChange = { level = it }, onValueChangeFinished = {
+                                        execute(entity, "volume_set", mapOf("volume_level" to level))
+                                    })
+                                }
+                            } else if (entity.domain == "cover") {
+                                listOf("open", "stop", "close").filter { it in control.actions }.forEach { action ->
+                                    OutlinedButton(onClick = { execute(entity, action + "_cover") }) {
+                                        Text(when (action) {
+                                            "open" -> localized(bgLanguage, "Отвори", "Open")
+                                            "close" -> localized(bgLanguage, "Затвори", "Close")
+                                            else -> localized(bgLanguage, "Спри", "Stop")
+                                        })
+                                    }
+                                }
                             } else if (entity.domain == "climate") {
                                 val current = entity.attributes["current_temperature"] as? Number
                                 val currentReading = current?.toFloat()
@@ -515,7 +506,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                     hvacLabel(mode, bgLanguage), color = secondary, fontSize = 13.sp)
                                 // Wrap modes into a responsive two-column grid instead of
                                 // clipping buttons inside a narrow tablet card.
-                                modes.chunked(2).forEach { modeRow ->
+                                modes.filter { "hvac_mode" in control.actions }.chunked(2).forEach { modeRow ->
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -539,15 +530,12 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                         if (modeRow.size == 1) Spacer(Modifier.weight(1f))
                                     }
                                 }
-                                // The Tuya integration reports 88°C as max. Never show an 88°C
-                                // slider: STEVORA uses a deliberate 16–30°C, whole-degree UI.
                                 val target = entity.attributes["temperature"] as? Number
-                                if (target != null) {
-                                    val minTemp = maxOf(16, (entity.attributes["min_temp"] as? Number)?.toInt() ?: 16)
-                                    val maxTemp = minOf(30, (entity.attributes["max_temp"] as? Number)?.toInt() ?: 30)
+                                val minTemp = (entity.attributes["min_temp"] as? Number)?.toDouble()?.let { kotlin.math.ceil(it).toInt() }
+                                val maxTemp = (entity.attributes["max_temp"] as? Number)?.toDouble()?.let { kotlin.math.floor(it).toInt() }
+                                if ("temperature" in control.actions && target != null && minTemp != null && maxTemp != null && maxTemp >= minTemp) {
                                     val setpoint = target.toFloat().roundToInt().coerceIn(minTemp, maxTemp)
-                                    val canSet = mode in setOf("heat", "cool", "heat_cool") &&
-                                        busy != entity.entityId && maxTemp > minTemp
+                                    val canSet = busy != entity.entityId
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -590,7 +578,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                             if (entity.state == "on") "On" else "Off"),
                                         color = secondary,
                                     )
-                                    Switch(
+                                    if ("toggle" in control.actions) Switch(
                                         checked = entity.state == "on",
                                         enabled = busy != entity.entityId,
                                         onCheckedChange = { on ->
@@ -605,7 +593,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                 val hasRgb = colorModes.any {
                                     it in setOf("rgb", "rgbw", "rgbww", "hs", "xy")
                                 }
-                                if (entity.domain == "light" && hasRgb) {
+                                if (entity.domain == "light" && ("brightness" in control.actions || (hasRgb && "color" in control.actions))) {
                                     val brightness = (entity.attributes["brightness"] as? Number)?.toInt()
                                     val percent = ((brightness ?: 255) * 100f / 255f).roundToInt().coerceIn(1, 100)
                                     var brightnessPercent by remember(entity.entityId, percent) {
@@ -645,6 +633,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                         }
                                     }
                                     if (entity.state == "on") {
+                                        if ("brightness" in control.actions) {
                                         Text(localized(bgLanguage, "Яркост", "Brightness") +
                                             ": " + animatedBrightness.roundToInt() + "%", color = white)
                                         Slider(
@@ -657,6 +646,8 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                             },
                                             enabled = busy != entity.entityId,
                                         )
+                                        }
+                                        if (hasRgb && "color" in control.actions) {
                                         Text(localized(bgLanguage, "ЦВЕТОВИ СЦЕНИ", "COLOR PRESETS"),
                                             color = secondary, fontSize = 11.sp)
                                         Row(
@@ -690,6 +681,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                                         color = secondary, fontSize = 11.sp)
                                                 }
                                             }
+                                        }
                                         }
                                     }
                                 }

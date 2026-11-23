@@ -49,20 +49,8 @@ internal fun StevoraSystemHome(onBack: () -> Unit) {
             try {
                 val socket = if (manager.getServer() != null) manager.webSocketRepository() else null
                 val snapshot = socket?.getStates()
-                val user = socket?.getCurrentUser()
-                val engine = when {
-                    user == null -> null
-                    user.isAdmin || user.isOwner -> "conversation.living_room_openai_conversation"
-                    else -> "conversation.openai_conversation_for_panels"
-                }
-                val matches = if (engine == null) null else socket?.getAssistPipelines()
-                    ?.pipelines?.count { it.conversationEngine.equals(engine, ignoreCase = true) }
-                aiRouting = when (matches) {
-                    1 -> "● READY"
-                    0 -> localized("Липсва AI pipeline", "Pipeline missing")
-                    null -> localized("Недостъпно", "Unavailable")
-                    else -> localized("Нееднозначно ($matches)", "Ambiguous ($matches)")
-                }
+                val pipeline = socket?.resolveStevoraPipeline()
+                aiRouting = pipeline?.name ?: localized("Недостъпно", "Unavailable")
                 connection = if (snapshot != null) "● ONLINE" else "● OFFLINE"
                 total = snapshot?.size
                 unavailable = snapshot?.count { it.state == "unavailable" || it.state == "unknown" }

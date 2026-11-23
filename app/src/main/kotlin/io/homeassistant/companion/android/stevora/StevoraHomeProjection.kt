@@ -14,6 +14,7 @@ data class StevoraHomeUi(
     val entityMappings: Map<String, List<String>>,
     val controllableEntityIds: Set<String>,
     val localizedEntityNames: Map<String, String>,
+    val controlsByEntity: Map<String, Set<String>>,
 )
 
 /** This cache is keyed by the active Companion server, not by a shared home profile. */
@@ -59,11 +60,18 @@ object StevoraHomeProjection {
                 controls?.optString(i)?.takeIf { it in visibleIds }
             }.toSet()
             val namesJson = obj.optJSONArray("entities")
+            val controlsByEntity = mutableMapOf<String, Set<String>>()
             val names = buildMap<String, String> {
                 for (i in 0 until (namesJson?.length() ?: 0)) {
                     val entity = namesJson?.optJSONObject(i) ?: continue
                     val id = entity.optString("entity_id")
-                    if (id in visibleIds) put(id, entity.optString("name", id))
+                    if (id !in visibleIds) continue
+                    put(id, entity.optString("name", id))
+                    if (id !in controllable || entity.optString("layout") == "info") continue
+                    val available = entity.optJSONArray("available_controls") ?: continue
+                    val selected = if (entity.isNull("controls")) available else entity.optJSONArray("controls") ?: continue
+                    val supported = (0 until available.length()).map { available.optString(it) }.toSet()
+                    controlsByEntity[id] = (0 until selected.length()).map { selected.optString(it) }.intersect(supported)
                 }
             }
             val model = StevoraHomeUi(
@@ -74,6 +82,7 @@ object StevoraHomeProjection {
                 entityMappings = mappings,
                 controllableEntityIds = controllable,
                 localizedEntityNames = names,
+                controlsByEntity = controlsByEntity,
             )
             mutableHome.value = mutableHome.value + (serverId to model)
             true

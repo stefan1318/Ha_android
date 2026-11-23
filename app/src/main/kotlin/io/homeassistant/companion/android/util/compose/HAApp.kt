@@ -103,9 +103,9 @@ internal fun HAApp(
                         onAi = { section = "ai" },
                         onSystem = { section = "system" },
                     )
-                    "rooms" -> StevoraLivePanel(initialRoom = "living")
+                    "rooms" -> StevoraLivePanel()
                     "ai" -> StevoraAiHome(
-                        onStartConversation = { context.startActivity(AssistActivity.newInstance(context)) },
+                        onStartConversation = { id, pipeline -> context.startActivity(AssistActivity.newInstance(context, id, pipeline)) },
                         onConfigurePipeline = { context.startActivity(AssistActivity.newInstance(context)) },
                         onBack = { section = "home" },
                     )

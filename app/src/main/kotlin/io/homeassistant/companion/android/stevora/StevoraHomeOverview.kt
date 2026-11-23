@@ -67,7 +67,7 @@ internal fun StevoraHomeOverview(
     var humidity by remember { mutableStateOf("—") }
     var activeLights by remember { mutableStateOf<Int?>(null) }
     var climate by remember { mutableStateOf("—") }
-    var bathroomFan by remember { mutableStateOf("—") }
+    var fanState by remember { mutableStateOf("—") }
 
     var climateTitle by remember { mutableStateOf(if (bg) "Климатизация" else "Climate") }
     // Overview derives all measurements from the active HA installation.
@@ -92,14 +92,14 @@ internal fun StevoraHomeOverview(
                     humidity = "—"
                     activeLights = null
                     climate = "—"
-                    bathroomFan = "—"
+                    fanState = "—"
                 } else {
                     if (server.id != previousServerId) {
                         temperature = "—"
                         humidity = "—"
                         activeLights = null
                         climate = "—"
-                        bathroomFan = "—"
+                        fanState = "—"
                         online = false
                         previousServerId = server.id
                     }
@@ -109,18 +109,11 @@ internal fun StevoraHomeOverview(
                     if (snapshot == null || changes == null) {
                         online = false
                     } else {
-                        val raw = repo.getStevoraManifestJson()
+                        val raw = repo.getStevoraManifestJson(if (bg) "bg" else "en")
                         val valid = raw != null && StevoraHomeProjection.apply(server.id, raw)
                         if (!valid) StevoraHomeProjection.clear(server.id)
                         val manifest = if (valid) StevoraHomeProjection.home.value[server.id] else null
-                        val readableIds = if (manifest != null) {
-                            manifest.entityMappings.values.flatten().toSet()
-                        } else {
-                            // Stock Home Assistant fallback is read-only.
-                            repo.getEntityRegistry().orEmpty()
-                                .filter { it.hiddenBy == null && it.entityCategory == null }
-                                .map { it.entityId }.toSet()
-                        }
+                        val readableIds = manifest?.entityMappings?.values?.flatten().orEmpty().toSet()
                         val current = snapshot.filter {
                             it.entityId in readableIds &&
                                 !it.entityId.contains("backlight", ignoreCase = true)
@@ -136,17 +129,17 @@ internal fun StevoraHomeOverview(
                             }
                             val ac = current.values.firstOrNull { it.domain == "climate" }
                             val fan = current.values.firstOrNull { it.domain == "fan" }
-                            temperature = available(temp?.state)
+                            temperature = temp?.takeIf { it.state.toDoubleOrNull() != null }?.let { it.state + (it.attributes["unit_of_measurement"] ?: "") } ?: "—"
                             humidity = available(humid?.state)
                             climate = available(ac?.state)
-                            climateTitle = (ac?.attributes?.get("friendly_name") as? String)
+                            climateTitle = manifest?.localizedEntityNames?.get(ac?.entityId)
                                 ?: if (bg) "Климатизация" else "Climate"
-                            bathroomFan = available(fan?.state)
+                            fanState = available(fan?.state)
                             activeLights = current.values.count {
                                 it.domain == "light" && it.state == "on"
                             }
                         }
-                        online = true
+                        online = manifest != null
                         publish()
                         kotlinx.coroutines.withTimeoutOrNull(20_000L) {
                             changes.collect { event ->
@@ -236,7 +229,7 @@ internal fun StevoraHomeOverview(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.weight(1f)) {
-                HomeMetric(if (bg) "Температура" else "Temperature", if (temperature == "—") "—" else "$temperature°C")
+                HomeMetric(if (bg) "Температура" else "Temperature", temperature)
             }
             Box(Modifier.weight(1f)) {
                 HomeMetric(if (bg) "Влажност" else "Humidity", if (humidity == "—") "—" else "$humidity%")
@@ -251,7 +244,7 @@ internal fun StevoraHomeOverview(
                 HomeMetric(if (bg) "Светлини ON" else "Lights ON", activeLights?.toString() ?: "—")
             }
             Box(Modifier.weight(1f)) {
-                HomeMetric(if (bg) "Вентилатор" else "Fan", bathroomFan)
+                HomeMetric(if (bg) "Вентилатор" else "Fan", fanState)
             }
         }
         StevoraSectionHeading(

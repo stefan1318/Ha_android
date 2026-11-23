@@ -22,6 +22,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import io.homeassistant.companion.android.sensors.LocationSensorManager
+import io.homeassistant.companion.android.settings.SettingsActivity
 import android.content.Intent
 import android.media.MediaRecorder
 import java.io.File
@@ -88,7 +90,6 @@ internal fun StevoraSettingsHome(
     var nativeSection by remember { mutableStateOf<String?>(null) }
     var climateExpanded by remember { mutableStateOf(false) }
     var automationExpanded by remember { mutableStateOf(false) }
-    var memoryExpanded by remember { mutableStateOf(false) }
     var managersExpanded by remember { mutableStateOf(false) }
     var widgetMessage by remember { mutableStateOf<String?>(null) }
     var confirmLogout by remember { mutableStateOf(false) }
@@ -123,10 +124,6 @@ internal fun StevoraSettingsHome(
     }
     if (managersExpanded) {
         StevoraManagersHome(onBack = { managersExpanded = false })
-        return
-    }
-    if (memoryExpanded) {
-        StevoraMemoryManager(onBack = { memoryExpanded = false })
         return
     }
     if (automationExpanded) {
@@ -199,8 +196,8 @@ internal fun StevoraSettingsHome(
         Text("STEVORA", fontSize = 28.sp, color = foreground, letterSpacing = 3.sp)
         Text(tr("НАСТРОЙКИ • КОНТРОЛЕН ЦЕНТЪР", "SETTINGS • CONTROL CENTER"), fontSize = 12.sp, color = accent)
         Text(
-            if (!checked) "Checking account permissions…"
-            else if (!accountVerified) "Account verification unavailable" else "Account: $accountName • " + (if (admin) "ADMIN" else "USER / PANEL"),
+            if (!checked) tr("Проверка на правата…", "Checking account permissions…")
+            else if (!accountVerified) tr("Профилът не е потвърден", "Account verification unavailable") else accountName,
             fontSize = 14.sp, color = muted,
         )
         if (checked && accountVerified && admin) {
@@ -210,7 +207,6 @@ internal fun StevoraSettingsHome(
             SettingsEntry("Device & Room Manager / Assistant Manager",
                 tr("Управление на стаи, устройства и асистенти", "Manage rooms, devices and assistants"),
                 "▦", { managersExpanded = true })
-            SettingsEntry("Memory Manager", tr("Управление на паметта и предложенията", "Manage memory and review proposals"), "▣", { memoryExpanded = true })
             SettingsEntry("Automation Studio", tr("Управление на автоматизациите", "Manage Home Assistant automations"), "◇", { automationExpanded = true })
             SettingsEntry(
                 tr("STEVORA widgets", "STEVORA widgets"),
@@ -239,8 +235,8 @@ internal fun StevoraSettingsHome(
                 },
             )
             widgetMessage?.let { Text(it, color = muted, fontSize = 12.sp) }
-            SettingsEntry("Climate Analytics", tr("HomePod измервания и исторически графики", "HomePod readings and history charts"), "◉", { climateExpanded = true })
-            SettingsEntry("Connection & Ecosystem", tr("Връзка, сървър и STEVORA manifest", "Server connection and STEVORA manifest"), "⌂", { nativeSection = "hub" })
+            SettingsEntry(tr("Климатична статистика", "Climate analytics"), tr("Датчици от този дом и история на измерванията", "Sensors in this home and their history"), "◉", { climateExpanded = true })
+            SettingsEntry(tr("Връзка и система", "Connection & Ecosystem"), tr("Връзка, сървър и STEVORA manifest", "Server connection and STEVORA manifest"), "⌂", { nativeSection = "hub" })
             SettingsEntry("Hey Stevora · Voice Training", tr("Гласови образци, асистент и микрофон", "Voice samples, assistant and microphone"), "✦", { nativeSection = "voice" })
             SettingsEntry(tr("Устройство и поверителност", "Device & privacy"), tr("Разрешения, известия и сигурност", "Permissions, notifications and security"), "◈", { nativeSection = "privacy" })
             SettingsEntry(tr("Приложение и външен вид", "App & appearance"), tr("Език, тема и системна интеграция", "Language, theme and system integration"), "◐", { nativeSection = "appearance" })
@@ -275,16 +271,16 @@ internal fun StevoraSettingsHome(
                 },
             )
             widgetMessage?.let { Text(it, color = muted, fontSize = 12.sp) }
-            SettingsEntry("Climate Analytics", "Live HomePod readings and session statistics", "◉", { climateExpanded = true })
+            SettingsEntry(tr("Климатична статистика", "Climate analytics"), tr("Датчици от този дом и история на измерванията", "Sensors in this home and their history"), "◉", { climateExpanded = true })
             SettingsEntry("Hey Stevora · Voice Training", tr("Запис на гласови образци и настройки", "Record voice samples and configure voice"), "✦", { nativeSection = "voice" })
             SettingsEntry(tr("Устройство и поверителност", "Device & privacy"), tr("Разрешения и известия", "Permissions and notifications"), "◈", { nativeSection = "privacy" })
             SettingsEntry(tr("Приложение и външен вид", "App & appearance"), tr("Език и тема", "Language and theme"), "◐", { nativeSection = "appearance" })
         }
         if (checked && accountVerified) {
             Text(tr("ПРОФИЛ И СИГУРНОСТ", "ACCOUNT & SECURITY"), fontSize = 12.sp, color = accent)
-            SettingsInfo("Signed in as $accountName", if (admin) "Administrator account" else "Personal account")
+            SettingsInfo(accountName, if (admin) tr("Администратор", "Administrator") else tr("Личен профил", "Personal account"))
             SettingsEntry(
-                "Sign out",
+                tr("Изход", "Sign out"),
                 tr("Изход със запазване на настройките за връзка", "Sign out while keeping your Home Hub connection settings"),
                 "⇥",
                 { confirmLogout = true },
@@ -450,7 +446,7 @@ private fun StevoraNativeSettingsSection(
             manifestChecking = true
             manifestStatus = tr("Проверка на STEVORA manifest…", "Checking STEVORA manifest…")
             try {
-                val json = manager.webSocketRepository().getStevoraManifestJson()
+                val json = manager.webSocketRepository(current.id).getStevoraManifestJson(if (bg) "bg" else "en")
                 val valid = json != null && StevoraHomeProjection.apply(current.id, json)
                 if (!valid) StevoraHomeProjection.clear(current.id)
                 manifestStatus = if (valid) tr(
@@ -472,14 +468,8 @@ private fun StevoraNativeSettingsSection(
         }
         if (section == "voice" && current != null) {
             try {
-                val socket = manager.webSocketRepository()
-                val user = socket.getCurrentUser()
-                val engine = if (user?.isAdmin == true || user?.isOwner == true)
-                    "conversation.living_room_openai_conversation"
-                else "conversation.openai_conversation_for_panels"
-                val all = socket.getAssistPipelines()?.pipelines.orEmpty()
-                pipelines = all.filter { it.conversationEngine.equals(engine, ignoreCase = true) }
-                    .map { it.name + " • " + it.id }
+                val socket = manager.webSocketRepository(current.id)
+                pipelines = listOfNotNull(socket.resolveStevoraPipeline()?.name)
                 pipelineStatus = if (pipelines.isEmpty())
                     tr("Няма съвместим Assist pipeline за този профил", "No role-compatible Assist pipeline")
                 else tr("Изборът е защитен според ролята на акаунта", "Pipeline selection is role-restricted")
@@ -691,6 +681,15 @@ private fun StevoraNativeSettingsSection(
                 ), color = muted, fontSize = 12.sp)
             }
             "privacy" -> {
+                SettingsEntry(
+                    tr("Споделяне на местоположение", "Location sharing"),
+                    tr("Избери за кои сървъри да изпращаш местоположение", "Choose which servers receive background location"),
+                    "◎",
+                    {
+                        val screen = SettingsActivity.Deeplink.Sensor(LocationSensorManager.backgroundLocation.id)
+                        context.startActivity(SettingsActivity.newInstance(context, screen).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    },
+                )
                 SettingsInfo(tr("Микрофон", "Microphone"),
                     if (micAllowed) tr("Разрешен", "Allowed") else tr("Не е разрешен", "Not allowed"))
                 if (!micAllowed) Button(onClick = {
