@@ -64,6 +64,7 @@ internal fun StevoraHomeOverview(
     }
     var online by remember { mutableStateOf(false) }
     var temperature by remember { mutableStateOf("—") }
+    var temperatureUnit by remember { mutableStateOf("") }
     var humidity by remember { mutableStateOf("—") }
     var activeLights by remember { mutableStateOf<Int?>(null) }
     var climate by remember { mutableStateOf("—") }
@@ -129,7 +130,8 @@ internal fun StevoraHomeOverview(
                             }
                             val ac = current.values.firstOrNull { it.domain == "climate" }
                             val fan = current.values.firstOrNull { it.domain == "fan" }
-                            temperature = temp?.takeIf { it.state.toDoubleOrNull() != null }?.let { it.state + (it.attributes["unit_of_measurement"] ?: "") } ?: "—"
+                            temperature = available(temp?.state)
+                            temperatureUnit = temp?.attributes?.get("unit_of_measurement") as? String ?: ""
                             humidity = available(humid?.state)
                             climate = available(ac?.state)
                             climateTitle = manifest?.localizedEntityNames?.get(ac?.entityId)
@@ -211,7 +213,7 @@ internal fun StevoraHomeOverview(
                             }
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(if (temperature == "—") "—" else "$temperature°", color = homeText, fontSize = 35.sp)
+                            Text(if (temperature == "—") "—" else "$temperature$temperatureUnit", color = homeText, fontSize = 35.sp)
                             Text("ROOM TEMP", color = homeMuted, fontSize = 10.sp, letterSpacing = 1.sp)
                         }
                     }
@@ -229,7 +231,7 @@ internal fun StevoraHomeOverview(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.weight(1f)) {
-                HomeMetric(if (bg) "Температура" else "Temperature", temperature)
+                HomeMetric(if (bg) "Температура" else "Temperature", if (temperature == "—") temperature else "$temperature$temperatureUnit")
             }
             Box(Modifier.weight(1f)) {
                 HomeMetric(if (bg) "Влажност" else "Humidity", if (humidity == "—") "—" else "$humidity%")

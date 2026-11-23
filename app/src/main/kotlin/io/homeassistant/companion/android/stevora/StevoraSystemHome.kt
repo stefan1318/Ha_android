@@ -47,8 +47,13 @@ internal fun StevoraSystemHome(onBack: () -> Unit) {
     LaunchedEffect(manager) {
         while (isActive) {
             try {
-                val socket = if (manager.getServer() != null) manager.webSocketRepository() else null
-                val snapshot = socket?.getStates()
+                val server = manager.getServer()
+                val socket = server?.let { manager.webSocketRepository(it.id) }
+                val manifest = socket?.getStevoraManifestJson()
+                val allowed = if (server != null && manifest != null && StevoraHomeProjection.apply(server.id, manifest)) {
+                    StevoraHomeProjection.home.value[server.id]?.entityMappings?.values?.flatten()?.toSet()
+                } else null
+                val snapshot = allowed?.let { ids -> socket?.getStates()?.filter { it.entityId in ids } }
                 val pipeline = socket?.resolveStevoraPipeline()
                 aiRouting = pipeline?.name ?: localized("Недостъпно", "Unavailable")
                 connection = if (snapshot != null) "● ONLINE" else "● OFFLINE"

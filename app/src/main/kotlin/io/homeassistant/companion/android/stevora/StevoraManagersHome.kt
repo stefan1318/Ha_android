@@ -50,6 +50,7 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
     var deviceIcon by remember { mutableStateOf("") }
     var deviceLayout by remember { mutableStateOf("compact") }
     var deviceArea by remember { mutableStateOf("") }
+    var automaticControls by remember { mutableStateOf(true) }
     var deviceControls by remember { mutableStateOf("") }
     var deviceUsers by remember { mutableStateOf("") }
     var localizedRoomNames by remember { mutableStateOf<Map<String, Map<String, String>>>(emptyMap()) }
@@ -181,18 +182,21 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
             val items = profile?.optJSONArray(key)
             return (0 until (items?.length() ?: 0)).joinToString(",") { items!!.optString(it) }
         }
+        automaticControls = profile?.has("controls") != true
         deviceControls = values("controls")
         deviceUsers = values("user_ids")
     }
     fun saveDevice() {
         val snapshot = rooms ?: return
         val entityId = editingEntity.takeIf { it.isNotEmpty() } ?: return
-        val profile = mapOf<String, Any?>(
+        val stored = snapshot.optJSONObject("device_profiles")?.optJSONObject(entityId)
+        val profile = mutableMapOf<String, Any?>(
             "name" to deviceName, "icon" to deviceIcon, "layout" to deviceLayout,
             "area_id" to deviceArea.ifBlank { null },
-            "controls" to deviceControls.split(",").map(String::trim).filter(String::isNotBlank),
+            "display_category" to (stored?.optString("display_category", "auto") ?: "auto"),
             "user_ids" to deviceUsers.split(",").map(String::trim).filter(String::isNotBlank)
         )
+        if (!automaticControls) profile["controls"] = deviceControls.split(",").map(String::trim).filter(String::isNotBlank)
         scope.launch {
             busy = true
             try {
@@ -388,7 +392,10 @@ internal fun StevoraManagersHome(onBack: () -> Unit) {
                         Text((if (deviceArea == area.optString("id")) "✓ " else "") + area.optString("name"))
                     }
                 }
-                OutlinedTextField(deviceControls, { deviceControls = it },
+                OutlinedButton(onClick = { automaticControls = !automaticControls }) {
+                    Text(if (automaticControls) tr("Контроли: автоматични", "Controls: automatic") else tr("Контроли: избрани", "Controls: selected"))
+                }
+                if (!automaticControls) OutlinedTextField(deviceControls, { deviceControls = it },
                     label = { Text(tr("Контроли (със запетая)", "Controls (comma-separated)")) })
                 OutlinedTextField(deviceUsers, { deviceUsers = it },
                     label = { Text(tr("Потребителски ID", "User IDs")) })

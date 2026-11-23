@@ -89,7 +89,12 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                 automations = emptyList()
                 status = tr("Необходими са администраторски права", "Administrator permission required")
             } else {
-                val states = socket.getStates()
+                val server = manager.getServer()
+                val raw = socket.getStevoraManifestJson(if (bg) "bg" else "en")
+                val allowed = if (server != null && raw != null && StevoraHomeProjection.apply(server.id, raw)) {
+                    StevoraHomeProjection.home.value[server.id]?.controllableEntityIds.orEmpty()
+                } else emptySet()
+                val states = socket.getStates()?.filter { it.entityId in allowed }
                 if (states == null) {
                     automations = emptyList()
                     status = tr("Home Hub е недостъпен", "Home Hub unavailable")

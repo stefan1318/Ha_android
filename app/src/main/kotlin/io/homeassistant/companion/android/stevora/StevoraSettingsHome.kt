@@ -35,8 +35,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.content.pm.PackageManager
-import android.app.LocaleManager
-import android.os.LocaleList
+import io.homeassistant.companion.android.common.data.servers.firstUrlOrNull
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.OutlinedTextField
@@ -278,6 +277,24 @@ internal fun StevoraSettingsHome(
         }
         if (checked && accountVerified) {
             Text(tr("ПРОФИЛ И СИГУРНОСТ", "ACCOUNT & SECURITY"), fontSize = 12.sp, color = accent)
+            SettingsEntry(
+                tr("Отвори STEVORA OS", "Open STEVORA OS"),
+                tr("Системни настройки и профил в свързания дом", "System settings and account in the active home"),
+                "⌂",
+                {
+                    scope.launch {
+                        val id = manager.getServer()?.id ?: return@launch
+                        val uri = manager.connectionStateProvider(id).urlFlow().firstUrlOrNull()?.toString()?.let(Uri::parse)
+                        if (uri != null && uri.scheme in setOf("http", "https") && uri.userInfo == null) {
+                            try {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                            } catch (_: android.content.ActivityNotFoundException) {
+                                logoutError = tr("Няма достъпен браузър", "No browser available")
+                            }
+                        }
+                    }
+                },
+            )
             SettingsInfo(accountName, if (admin) tr("Администратор", "Administrator") else tr("Личен профил", "Personal account"))
             SettingsEntry(
                 tr("Изход", "Sign out"),
@@ -480,12 +497,18 @@ private fun StevoraNativeSettingsSection(
             }
         }
     }
+    fun isPrivateLanHost(host: String?): Boolean {
+        val parts = host?.split('.') ?: return false
+        if (parts.size != 4) return false
+        val bytes = parts.map { it.toIntOrNull()?.takeIf { octet -> octet in 0..255 && octet.toString() == it } ?: return false }
+        return bytes[0] == 10 || (bytes[0] == 172 && bytes[1] in 16..31) || (bytes[0] == 192 && bytes[1] == 168)
+    }
     fun validUrl(value: String, allowHttp: Boolean): Boolean {
         if (value.isBlank()) return true
         return try {
             val uri = URI(value.trim())
             val scheme = uri.scheme?.lowercase()
-            (scheme == "https" || (allowHttp && scheme == "http")) &&
+            (scheme == "https" || (allowHttp && scheme == "http" && isPrivateLanHost(uri.host))) &&
                 !uri.host.isNullOrBlank() && uri.userInfo == null &&
                 uri.fragment == null && uri.query == null
         } catch (_: Exception) { false }
@@ -559,7 +582,7 @@ private fun StevoraNativeSettingsSection(
                                             color = foreground, fontSize = 13.sp,
                                         )
                                         ids.sorted().forEach { entityId ->
-                                            Text(entityId, color = muted, fontSize = 12.sp)
+                                            Text(discovered.localizedEntityNames[entityId] ?: entityId, color = muted, fontSize = 12.sp)
                                         }
                                     }
                             }
@@ -600,7 +623,7 @@ private fun StevoraNativeSettingsSection(
                     }
                     Button(
                         enabled = validUrl(localUrl, true) && validUrl(remoteUrl, false) &&
-                            remoteUrl.isNotBlank(),
+                            (localUrl.isNotBlank() || remoteUrl.isNotBlank()),
                         onClick = { confirmConnection = true },
                     ) { Text(tr("Запази връзката", "Save connection")) }
                     Text(tr(
@@ -620,7 +643,7 @@ private fun StevoraNativeSettingsSection(
                                             val existing = server ?: error("No server")
                                             val updated = existing.copy(connection = existing.connection.copy(
                                                 internalUrl = localUrl.ifBlank { null },
-                                                externalUrl = remoteUrl,
+                                                externalUrl = remoteUrl.ifBlank { null },
                                                 prioritizeInternal = preferLocal,
                                             ))
                                             manager.updateServer(updated)
@@ -714,19 +737,23 @@ private fun StevoraNativeSettingsSection(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     listOf("bg" to "Български", "en" to "English").forEach { (code, label) ->
                         FilterChip(
-                            selected = if (Build.VERSION.SDK_INT >= 33) {
-                                val lm = context.getSystemService(LocaleManager::class.java)
-                                lm.applicationLocales.toLanguageTags().startsWith(code)
-                            } else bg == (code == "bg"),
+                            selected = bg == (code == "bg"),
                             onClick = {
-                                if (Build.VERSION.SDK_INT >= 33) {
-                                    context.getSystemService(LocaleManager::class.java)
-                                        .applicationLocales = LocaleList.forLanguageTags(code)
-                                } else {
-                                    saveStatus = tr(
-                                        "Изборът на език в приложението изисква Android 13+.",
-                                        "In-app language selection requires Android 13+.",
-                                    )
+                                scope.launch {
+                                    try {
+                                        val id = manager.getServer()?.id ?: return@launch
+                                        if (manager.webSocketRepository(id).saveStevoraLanguage(code) && manager.getServer()?.id == id) {
+                                            EntryPointAccessors.fromApplication(
+                                                context.applicationContext, StevoraServerEntryPoint::class.java,
+                                            ).languagesManager().saveLang(code)
+                                        } else {
+                                            saveStatus = tr("Езикът не бе запазен", "Language could not be saved")
+                                        }
+                                    } catch (e: CancellationException) {
+                                        throw e
+                                    } catch (_: Exception) {
+                                        saveStatus = tr("Няма връзка с дома", "Home unavailable")
+                                    }
                                 }
                             },
                             label = { Text(label) },

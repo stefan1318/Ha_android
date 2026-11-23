@@ -47,6 +47,8 @@ interface WebSocketRepository {
     suspend fun getStevoraManifestJson(language: String = java.util.Locale.getDefault().language): String?
     suspend fun stevoraManagerCommand(command: String, fields: Map<String, Any?> = emptyMap()): String?
     suspend fun getConfig(): GetConfigResponse?
+    suspend fun getStevoraProfile(): JsonObject?
+    suspend fun saveStevoraLanguage(language: String): Boolean
     suspend fun getStevoraClimateHistory(startTime: String, endTime: String, entityIds: List<String>): JsonObject?
     suspend fun getStevoraAutomationConfig(entityId: String): JsonObject?
     suspend fun validateStevoraAutomation(config: JsonObject): JsonObject?

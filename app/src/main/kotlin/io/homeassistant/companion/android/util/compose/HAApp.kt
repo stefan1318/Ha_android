@@ -55,6 +55,33 @@ internal fun HAApp(
     val onHome = entry?.destination?.hasRoute<FrontendRoute>() == true
     var section by remember { mutableStateOf("home") }
     val bgLanguage = LocalConfiguration.current.locales[0].language == "bg"
+    if (onHome) {
+        val dependencies = androidx.compose.runtime.remember(context) {
+            dagger.hilt.android.EntryPointAccessors.fromApplication(
+                context.applicationContext,
+                io.homeassistant.companion.android.stevora.StevoraServerEntryPoint::class.java,
+            )
+        }
+        androidx.compose.runtime.LaunchedEffect(dependencies) {
+            val manager = dependencies.serverManager()
+            manager.serversFlow.collect {
+                val id = manager.getServer()?.id ?: return@collect
+                try {
+                    val lang = manager.webSocketRepository(id).getStevoraProfile()?.get("language")
+                        ?.let { it as? kotlinx.serialization.json.JsonPrimitive }?.content
+                    if (lang != null && lang in setOf("bg", "en") && manager.getServer()?.id == id &&
+                        dependencies.languagesManager().getCurrentLang() != lang
+                    ) {
+                        dependencies.languagesManager().saveLang(lang)
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // The local locale remains usable while the home is offline.
+                }
+            }
+        }
+    }
     val tabs = listOf(
         Triple("home", "⌂", if (bgLanguage) "Начало" else "Home"),
         Triple("rooms", "▦", if (bgLanguage) "Стаи" else "Rooms"),

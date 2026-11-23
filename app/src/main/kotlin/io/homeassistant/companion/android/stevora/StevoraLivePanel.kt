@@ -103,6 +103,7 @@ private fun hvacLabel(mode: String, bgLanguage: Boolean): String = when (mode) {
 @EntryPoint
 @InstallIn(SingletonComponent::class)
 internal interface StevoraServerEntryPoint {
+    fun languagesManager(): io.homeassistant.companion.android.settings.language.LanguagesManager
     fun serverManager(): ServerManager
 }
 
@@ -282,12 +283,23 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                 }
                 val required = when (service) {
                     "turn_on", "turn_off" -> when {
+                        "color_temp_kelvin" in data -> "color_temp"
+                        "effect" in data -> "effect"
                         "brightness" in data -> "brightness"
                         "rgb_color" in data -> "color"
                         else -> "toggle"
                     }
                     "media_play_pause" -> "play_pause"
                     "volume_set" -> "volume"
+                    "set_cover_position" -> "position"
+                    "set_cover_tilt_position" -> "tilt"
+                    "set_percentage" -> "percentage"
+                    "set_direction" -> "direction"
+                    "oscillate" -> "oscillate"
+                    "set_preset_mode" -> "preset_mode"
+                    "set_fan_mode" -> "fan_mode"
+                    "set_swing_mode" -> "swing_mode"
+                    "select_source" -> "source"
                     "set_temperature" -> "temperature"
                     "set_hvac_mode" -> "hvac_mode"
                     "open_cover", "stop_cover", "close_cover" -> service.removeSuffix("_cover")
@@ -410,6 +422,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                             group.forEach { (control, entity) ->
                                 androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
 
+                    var expanded by androidx.compose.runtime.saveable.rememberSaveable(activeServerId, entity.entityId) { mutableStateOf(false) }
                     val activeColor by animateColorAsState(
                         targetValue = if (entity.state == "on" || (entity.domain == "climate" && entity.state != "off")) StevoraDesign.surfaceRaised else tile,
                         animationSpec = tween(320),
@@ -430,8 +443,10 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(if (bgLanguage) control.labelBg else control.labelEn,
-                                    color = white, fontSize = 17.sp)
+                                androidx.compose.material3.TextButton(onClick = { expanded = !expanded }) {
+                                    Text((if (bgLanguage) control.labelBg else control.labelEn) + if (expanded) " ▴" else " ▾",
+                                        color = white, fontSize = 17.sp)
+                                }
                                 if (busy == entity.entityId) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(18.dp),
@@ -446,7 +461,10 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                 }
                             }
                             val available = entity.state != "unavailable" && entity.state != "unknown"
-                            if (control.actions.isEmpty() || !available || !liveConnected) {
+                            if (expanded && available && liveConnected) {
+                                StevoraDeviceOptions(entity, control.actions, bgLanguage) { service, fields -> execute(entity, service, fields) }
+                            }
+                            if (!expanded || control.actions.isEmpty() || !available || !liveConnected) {
                                 Text(
                                     entity.state + " " + (entity.attributes["unit_of_measurement"] as? String ?: ""),
                                     color = secondary,

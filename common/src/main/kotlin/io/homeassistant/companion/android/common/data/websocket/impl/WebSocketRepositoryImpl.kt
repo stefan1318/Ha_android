@@ -181,6 +181,21 @@ class WebSocketRepositoryImpl internal constructor(
         return response?.takeIf { it.success == true }?.result as? JsonObject
     }
 
+    override suspend fun getStevoraProfile(): JsonObject? {
+        val reply = webSocketCore.sendMessage(mapOf("type" to "frontend/get_user_data", "key" to "stevora_profile"))
+        val result = reply?.takeIf { it.success == true }?.result as? JsonObject ?: return null
+        return result["value"] as? JsonObject ?: JsonObject(emptyMap())
+    }
+
+    override suspend fun saveStevoraLanguage(language: String): Boolean {
+        require(language in setOf("bg", "en"))
+        val existing = getStevoraProfile() ?: return false
+        val value = JsonObject(existing + ("language" to kotlinx.serialization.json.JsonPrimitive(language)))
+        return webSocketCore.sendMessage(
+            mapOf("type" to "frontend/set_user_data", "key" to "stevora_profile", "value" to value),
+        )?.success == true
+    }
+
     override suspend fun getStevoraClimateHistory(
         startTime: String,
         endTime: String,
