@@ -137,7 +137,7 @@ internal fun StevoraSettingsHome(
         else -> null
     }
     if (nativeSection != null) {
-        StevoraNativeSettingsSection(nativeSection, bg, accountName, admin, back)
+        StevoraNativeSettingsSection(nativeSection, bg, accountName, accountVerified, back)
         return
     }
     when (active) {
@@ -355,7 +355,7 @@ private fun StevoraNativeSettingsSection(
     section: String,
     bg: Boolean,
     accountName: String,
-    admin: Boolean,
+    accountVerified: Boolean,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -683,7 +683,7 @@ private fun StevoraNativeSettingsSection(
                 if (!micAllowed) Button(onClick = {
                     micPermission.launch(android.Manifest.permission.RECORD_AUDIO)
                 }) { Text(tr("Разреши микрофона", "Allow microphone")) }
-                StevoraCopyFcmToken(bg)
+                if (accountVerified) StevoraCopyFcmToken(bg)
                 SettingsInfo(tr("Известия", "Notifications"),
                     if (notificationsAllowed) tr("Разрешени", "Allowed") else tr("Не са разрешени", "Not allowed"))
                 if (!notificationsAllowed && Build.VERSION.SDK_INT >= 33) {
