@@ -70,20 +70,6 @@ private val accent = StevoraDesign.accent
 private val foreground = StevoraDesign.foreground
 private val muted = StevoraDesign.muted
 
-internal enum class StevoraSettingsPage {
-    Home, Account, Tools, Management, Rooms, Devices, Assistants, Automation, Climate, Connection, Voice, Privacy, Appearance;
-
-    val parent: StevoraSettingsPage
-        get() = when (this) {
-            Rooms, Devices, Assistants, Automation, Connection -> Management
-            Climate -> Tools
-            Appearance -> Account
-            else -> Home
-        }
-
-    val requiresAdmin: Boolean get() = this == Management || parent == Management
-}
-
 /**
  * STEVORA-owned settings landing page. The existing Companion settings remain
  * the authoritative source for credentials, sensor permissions and HA options.
@@ -140,7 +126,7 @@ internal fun StevoraSettingsHome(
             checked = true
         }
     }
-    val active = if (page.requiresAdmin && !admin || !accountVerified) StevoraSettingsPage.Home else page
+    val active = if (page.accessible(accountVerified, admin)) page else StevoraSettingsPage.Home
     val back: () -> Unit = { if (active == StevoraSettingsPage.Home) onBack() else page = active.parent }
     BackHandler(onBack = back)
     val nativeSection = when (active) {
@@ -235,9 +221,9 @@ internal fun StevoraSettingsHome(
                 else accountName + " · " + if (admin) tr("Администратор", "Administrator") else tr("Потребител", "User"),
                 color = muted)
             if (checked && !accountVerified) OutlinedButton(onClick = { verification++ }) { Text(tr("Опитай отново", "Retry")) }
+            SettingsEntry(tr("Устройство и поверителност", "Device & privacy"), tr("Локация, микрофон и известия", "Location, microphone and notifications"), "◎") { page = StevoraSettingsPage.Privacy }
             if (accountVerified) {
                 SettingsEntry(stringResource(R.string.stevora_account), stringResource(R.string.stevora_account_hint), "◐") { page = StevoraSettingsPage.Account }
-                SettingsEntry(tr("Устройство и поверителност", "Device & privacy"), tr("Локация, микрофон и известия", "Location, microphone and notifications"), "◎") { page = StevoraSettingsPage.Privacy }
                 SettingsEntry("Hey Stevora", tr("Асистент и гласови образци", "Assistant and voice samples"), "✦") { page = StevoraSettingsPage.Voice }
                 SettingsEntry(stringResource(R.string.stevora_tools), stringResource(R.string.stevora_tools_hint), "◉") { page = StevoraSettingsPage.Tools }
                 if (admin) SettingsEntry(stringResource(R.string.stevora_manage), stringResource(R.string.stevora_manage_hint), "⌂") { page = StevoraSettingsPage.Management }
