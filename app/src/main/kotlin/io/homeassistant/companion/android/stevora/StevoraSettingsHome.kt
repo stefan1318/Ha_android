@@ -451,7 +451,8 @@ private fun StevoraNativeSettingsSection(
         val current = manager.getServer()
         server = current
         localUrl = current?.connection?.internalUrl.orEmpty()
-        remoteUrl = current?.connection?.externalUrl.orEmpty()
+        val primaryUrl = current?.connection?.externalUrl.orEmpty()
+        remoteUrl = primaryUrl.takeUnless { it == localUrl && it.startsWith("http://", ignoreCase = true) }.orEmpty()
         preferLocal = current?.connection?.prioritizeInternal ?: false
         micAllowed = context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
@@ -643,7 +644,7 @@ private fun StevoraNativeSettingsSection(
                                             val existing = server ?: error("No server")
                                             val updated = existing.copy(connection = existing.connection.copy(
                                                 internalUrl = localUrl.ifBlank { null },
-                                                externalUrl = remoteUrl.ifBlank { null },
+                                                externalUrl = remoteUrl.ifBlank { localUrl },
                                                 prioritizeInternal = preferLocal,
                                             ))
                                             manager.updateServer(updated)

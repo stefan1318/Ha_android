@@ -38,6 +38,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -133,6 +135,10 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
     var temperatureSensorId by remember { mutableStateOf<String?>(null) }
     var humiditySensorId by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val prefs = remember(context) { context.getSharedPreferences("stevora.favorites", android.content.Context.MODE_PRIVATE) }
+    var favoriteScope by remember { mutableStateOf<String?>(null) }
+    var favorites by remember { mutableStateOf(emptySet<String>()) }
+    var favoritesOnly by remember { mutableStateOf(false) }
 
     // Discover against the currently active HA server. Never use another home's
     // cached manifest or hardcoded Dunav entity IDs after switching servers.
@@ -149,6 +155,8 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
             try {
                 val server = manager.getServer()
                 if (server == null) {
+                    favoriteScope = null
+                    favorites = emptySet()
                     activeServerId = null
                     roomOrder = emptyList()
                     roomNames = emptyMap()
@@ -168,6 +176,9 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                         activeControlIds = emptySet()
                         temperatureSensorId = null
                         humiditySensorId = null
+                        favoriteScope = null
+                        favorites = emptySet()
+                        favoritesOnly = false
                         activeServerId = server.id
                     }
                     val repo = manager.webSocketRepository(server.id)
@@ -204,6 +215,8 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                         if (snapshot == null) {
                             status = localized(bgLanguage, "Няма връзка — нов опит…", "Hub unavailable — retrying")
                         } else {
+                            favoriteScope = repo.getCurrentUser()?.let { "${server.id}/${manifest.installationId}/${it.id}" }
+                            favorites = favoriteScope?.let { prefs.getStringSet(it, emptySet())?.toSet() }.orEmpty()
                             val sourceRooms = manifest.rooms
                             val mappedEntities = manifest.entityMappings
                             val byId = snapshot.associateBy { it.entityId }
@@ -371,7 +384,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     listOf(
-                        Triple(localized(bgLanguage, "Температура", "Temperature"), temp, "°C"),
+                        Triple(localized(bgLanguage, "Температура", "Temperature"), temp, temp?.attributes?.get("unit_of_measurement") as? String ?: ""),
                         Triple(localized(bgLanguage, "Влажност", "Humidity"), humidity, "%"),
                     ).forEach { (label, sensor, unit) ->
                         val state = sensor?.state?.takeUnless {
@@ -392,6 +405,11 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                if (favoriteScope != null) {
+                    OutlinedButton(onClick = { favoritesOnly = !favoritesOnly }) {
+                        Text((if (favoritesOnly) "★ " else "☆ ") + localized(bgLanguage, "Избрани", "Favorites"))
+                    }
+                }
                 (listOf("all") + roomOrder).forEach { room ->
                     val title = if (room == "all") localized(bgLanguage, "Всички", "All rooms")
                         else roomNames[room] ?: room
@@ -408,7 +426,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
             }
             (if (selectedRoom == "all") roomOrder else listOf(selectedRoom)).forEach { room ->
                 val items = panelControls
-                    .filter { it.room == room }
+                    .filter { it.room == room && (!favoritesOnly || it.id in favorites) }
                     .mapNotNull { control ->
                         entities.firstOrNull { it.entityId == control.id }?.let { control to it }
                     }
@@ -446,6 +464,15 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                                 androidx.compose.material3.TextButton(onClick = { expanded = !expanded }) {
                                     Text((if (bgLanguage) control.labelBg else control.labelEn) + if (expanded) " ▴" else " ▾",
                                         color = white, fontSize = 17.sp)
+                                }
+                                favoriteScope?.let { key ->
+                                    androidx.compose.material3.TextButton(onClick = {
+                                        favorites = if (entity.entityId in favorites) favorites - entity.entityId else favorites + entity.entityId
+                                        prefs.edit().putStringSet(key, favorites).apply()
+                                    }) {
+                                        Text(if (entity.entityId in favorites) "★" else "☆",
+                                            modifier = Modifier.semantics { contentDescription = localized(bgLanguage, "Избрани", "Favorite") })
+                                    }
                                 }
                                 if (busy == entity.entityId) {
                                     CircularProgressIndicator(
@@ -714,6 +741,9 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                         }
                     }
                 }
+            }
+            if (favoritesOnly && favorites.none { id -> panelControls.any { it.id == id } }) {
+                Text(localized(bgLanguage, "Няма избрани устройства", "No favorite devices"), color = secondary)
             }
             if (entities.isEmpty()) {
                 Text(localized(bgLanguage,
