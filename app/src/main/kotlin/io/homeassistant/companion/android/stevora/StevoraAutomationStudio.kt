@@ -294,13 +294,13 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                         ruleAlias = raw["alias"]?.jsonPrimitive?.contentOrNull.orEmpty()
                         val firstTrigger = ((raw["triggers"] ?: raw["trigger"]) as? JsonArray)?.firstOrNull() as? JsonObject
                         val firstAction = ((raw["actions"] ?: raw["action"]) as? JsonArray)?.firstOrNull() as? JsonObject
-                        triggerEntity = firstTrigger?.get("entity_id")?.jsonPrimitive?.contentOrNull.orEmpty()
-                        triggerTo = firstTrigger?.get("to")?.jsonPrimitive?.contentOrNull ?: "on"
-                        actionEntity = (firstAction?.get("target") as? JsonObject)?.get("entity_id")?.jsonPrimitive?.contentOrNull.orEmpty()
-                        actionService = firstAction?.get("service")?.jsonPrimitive?.contentOrNull?.substringAfter(".") ?: "turn_on"
-                        advancedEditor = firstTrigger?.get("platform")?.jsonPrimitive?.contentOrNull != "state" ||
-                            firstTrigger?.keys?.any { it !in setOf("platform","entity_id","to") } == true ||
-                            firstAction?.keys?.any { it !in setOf("service","target") } == true ||
+                        triggerEntity = (firstTrigger?.get("entity_id") as? JsonPrimitive)?.contentOrNull.orEmpty()
+                        triggerTo = (firstTrigger?.get("to") as? JsonPrimitive)?.contentOrNull ?: "on"
+                        actionEntity = ((firstAction?.get("target") as? JsonObject)?.get("entity_id") as? JsonPrimitive)?.contentOrNull.orEmpty()
+                        actionService = ((firstAction?.get("service") ?: firstAction?.get("action")) as? JsonPrimitive)?.contentOrNull?.substringAfter(".") ?: "turn_on"
+                        advancedEditor = ((firstTrigger?.get("platform") ?: firstTrigger?.get("trigger")) as? JsonPrimitive)?.contentOrNull != "state" ||
+                            firstTrigger?.keys?.any { it !in setOf("platform","trigger","entity_id","to") } == true ||
+                            firstAction?.keys?.any { it !in setOf("service","action","target") } == true ||
                             (firstAction?.get("target") as? JsonObject)?.keys != setOf("entity_id") ||
                             triggerEntity.isBlank() || actionEntity.isBlank() ||
                             ((raw["triggers"] ?: raw["trigger"]) as? JsonArray)?.size != 1 ||

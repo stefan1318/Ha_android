@@ -57,7 +57,7 @@ internal fun StevoraMetricCard(
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(label.uppercase(), color = StevoraDesign.muted, fontSize = 11.sp, letterSpacing = 1.sp)
             Text(value, color = StevoraDesign.foreground, fontSize = 25.sp)
-            Text(detail, color = StevoraDesign.accent, fontSize = 11.sp)
+            if (detail.isNotBlank()) Text(detail, color = StevoraDesign.accent, fontSize = 11.sp)
         }
     }
 }

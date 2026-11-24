@@ -113,18 +113,19 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
                     StevoraHomeProjection.home.value[id]
                 } else null
                 val allowed = manifest?.entityMappings?.values?.flatten().orEmpty().toSet()
-                val states = repo?.getStates()?.filter { it.entityId in allowed && it.domain == "sensor" }
-                val temp = states?.firstOrNull { it.attributes["device_class"] == "temperature" }
-                val humid = states?.firstOrNull { it.attributes["device_class"] == "humidity" }
+                val states = repo?.getStates()?.filter { it.entityId in allowed }
+                val ac = states?.firstOrNull { it.domain == "climate" }
+                val temp = states?.firstOrNull { it.domain == "sensor" && it.attributes["device_class"] == "temperature" }
+                val humid = states?.firstOrNull { it.domain == "sensor" && it.attributes["device_class"] == "humidity" }
                 if (id != sourceServer || temp?.entityId != tempId || humid?.entityId != humidityId) samples = emptyList()
                 sourceServer = id
                 tempId = temp?.entityId
                 humidityId = humid?.entityId
-                tempUnit = temp?.attributes?.get("unit_of_measurement") as? String ?: ""
+                tempUnit = temp?.attributes?.get("unit_of_measurement") as? String ?: ac?.attributes?.get("temperature_unit") as? String ?: ""
                 online = manifest != null && states != null
                 if (online) {
-                    temperature = temp?.state?.toDoubleOrNull()
-                    humidity = humid?.state?.toDoubleOrNull()
+                    temperature = temp?.state?.toDoubleOrNull() ?: (ac?.attributes?.get("current_temperature") as? Number)?.toDouble()
+                    humidity = humid?.state?.toDoubleOrNull() ?: (ac?.attributes?.get("current_humidity") as? Number)?.toDouble()
                     val t = temperature
                     val h = humidity
                     if (t != null && h != null) samples = (samples + (t to h)).takeLast(360)
@@ -154,25 +155,26 @@ internal fun StevoraClimateAnalytics(onBack: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text("STEVORA", color = Color.White, fontSize = 28.sp)
-        Text("CLIMATE ANALYTICS", color = climateCyan, fontSize = 12.sp)
+        Text(tr("КЛИМАТ", "CLIMATE"), color = climateCyan, fontSize = 12.sp)
         Text(
             if (online) tr("● Свързано с Home Hub", "● Connected to Home Hub")
             else tr("● Няма връзка", "● Offline"),
             color = climateMuted,
         )
+        if (temperature == null && humidity == null) Text(tr("Все още няма измерване.", "No readings yet."), color = climateMuted)
         listOf(
             tr("Температура", "Temperature") to (temperature?.let { "$it $tempUnit" } ?: "—"),
             tr("Влажност", "Humidity") to (humidity?.let { "$it %" } ?: "—"),
-            tr("Измервания в сесията", "Samples this session") to samples.size.toString(),
+            tr("Измервания в сесията", "Samples this session") to (if (samples.isEmpty()) "—" else samples.size.toString()),
             tr("Средна температура в сесията", "Session average temperature") to
                 (if (samples.isEmpty()) "—" else "%.1f $tempUnit".format(samples.map { it.first }.average())),
             tr("Средна влажност в сесията", "Session average humidity") to
                 (if (samples.isEmpty()) "—" else "%.1f %%".format(samples.map { it.second }.average())),
-        ).forEach { (label, value) ->
+        ).filter { it.second != "—" }.forEach { (label, value) ->
             StevoraMetricCard(
                 label = label,
                 value = value,
-                detail = tr("Данни от Home Hub", "Home Hub data"),
+                detail = "",
                 modifier = Modifier.fillMaxWidth(),
             )
         }

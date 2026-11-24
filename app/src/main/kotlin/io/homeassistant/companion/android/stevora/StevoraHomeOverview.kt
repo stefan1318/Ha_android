@@ -133,7 +133,12 @@ internal fun StevoraHomeOverview(
                             temperature = available(temp?.state?.takeIf { it.toDoubleOrNull() != null } ?: ac?.attributes?.get("current_temperature")?.toString())
                             temperatureUnit = temp?.attributes?.get("unit_of_measurement") as? String ?: ac?.attributes?.get("temperature_unit") as? String ?: ""
                             humidity = available(humid?.state ?: ac?.attributes?.get("current_humidity")?.toString())
-                            climate = available(ac?.state)
+                            climate = when (val mode = ac?.state) {
+                                "off" -> if (bg) "Изключено" else "Off"
+                                "heat" -> if (bg) "Отопление" else "Heating"
+                                "cool" -> if (bg) "Охлаждане" else "Cooling"
+                                else -> available(mode).replace('_', ' ')
+                            }
                             climateTitle = manifest?.localizedEntityNames?.get(ac?.entityId)
                                 ?: if (bg) "Климатизация" else "Climate"
                             fanState = available(fan?.state)
@@ -223,18 +228,6 @@ internal fun StevoraHomeOverview(
                         ClimateSmallMetric(if (bg) "Режим" else "Mode", climate)
                     }
                 }
-            }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.weight(1f)) {
-                HomeMetric(if (bg) "Температура" else "Temperature", if (temperature == "—") temperature else "$temperature$temperatureUnit")
-            }
-            Box(Modifier.weight(1f)) {
-                HomeMetric(if (bg) "Влажност" else "Humidity", if (humidity == "—") "—" else "$humidity%")
             }
         }
         StevoraSectionHeading(

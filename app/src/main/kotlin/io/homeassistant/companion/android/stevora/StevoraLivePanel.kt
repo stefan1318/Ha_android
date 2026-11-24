@@ -450,11 +450,11 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                         colors = CardDefaults.cardColors(containerColor = activeColor),
                         shape = RoundedCornerShape(20.dp),
                         border = BorderStroke(1.dp, panelBorder),
-                        modifier = Modifier.fillMaxWidth().animateContentSize(),
+                        modifier = Modifier.fillMaxWidth().animateContentSize().clickable { expanded = !expanded },
                     ) {
                         Column(
-                            Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            Modifier.padding(horizontal = 14.dp, vertical = if (expanded) 14.dp else 6.dp),
+                            verticalArrangement = Arrangement.spacedBy(if (expanded) 10.dp else 2.dp),
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
