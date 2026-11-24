@@ -397,9 +397,17 @@ private fun StevoraNativeSettingsSection(
     var recording by remember { mutableStateOf<MediaRecorder?>(null) }
     var pendingAudio by remember { mutableStateOf<File?>(null) }
     val sampleFolder = remember(context) { File(context.filesDir, "stevora/voice-samples").apply { mkdirs() } }
+    var clips by remember { mutableStateOf(emptyList<File>()) }
+    var player by remember { mutableStateOf<android.media.MediaPlayer?>(null) }
+    var playing by remember { mutableStateOf<File?>(null) }
+    var training by remember { mutableStateOf(false) }
+    var trained by remember { mutableStateOf(false) }
+    fun stopPlayback() { player?.release(); player = null; playing = null }
     var sampleCount by remember { mutableStateOf(0) }
     fun refreshCount() {
-        sampleCount = sampleFolder.listFiles()?.count { it.isFile && it.name.startsWith("sample_") && it.extension == "m4a" } ?: 0
+        clips = StevoraPhraseModel.samples(sampleFolder)
+        sampleCount = clips.size
+        trained = StevoraPhraseModel.ready(sampleFolder)
     }
     fun stopRecording() {
         val active = recording ?: return
@@ -409,7 +417,7 @@ private fun StevoraNativeSettingsSection(
         pendingAudio = null
         refreshCount()
     }
-    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { stopRecording() } }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { stopPlayback(); stopRecording() } }
     fun startRecording() {
         if (recording != null || sampleCount >= 20) return
         val index = (1..20).firstOrNull { !File(sampleFolder, "sample_%02d.m4a".format(it)).exists() } ?: return
@@ -420,6 +428,8 @@ private fun StevoraNativeSettingsSection(
             instance.setAudioSource(MediaRecorder.AudioSource.MIC)
             instance.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
             instance.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            instance.setMaxDuration(8000)
+            instance.setOnInfoListener { _, what, _ -> if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED) stopRecording() }
             instance.setOutputFile(file.absolutePath)
             instance.prepare()
             instance.start()
@@ -638,31 +648,48 @@ private fun StevoraNativeSettingsSection(
                         Text(tr("Разреши микрофона", "Allow microphone"))
                     }
                 }
-                StevoraSectionHeading("Hey Stevora · Voice Training", tr("Нативен запис на устройството", "Native on-device recording"))
+                StevoraSectionHeading("Hey Stevora", tr("Запиши поне три образеца. Кажи „Hey Stevora“ веднъж във всеки.", "Record at least three samples. Say “Hey Stevora” once in each."))
                 SettingsInfo(tr("Гласови образци", "Voice samples"), "$sampleCount / 20")
                 Button(
-                    enabled = micAllowed && (recording != null || sampleCount < 20),
+                    enabled = micAllowed && !training && playing == null && (recording != null || sampleCount < 20),
                     onClick = { if (recording != null) stopRecording() else startRecording() },
                 ) { Text(if (recording != null) tr("Спри и запази", "Stop and save") else tr("Запиши образец", "Record sample")) }
-                OutlinedButton(
-                    enabled = recording == null && sampleCount > 0,
-                    onClick = {
-                        sampleFolder.listFiles()?.filter { it.name.startsWith("sample_") && it.extension == "m4a" }
-                            ?.maxByOrNull { it.name }?.delete()
-                        refreshCount()
-                    },
-                ) { Text(tr("Изтрий последния запис", "Delete latest sample")) }
-                SettingsInfo(tr("Обучение и активиране", "Training and activation"), tr(
-                    "Все още няма интегриран обучаващ модел. Записите са реални, но не активират Hey Stevora.",
-                    "No training engine is integrated yet. Recordings are real but do not activate Hey Stevora.",
-                ))
+                clips.forEachIndexed { index, file ->
+                    Text(tr("Образец", "Sample") + " " + (index + 1), color = muted)
+                    Row {
+                        OutlinedButton(enabled = recording == null && !training, onClick = {
+                            val stopping = playing == file
+                            stopPlayback()
+                            if (!stopping) try {
+                                val audio = android.media.MediaPlayer()
+                                player = audio
+                                audio.setDataSource(file.path)
+                                audio.setOnCompletionListener { if (player === it) stopPlayback() }
+                                audio.setOnErrorListener { _, _, _ -> stopPlayback(); true }
+                                audio.prepare(); playing = file; audio.start()
+                            } catch (_: Exception) { stopPlayback(); saveStatus = tr("Записът не се отваря", "Could not play sample") }
+                        }) { Text(if (playing == file) tr("Спри", "Stop") else tr("Прослушай", "Play")) }
+                        OutlinedButton(enabled = recording == null && !training, onClick = {
+                            if (playing == file) stopPlayback()
+                            if (!file.delete()) saveStatus = tr("Записът не бе изтрит", "Could not delete sample")
+                            refreshCount()
+                        }) { Text(tr("Изтрий", "Delete")) }
+                    }
+                }
+                Button(enabled = sampleCount >= 3 && recording == null && playing == null && !training, onClick = {
+                    training = true
+                    scope.launch {
+                        try {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { StevoraPhraseModel.train(sampleFolder) }
+                            saveStatus = tr("Готово. Избери „Слушай за Hey Stevora“ в AI.", "Ready. Choose “Listen for Hey Stevora” in AI.")
+                        } catch (e: CancellationException) { throw e }
+                        catch (_: Exception) { saveStatus = tr("Провери записите. Използвай кратки, ясни произнасяния.", "Review the clips. Use short, clear phrases.") }
+                        finally { refreshCount(); training = false }
+                    }
+                }) { Text(if (training) tr("Обучаване…", "Training…") else if (trained) tr("Обучи отново", "Retrain") else tr("Обучи гласа", "Train voice")) }
                 if (saveStatus.isNotBlank()) Text(saveStatus, color = muted)
                 StevoraSectionHeading("Assist pipelines", pipelineStatus)
                 pipelines.forEach { SettingsInfo("STEVORA Assist", it) }
-                SettingsInfo("Hey STEVORA", tr(
-                    "Постоянното разпознаване остава изключено до наличен валидиран модел.",
-                    "Always-on wake-word detection remains disabled until a validated model exists.",
-                ))
                 Text(tr(
                     "Гласовите команди използват Assist pipeline според ролята на акаунта. Промяна на сървърния pipeline изисква отделна администраторска конфигурация.",
                     "Voice commands use a role-matched Assist pipeline. Server pipeline changes require separate administrator configuration.",

@@ -493,7 +493,12 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                             }
                             if (!expanded || control.actions.isEmpty() || !available || !liveConnected) {
                                 Text(
-                                    entity.state + " " + (entity.attributes["unit_of_measurement"] as? String ?: ""),
+                                    (when (entity.state) {
+                                        "off" -> localized(bgLanguage, "Изключено", "Off")
+                                        "on" -> localized(bgLanguage, "Включено", "On")
+                                        "unavailable", "unknown" -> localized(bgLanguage, "Няма данни", "Unavailable")
+                                        else -> entity.state.replace('_', ' ')
+                                    }) + " " + (entity.attributes["unit_of_measurement"] as? String ?: ""),
                                     color = secondary,
                                 )
                             } else if (entity.domain == "media_player") {

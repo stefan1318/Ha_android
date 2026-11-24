@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -89,8 +92,9 @@ internal fun HAApp(
         Triple("system", "◈", if (bgLanguage) "Система" else "System"),
         Triple("settings", "⚙", if (bgLanguage) "Настройки" else "Settings"),
     )
+    MaterialTheme(colorScheme = if (onHome) darkColorScheme(primary = Color(0xFF43C9FC), surface = Color(0xFF122437), secondaryContainer = Color(0xFF225475)) else MaterialTheme.colorScheme) {
     Scaffold(
-        modifier = modifier,
+        modifier = if (onHome) modifier.statusBarsPadding() else modifier,
         containerColor = Color(0xFF08131F),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
@@ -101,7 +105,7 @@ internal fun HAApp(
                             selected = section == key,
                             onClick = { section = key },
                             icon = { Text(glyph) },
-                            label = { Text(label, maxLines = 1) },
+                            label = { Text(label, maxLines = 1, softWrap = false, fontSize = androidx.compose.ui.unit.TextUnit.Unspecified) },
                         )
                     }
                 }
@@ -146,5 +150,6 @@ internal fun HAApp(
                 }
             }
         }
+    }
     }
 }

@@ -69,6 +69,8 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
     var editId by remember { mutableStateOf<String?>(null) }
     var editText by remember { mutableStateOf("") }
     var advancedEditor by remember { mutableStateOf(false) }
+    var devices by remember { mutableStateOf(emptyList<StevoraChoice>()) }
+    var targets by remember { mutableStateOf(emptyList<StevoraChoice>()) }
     var ruleAlias by remember { mutableStateOf("") }
     var triggerEntity by remember { mutableStateOf("") }
     var triggerTo by remember { mutableStateOf("on") }
@@ -94,6 +96,14 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                 val allowed = if (server != null && raw != null && StevoraHomeProjection.apply(server.id, raw)) {
                     StevoraHomeProjection.home.value[server.id]?.controllableEntityIds.orEmpty()
                 } else emptySet()
+                val home = server?.let { StevoraHomeProjection.home.value[it.id] }
+                fun choices(ids: Collection<String>) = ids.map { id ->
+                    val label = home?.localizedEntityNames?.get(id)?.takeUnless { it == id } ?: id.substringAfter('.').replace('_', ' ')
+                    val room = home?.rooms?.find { id in home.entityMappings[it.id].orEmpty() }?.name.orEmpty()
+                    StevoraChoice(id, label, room)
+                }
+                devices = choices(home?.entityMappings?.values?.flatten().orEmpty().distinct().filter { it.substringBefore('.') in listOf("light","switch","fan","binary_sensor","input_boolean") })
+                targets = choices(allowed.filter { "toggle" in home?.controlsByEntity?.get(it).orEmpty() })
                 val states = socket.getStates()?.filter { it.entityId in allowed }
                 if (states == null) {
                     automations = emptyList()
@@ -119,33 +129,18 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
             title = { Text(tr("Редактор на автоматизация", "Automation editor")) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    Text(id)
-                    FilterChip(
-                        selected = advancedEditor,
-                        onClick = { advancedEditor = !advancedEditor },
-                        label = { Text(if (advancedEditor) tr("JSON режим", "JSON mode") else tr("Визуален режим", "Visual mode")) },
-                    )
                     if (advancedEditor) {
-                        OutlinedTextField(
-                            value = editText,
-                            onValueChange = { editText = it.take(60000) },
-                            modifier = Modifier.fillMaxWidth().height(320.dp),
-                            label = { Text("JSON") },
-                        )
+                        Text(tr("Това правило има допълнителни стъпки и може да бъде преглеждано.", "This rule has additional steps and is available to view."))
                     } else {
                         Text(tr("Когато → Тогава", "When → Then"), color = StevoraDesign.accent)
                         OutlinedTextField(ruleAlias, { ruleAlias = it }, label = {
                             Text(tr("Име на автоматизацията", "Automation name"))
                         })
-                        OutlinedTextField(triggerEntity, { triggerEntity = it }, label = {
-                            Text(tr("Когато устройството (entity ID)", "When entity ID"))
-                        })
-                        OutlinedTextField(triggerTo, { triggerTo = it }, label = {
-                            Text(tr("Премине в състояние", "Changes to state"))
-                        })
-                        OutlinedTextField(actionEntity, { actionEntity = it }, label = {
-                            Text(tr("Управлявано устройство (entity ID)", "Target entity ID"))
-                        })
+                        StevoraSettingsPicker(tr("Когато устройството", "When this device"), devices, triggerEntity) { triggerEntity = it }
+                        StevoraSettingsPicker(tr("Премине в състояние", "Changes to"), listOf(
+                            StevoraChoice("on", tr("Включено", "On"), ""), StevoraChoice("off", tr("Изключено", "Off"), "")
+                        ), triggerTo) { triggerTo = it }
+                        StevoraSettingsPicker(tr("Управлявай устройство", "Control device"), targets, actionEntity) { actionEntity = it }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
                                 selected = actionService == "turn_on",
@@ -158,17 +153,12 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                                 label = { Text(tr("Изключи", "Turn off")) },
                             )
                         }
-                        Text(
-                            tr("Визуалният режим поддържа само прости state тригери и on/off действия. За сложни правила използвай JSON.",
-                                "Visual mode supports simple state triggers and on/off actions only. Use JSON for complex rules."),
-                            color = StevoraDesign.muted,
-                        )
                     }
                     if (editError.isNotEmpty()) Text(editError, color = Color(0xFFFF9D9D))
                 }
             },
             confirmButton = {
-                Button(enabled = !saving, onClick = {
+                Button(enabled = !saving && !advancedEditor && ruleAlias.isNotBlank() && devices.any { it.id == triggerEntity } && targets.any { it.id == actionEntity }, onClick = {
                     try {
                         if (!advancedEditor) {
                             require(ruleAlias.isNotBlank()) { "Automation name required" }
@@ -209,7 +199,7 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                         editError = ""
                         saveConfirm = true
                     } catch (e: Exception) {
-                        editError = e.message ?: tr("Невалиден JSON", "Invalid JSON")
+                        editError = tr("Провери избраните устройства и състояние.", "Check the selected devices and state.")
                     }
                 }) { Text(tr("Провери и запази", "Review & save")) }
             },
@@ -269,7 +259,7 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {
-                            editError = e.message ?: tr("Грешка при запис", "Save failed")
+                            editError = tr("Записът е неуспешен. Обнови правилото и опитай отново.", "Could not save. Refresh the rule and try again.")
                         } finally {
                             saving = false
                         }
@@ -289,10 +279,7 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
             title = { Text(tr("Конфигурация", "Configuration")) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(id)
-                    Text(if (configLoading) tr("Зареждане…", "Loading…") else config?.toString()?.take(4000)
-                        ?: tr("Конфигурацията не е достъпна през HA API.",
-                            "Configuration unavailable through HA API."))
+                    Text(if (configLoading) tr("Зареждане…", "Loading…") else (config?.get("config") as? JsonObject)?.get("alias")?.jsonPrimitive?.contentOrNull ?: tr("Правилото е недостъпно", "Rule unavailable"))
                 }
             },
             confirmButton = {
@@ -312,6 +299,9 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
                         actionEntity = (firstAction?.get("target") as? JsonObject)?.get("entity_id")?.jsonPrimitive?.contentOrNull.orEmpty()
                         actionService = firstAction?.get("service")?.jsonPrimitive?.contentOrNull?.substringAfter(".") ?: "turn_on"
                         advancedEditor = firstTrigger?.get("platform")?.jsonPrimitive?.contentOrNull != "state" ||
+                            firstTrigger?.keys?.any { it !in setOf("platform","entity_id","to") } == true ||
+                            firstAction?.keys?.any { it !in setOf("service","target") } == true ||
+                            (firstAction?.get("target") as? JsonObject)?.keys != setOf("entity_id") ||
                             triggerEntity.isBlank() || actionEntity.isBlank() ||
                             ((raw["triggers"] ?: raw["trigger"]) as? JsonArray)?.size != 1 ||
                             ((raw["actions"] ?: raw["action"]) as? JsonArray)?.size != 1 ||
@@ -335,7 +325,7 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
         AlertDialog(
             onDismissRequest = { if (busy == null) pendingAction = null },
             title = { Text(tr("Потвърди промяната", "Confirm change")) },
-            text = { Text(tr("Промяна на автоматизация: ", "Change automation: ") + id) },
+            text = { Text(tr("Промяна на автоматизация: ", "Change automation: ") + id.substringAfter('.').replace('_', ' ')) },
             confirmButton = {
                 OutlinedButton(enabled = busy == null, onClick = {
                     pendingAction = null
@@ -403,7 +393,7 @@ internal fun StevoraAutomationStudio(onBack: () -> Unit) {
         )
         val available = remember(automations, onlyEnabled) { automations.filter { !onlyEnabled || it.second == "on" } }
         val choices = remember(available) { available.map { (id, _) ->
-            StevoraChoice(id, id.removePrefix("automation.").replace('_', ' '), id)
+            StevoraChoice(id, id.removePrefix("automation.").replace('_', ' '), "")
         } }
         StevoraSettingsPicker(androidx.compose.ui.res.stringResource(io.homeassistant.companion.android.common.R.string.stevora_choose_routine),
             choices, selectedAutomation) { selectedAutomation = it }

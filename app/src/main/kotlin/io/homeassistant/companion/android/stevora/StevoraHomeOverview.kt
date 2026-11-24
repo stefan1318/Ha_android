@@ -130,9 +130,9 @@ internal fun StevoraHomeOverview(
                             }
                             val ac = current.values.firstOrNull { it.domain == "climate" }
                             val fan = current.values.firstOrNull { it.domain == "fan" }
-                            temperature = available(temp?.state)
-                            temperatureUnit = temp?.attributes?.get("unit_of_measurement") as? String ?: ""
-                            humidity = available(humid?.state)
+                            temperature = available(temp?.state?.takeIf { it.toDoubleOrNull() != null } ?: ac?.attributes?.get("current_temperature")?.toString())
+                            temperatureUnit = temp?.attributes?.get("unit_of_measurement") as? String ?: ac?.attributes?.get("temperature_unit") as? String ?: ""
+                            humidity = available(humid?.state ?: ac?.attributes?.get("current_humidity")?.toString())
                             climate = available(ac?.state)
                             climateTitle = manifest?.localizedEntityNames?.get(ac?.entityId)
                                 ?: if (bg) "Климатизация" else "Climate"
@@ -214,7 +214,7 @@ internal fun StevoraHomeOverview(
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(if (temperature == "—") "—" else "$temperature$temperatureUnit", color = homeText, fontSize = 35.sp)
-                            Text("ROOM TEMP", color = homeMuted, fontSize = 10.sp, letterSpacing = 1.sp)
+                            Text(if (bg) "В СТАЯТА" else "ROOM TEMP", color = homeMuted, fontSize = 10.sp, letterSpacing = 1.sp)
                         }
                     }
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -243,7 +243,7 @@ internal fun StevoraHomeOverview(
         )
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.weight(1f)) {
-                HomeMetric(if (bg) "Светлини ON" else "Lights ON", activeLights?.toString() ?: "—")
+                HomeMetric(if (bg) "Включени лампи" else "Lights ON", activeLights?.toString() ?: "—")
             }
             Box(Modifier.weight(1f)) {
                 HomeMetric(if (bg) "Вентилатор" else "Fan", fanState)
