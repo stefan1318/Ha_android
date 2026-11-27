@@ -95,6 +95,21 @@ class WebSocketRepositoryImpl internal constructor(
         return response.result?.toString()
     }
 
+    override suspend fun executeStevoraCapabilityAction(
+        capabilityId: String,
+        actionId: String,
+        parameters: Map<String, Any>,
+        confirmed: Boolean,
+    ): Boolean = webSocketCore.sendMessage(
+        mapOf(
+            "type" to "stevora/os/v1/capabilities/action",
+            "capability_id" to capabilityId,
+            "action_id" to actionId,
+            "parameters" to parameters,
+            "confirmed" to confirmed,
+        ),
+    )?.success == true
+
     override suspend fun getStevoraCapabilityCatalogJson(language: String): String? {
         val response = webSocketCore.sendMessage(
             mapOf(

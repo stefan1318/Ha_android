@@ -42,6 +42,13 @@ interface WebSocketRepository {
     suspend fun sendPing(): Boolean
     suspend fun getCurrentUser(): CurrentUserResponse?
     /** Optional STEVORA manifest through the existing authenticated connection. */
+    suspend fun executeStevoraCapabilityAction(
+        capabilityId: String,
+        actionId: String,
+        parameters: Map<String, Any>,
+        confirmed: Boolean,
+    ): Boolean = false
+
     suspend fun getStevoraCapabilityCatalogJson(language: String): String? = null
 
     suspend fun getStevoraManifestChanges(): Flow<Unit>? = null
