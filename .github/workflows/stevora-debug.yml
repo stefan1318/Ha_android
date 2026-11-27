@@ -56,6 +56,15 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --version || true
       - name: Gradle
         uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
+      - name: Verify shared Adaptive v1 catalog
+        run: |
+          fixture="$RUNNER_TEMP/stevora-adaptive-v1.json"
+          curl --fail --silent --show-error --retry 3 \
+            https://raw.githubusercontent.com/stefan1318/stevora-home-assistant-apps/9e640eb2fd1522b86621683211ae10144d3e05f7/contracts/adaptive/v1/catalog.json \
+            -o "$fixture"
+          echo "8570a7cb6b0ad140ed62eee6cc7d769b0f9e23f965600797cda88ed23608cc0c  $fixture" | sha256sum --check
+          STEVORA_ADAPTIVE_FIXTURE="$fixture" ./gradlew :app:testMinimalDebugUnitTest \
+            --tests '*StevoraAdaptiveContractTest' --stacktrace
       - name: Build debug APK
         run: ./gradlew :app:assembleMinimalDebug --stacktrace
       - name: Verify compiled STEVORA branding resources
