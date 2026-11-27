@@ -112,9 +112,12 @@ internal fun StevoraSettingsHome(
                 accountVerified = false
                 admin = false
             }
-            val user = id?.let { manager.webSocketRepository(it).getCurrentUser() }
+            val repository = id?.let { manager.webSocketRepository(it) }
+            val user = repository?.getCurrentUser()
+            val adminAllowed = (user?.isAdmin == true || user?.isOwner == true) &&
+                repository?.stevoraManagerCommand("stevora/admin/capabilities", emptyMap()) != null
             verifiedServer = id
-            admin = user?.isAdmin == true || user?.isOwner == true
+            admin = adminAllowed
             accountVerified = user != null
             accountName = user?.name ?: "—"
         } catch (e: CancellationException) {

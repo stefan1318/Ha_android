@@ -84,6 +84,7 @@ class WebSocketRepositoryImpl internal constructor(
 
     override suspend fun stevoraManagerCommand(command: String, fields: Map<String, Any?>): String? {
         val allowed = setOf(
+            "stevora/admin/capabilities",
             "stevora/admin/rooms/get", "stevora/admin/rooms/update",
             "stevora/admin/rooms/aliases/update", "stevora/admin/devices/update", "stevora/admin/translations/update", "stevora/admin/assistants/get",
             "stevora/admin/assistants/update", "stevora/assistants/resolve"
