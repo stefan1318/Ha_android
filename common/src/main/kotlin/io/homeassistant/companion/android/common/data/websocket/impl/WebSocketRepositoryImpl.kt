@@ -94,6 +94,17 @@ class WebSocketRepositoryImpl internal constructor(
         return response.result?.toString()
     }
 
+    override suspend fun getStevoraCapabilityCatalogJson(language: String): String? {
+        val response = webSocketCore.sendMessage(
+            mapOf(
+                "type" to "stevora/os/v1/capabilities",
+                "schema_version" to 1,
+                "language" to if (language == "bg") "bg" else "en",
+            ),
+        )
+        return if (response?.success == true) response.result?.toString() else null
+    }
+
     override suspend fun getStevoraManifestChanges(): Flow<Unit>? =
         webSocketCore.subscribeTo(WebSocketConstants.STEVORA_MANIFEST_SUBSCRIBE)
 
