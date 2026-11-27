@@ -292,9 +292,8 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
         }
     }
 
-    fun executeAdaptive(entity: Entity, action: StevoraAdaptiveAction, parameters: Map<String, Any>, confirmed: Boolean) {
-        val target = activeServerId ?: return
-        if (!liveConnected || busy != null || entity.entityId !in activeControlIds ||
+    fun executeAdaptive(target: Int?, entity: Entity, action: StevoraAdaptiveAction, parameters: Map<String, Any>, confirmed: Boolean) {
+        if (target == null || target != activeServerId || !liveConnected || busy != null || entity.entityId !in activeControlIds ||
             entity.state in setOf("unknown", "unavailable") ||
             action !in adaptiveActions?.get(entity.entityId).orEmpty()
         ) return
@@ -528,10 +527,12 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                             if (expanded && available && liveConnected && catalog != null &&
                                 entity.domain !in setOf("light", "climate")
                             ) {
+                                val target = activeServerId
+                                val canAct = busy == null && entity.entityId in activeControlIds
                                 catalog[entity.entityId].orEmpty().forEach { action ->
-                                    androidx.compose.runtime.key(activeServerId, entity.entityId, action.id) {
-                                        StevoraAdaptiveActionControl(action, bgLanguage, busy == null) { parameters, confirmed ->
-                                            executeAdaptive(entity, action, parameters, confirmed)
+                                    androidx.compose.runtime.key(target, entity.entityId, action.id) {
+                                        StevoraAdaptiveActionControl(action, bgLanguage, canAct) { parameters, confirmed ->
+                                            executeAdaptive(target, entity, action, parameters, confirmed)
                                         }
                                     }
                                 }
