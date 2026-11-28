@@ -107,6 +107,8 @@ private fun hvacLabel(mode: String, bgLanguage: Boolean): String = when (mode) {
 internal interface StevoraServerEntryPoint {
     fun languagesManager(): io.homeassistant.companion.android.settings.language.LanguagesManager
     fun serverManager(): ServerManager
+    fun defaultAssistantManager(): io.homeassistant.companion.android.settings.assist.DefaultAssistantManager
+    fun assistConfigManager(): io.homeassistant.companion.android.settings.assist.AssistConfigManager
 }
 
 /**
@@ -131,6 +133,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
     var roomNames by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var panelControls by remember { mutableStateOf<List<StevoraControl>>(emptyList()) }
     var activeControlIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var adaptiveActions by remember { mutableStateOf<Map<String, List<StevoraAdaptiveAction>>?>(null) }
     var activeServerId by remember { mutableStateOf<Int?>(null) }
     var temperatureSensorId by remember { mutableStateOf<String?>(null) }
     var humiditySensorId by remember { mutableStateOf<String?>(null) }
@@ -152,6 +155,7 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
     LaunchedEffect(manager, bgLanguage, manifestGeneration) {
         while (isActive) {
             liveConnected = false
+            adaptiveActions = null
             try {
                 val server = manager.getServer()
                 if (server == null) {
@@ -204,6 +208,13 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                             kotlinx.coroutines.delay(5_000)
                             continue
                         }
+
+                        val language = if (bgLanguage) "bg" else "en"
+                        adaptiveActions = parseStevoraAdaptiveActions(
+                            repo.getStevoraCapabilityCatalogJson(language),
+                            manifest.installationId,
+                            language,
+                        )
 
                         // The entity registry marks HA-hidden and config/diagnostic helpers.
                         // A missing registry must never make actions available.
@@ -280,6 +291,29 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
             }
             liveConnected = false
             delay(2_000L)
+        }
+    }
+
+    fun executeAdaptive(target: Int?, entity: Entity, action: StevoraAdaptiveAction, parameters: Map<String, Any>, confirmed: Boolean) {
+        if (target == null || target != activeServerId || !liveConnected || busy != null || entity.entityId !in activeControlIds ||
+            entity.state in setOf("unknown", "unavailable") ||
+            action !in adaptiveActions?.get(entity.entityId).orEmpty()
+        ) return
+        busy = entity.entityId
+        scope.launch {
+            try {
+                if (manager.getServer()?.id != target) return@launch
+                val accepted = manager.webSocketRepository(target).executeStevoraCapabilityAction(
+                    action.capabilityId, action.id, parameters, confirmed,
+                )
+                if (!accepted) status = localized(bgLanguage, "Командата беше отказана", "Command rejected")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                status = localized(bgLanguage, "Командата не беше изпълнена", "Command failed — check the hub")
+            } finally {
+                busy = null
+            }
         }
     }
 
@@ -491,7 +525,20 @@ internal fun StevoraLivePanel(initialRoom: String = "all") {
                             if (expanded && available && liveConnected) {
                                 StevoraDeviceOptions(entity, control.actions, bgLanguage) { service, fields -> execute(entity, service, fields) }
                             }
-                            if (!expanded || control.actions.isEmpty() || !available || !liveConnected) {
+                            val catalog = adaptiveActions
+                            if (expanded && available && liveConnected && catalog != null &&
+                                entity.domain !in setOf("light", "climate")
+                            ) {
+                                val target = activeServerId
+                                val canAct = busy == null && entity.entityId in activeControlIds
+                                catalog[entity.entityId].orEmpty().forEach { action ->
+                                    androidx.compose.runtime.key(target, entity.entityId, action.id) {
+                                        StevoraAdaptiveActionControl(action, bgLanguage, canAct) { parameters, confirmed ->
+                                            executeAdaptive(target, entity, action, parameters, confirmed)
+                                        }
+                                    }
+                                }
+                            } else if (!expanded || control.actions.isEmpty() || !available || !liveConnected) {
                                 Text(
                                     (when (entity.state) {
                                         "off" -> localized(bgLanguage, "Изключено", "Off")

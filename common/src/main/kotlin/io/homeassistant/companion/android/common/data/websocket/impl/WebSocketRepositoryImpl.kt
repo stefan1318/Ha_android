@@ -84,6 +84,7 @@ class WebSocketRepositoryImpl internal constructor(
 
     override suspend fun stevoraManagerCommand(command: String, fields: Map<String, Any?>): String? {
         val allowed = setOf(
+            "stevora/admin/capabilities",
             "stevora/admin/rooms/get", "stevora/admin/rooms/update",
             "stevora/admin/rooms/aliases/update", "stevora/admin/devices/update", "stevora/admin/translations/update", "stevora/admin/assistants/get",
             "stevora/admin/assistants/update", "stevora/assistants/resolve"
@@ -92,6 +93,32 @@ class WebSocketRepositoryImpl internal constructor(
         val response = webSocketCore.sendMessage(fields + mapOf("type" to command))
         if (response?.success != true) return null
         return response.result?.toString()
+    }
+
+    override suspend fun executeStevoraCapabilityAction(
+        capabilityId: String,
+        actionId: String,
+        parameters: Map<String, Any>,
+        confirmed: Boolean,
+    ): Boolean = webSocketCore.sendMessage(
+        mapOf(
+            "type" to "stevora/os/v1/capabilities/action",
+            "capability_id" to capabilityId,
+            "action_id" to actionId,
+            "parameters" to parameters,
+            "confirmed" to confirmed,
+        ),
+    )?.success == true
+
+    override suspend fun getStevoraCapabilityCatalogJson(language: String): String? {
+        val response = webSocketCore.sendMessage(
+            mapOf(
+                "type" to "stevora/os/v1/capabilities",
+                "schema_version" to 1,
+                "language" to if (language == "bg") "bg" else "en",
+            ),
+        )
+        return if (response?.success == true) response.result?.toString() else null
     }
 
     override suspend fun getStevoraManifestChanges(): Flow<Unit>? =

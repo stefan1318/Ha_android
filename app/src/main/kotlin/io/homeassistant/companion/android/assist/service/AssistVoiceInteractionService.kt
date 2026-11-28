@@ -18,6 +18,7 @@ import android.service.voice.VoiceInteractionService
 import androidx.annotation.RequiresPermission
 import androidx.annotation.VisibleForTesting
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.AndroidEntryPoint
 import io.homeassistant.companion.android.assist.service.AssistVoiceInteractionService.Companion.isActiveService
@@ -25,18 +26,27 @@ import io.homeassistant.companion.android.assist.wakeword.MicroWakeWordModelConf
 import io.homeassistant.companion.android.assist.wakeword.WakeWordListener
 import io.homeassistant.companion.android.assist.wakeword.WakeWordListenerFactory
 import io.homeassistant.companion.android.common.R as commonR
+import io.homeassistant.companion.android.common.data.servers.ServerManager
+import io.homeassistant.companion.android.stevora.StevoraConfiguration
+import io.homeassistant.companion.android.stevora.StevoraPhraseModel
+import io.homeassistant.companion.android.stevora.StevoraVoicePreferences
+import io.homeassistant.companion.android.stevora.resolveStevoraPipeline
+import java.io.File
 import io.homeassistant.companion.android.common.util.CHANNEL_ASSIST_LISTENING
 import io.homeassistant.companion.android.common.util.SdkVersion
 import io.homeassistant.companion.android.settings.assist.AssistConfigManager
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 /**
@@ -58,6 +68,12 @@ class AssistVoiceInteractionService : VoiceInteractionService() {
 
     @Inject
     lateinit var wakeWordListenerFactory: WakeWordListenerFactory
+
+    @Inject
+    lateinit var serverManager: ServerManager
+
+    private val stevoraVoice by lazy { StevoraVoicePreferences(this) }
+    private var stevoraListening: Job? = null
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val wakeWordListener: WakeWordListener by lazy {
@@ -102,7 +118,7 @@ class AssistVoiceInteractionService : VoiceInteractionService() {
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
         serviceScope.launch {
-            if (assistConfigManager.isWakeWordEnabled()) {
+            if (stevoraVoice.backgroundServerId != null || assistConfigManager.isWakeWordEnabled()) {
                 Timber.d("Wake word detection is enabled, starting listener")
                 startListening()
             } else {
@@ -136,6 +152,7 @@ class AssistVoiceInteractionService : VoiceInteractionService() {
         // onShutdown is not guaranteed to run before onDestroy, so latch teardown here too to keep
         // a late onReady from re-initializing an already-destroyed instance
         isTornDown = true
+        serviceScope.cancel()
         super.onDestroy()
     }
 
@@ -176,9 +193,59 @@ class AssistVoiceInteractionService : VoiceInteractionService() {
         }
 
         serviceScope.launch {
+            val serverId = stevoraVoice.backgroundServerId
+            if (stevoraListening?.isCompleted == false) return@launch
             wakeWordListener.stop()
-            val model = loadWakeWordModel()
-            wakeWordListener.start(this, model)
+            if (serverId != null) {
+                if (stevoraListening?.isCompleted != false && stevoraVoice.backgroundServerId == serverId) {
+                    startStevoraListening(serverId)
+                }
+            } else {
+                val model = loadWakeWordModel()
+                wakeWordListener.start(this, model)
+            }
+        }
+    }
+
+    private fun startStevoraListening(serverId: Int) {
+        stevoraListening = serviceScope.launch {
+            val samples = File(filesDir, "stevora/voice-samples")
+            val unavailable = when {
+                !isServiceReady || !isActiveService(this@AssistVoiceInteractionService) -> "system assistant inactive"
+                !stevoraVoice.automaticListening -> "automatic listening disabled"
+                !NotificationManagerCompat.from(this@AssistVoiceInteractionService).areNotificationsEnabled() -> "notifications disabled"
+                serverManager.getServer()?.id != serverId -> "configured home is not active"
+                !withContext(Dispatchers.IO) { StevoraPhraseModel.ready(samples) } -> "local voice profile unavailable"
+                else -> null
+            }
+            if (unavailable != null) {
+                android.util.Log.w("StevoraWake", "Background listener not started: $unavailable")
+                return@launch
+            }
+            val socket = serverManager.webSocketRepository(serverId)
+            val pipeline = socket.resolveStevoraPipeline()?.takeIf { it.sttEngine != null }
+            if (pipeline == null) {
+                android.util.Log.w("StevoraWake", "Background listener not started: no authorized STT pipeline")
+                return@launch
+            }
+            if (stevoraVoice.backgroundServerId != serverId || serverManager.getServer()?.id != serverId) return@launch
+            try {
+                startForegroundWithNotification(StevoraConfiguration.WAKE_PHRASE)
+                withContext(Dispatchers.IO) { StevoraPhraseModel.listen(samples) }
+                val selected = socket.resolveStevoraPipeline()
+                if (stevoraVoice.automaticListening && stevoraVoice.backgroundServerId == serverId &&
+                    serverManager.getServer()?.id == serverId && selected?.id == pipeline.id &&
+                    selected?.sttEngine != null && isActiveService(this@AssistVoiceInteractionService)
+                ) {
+                    launchAssist(StevoraConfiguration.WAKE_PHRASE, serverId, pipeline.id)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.w("StevoraWake", "Background microphone stopped: ${e.javaClass.simpleName}")
+            } finally {
+                stopForegroundCompat()
+            }
         }
     }
 
@@ -200,7 +267,7 @@ class AssistVoiceInteractionService : VoiceInteractionService() {
 
     private fun onListenerReady(model: MicroWakeWordModelConfig) {
         serviceScope.launch {
-            startForegroundWithNotification(model)
+            startForegroundWithNotification(model.wakeWord)
         }
     }
 
@@ -212,6 +279,8 @@ class AssistVoiceInteractionService : VoiceInteractionService() {
      * Stop listening for wake word.
      */
     private fun stopListening() {
+        if (stevoraVoice.backgroundServerId != null) stevoraVoice.backgroundServerId = null
+        stevoraListening?.cancel()
         serviceScope.launch {
             wakeWordListener.stop()
         }
@@ -222,7 +291,7 @@ class AssistVoiceInteractionService : VoiceInteractionService() {
      */
     private fun resumeListening() {
         serviceScope.launch {
-            if (assistConfigManager.isWakeWordEnabled()) {
+            if (stevoraVoice.backgroundServerId != null || assistConfigManager.isWakeWordEnabled()) {
                 startListening()
             }
         }
@@ -248,15 +317,15 @@ class AssistVoiceInteractionService : VoiceInteractionService() {
         ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
 
-    private fun startForegroundWithNotification(model: MicroWakeWordModelConfig) {
+    private fun startForegroundWithNotification(wakeWord: String) {
         if (SdkVersion.isAtLeast(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)) {
             startForeground(
                 NOTIFICATION_ID,
-                createNotification(model),
+                createNotification(wakeWord),
                 android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE,
             )
         } else {
-            startForeground(NOTIFICATION_ID, createNotification(model))
+            startForeground(NOTIFICATION_ID, createNotification(wakeWord))
         }
     }
 
@@ -264,18 +333,20 @@ class AssistVoiceInteractionService : VoiceInteractionService() {
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
-    private fun launchAssist(wakeWord: String? = null) {
+    private fun launchAssist(wakeWord: String? = null, serverId: Int? = null, pipelineId: String? = null) {
         if (!isServiceReady) {
             Timber.w("Cannot launch Assist: VoiceInteractionService is not ready yet")
             return
         }
         val args = Bundle().apply {
             wakeWord?.let { putString(EXTRA_WAKE_WORD, it) }
+            serverId?.let { putInt(EXTRA_STEVORA_SERVER, it) }
+            pipelineId?.let { putString(EXTRA_STEVORA_PIPELINE, it) }
         }
         showSession(args, 0)
     }
 
-    private fun createNotification(modelConfig: MicroWakeWordModelConfig): Notification {
+    private fun createNotification(wakeWord: String): Notification {
         createNotificationChannel()
 
         val stopIntent = Intent(this, AssistVoiceInteractionService::class.java).apply {
@@ -290,7 +361,7 @@ class AssistVoiceInteractionService : VoiceInteractionService() {
 
         return NotificationCompat.Builder(this, CHANNEL_ASSIST_LISTENING)
             .setContentTitle(getString(commonR.string.assist_listening_title))
-            .setContentText(getString(commonR.string.assist_listening_wakeword, modelConfig.wakeWord))
+            .setContentText(getString(commonR.string.assist_listening_wakeword, wakeWord))
             .setSmallIcon(commonR.drawable.ic_stat_ic_notification)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
@@ -332,6 +403,8 @@ class AssistVoiceInteractionService : VoiceInteractionService() {
 
         /** Bundle key for passing the detected wake word phrase to the session. */
         const val EXTRA_WAKE_WORD = "wake_word"
+        internal const val EXTRA_STEVORA_SERVER = "stevora_server"
+        internal const val EXTRA_STEVORA_PIPELINE = "stevora_pipeline"
 
         private const val ACTION_WAKE_WORD_DETECTED = "io.homeassistant.companion.android.WAKE_WORD_DETECTED"
 

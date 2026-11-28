@@ -43,12 +43,28 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.collect
+import org.json.JSONObject
 
 private val homeBg = StevoraDesign.background
 private val homeTile = StevoraDesign.surface
 private val homeAccent = StevoraDesign.accent
 private val homeText = StevoraDesign.foreground
 private val homeMuted = StevoraDesign.muted
+
+private fun adaptiveOverviewNames(payload: String, language: String): Map<String, String>? {
+    val catalog = JSONObject(payload)
+    if (catalog.optInt("schema_version") != 1 || catalog.optString("installation_id").isBlank()) return null
+    val capabilities = catalog.optJSONArray("capabilities") ?: return null
+    return buildMap {
+        for (index in 0 until capabilities.length()) {
+            val capability = capabilities.optJSONObject(index) ?: continue
+            val entityId = capability.optString("entity_id")
+            if (entityId.isBlank() || entityId.contains("backlight", ignoreCase = true)) continue
+            val name = capability.optJSONObject("names")?.optString(language).orEmpty()
+            put(entityId, name)
+        }
+    }
+}
 
 /** Overview only: detailed controls belong to Rooms, not Home. */
 @Composable
@@ -110,11 +126,15 @@ internal fun StevoraHomeOverview(
                     if (snapshot == null || changes == null) {
                         online = false
                     } else {
-                        val raw = repo.getStevoraManifestJson(if (bg) "bg" else "en")
+                        val language = if (bg) "bg" else "en"
+                        val catalogNames = repo.getStevoraCapabilityCatalogJson(language)
+                            ?.let { adaptiveOverviewNames(it, language) }
+                        val raw = repo.getStevoraManifestJson(language)
                         val valid = raw != null && StevoraHomeProjection.apply(server.id, raw)
                         if (!valid) StevoraHomeProjection.clear(server.id)
                         val manifest = if (valid) StevoraHomeProjection.home.value[server.id] else null
-                        val readableIds = manifest?.entityMappings?.values?.flatten().orEmpty().toSet()
+                        val readableIds = catalogNames?.keys
+                            ?: manifest?.entityMappings?.values?.flatten().orEmpty().toSet()
                         val current = snapshot.filter {
                             it.entityId in readableIds &&
                                 !it.entityId.contains("backlight", ignoreCase = true)
@@ -139,14 +159,15 @@ internal fun StevoraHomeOverview(
                                 "cool" -> if (bg) "Охлаждане" else "Cooling"
                                 else -> available(mode).replace('_', ' ')
                             }
-                            climateTitle = manifest?.localizedEntityNames?.get(ac?.entityId)
+                            climateTitle = catalogNames?.get(ac?.entityId)?.takeIf { it.isNotBlank() }
+                                ?: manifest?.localizedEntityNames?.get(ac?.entityId)
                                 ?: if (bg) "Климатизация" else "Climate"
                             fanState = available(fan?.state)
                             activeLights = current.values.count {
                                 it.domain == "light" && it.state == "on"
                             }
                         }
-                        online = manifest != null
+                        online = catalogNames != null || manifest != null
                         publish()
                         kotlinx.coroutines.withTimeoutOrNull(20_000L) {
                             changes.collect { event ->

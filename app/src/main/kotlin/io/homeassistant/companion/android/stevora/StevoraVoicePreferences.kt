@@ -23,6 +23,14 @@ internal class StevoraVoicePreferences(context: Context) {
             ).apply()
         }
 
+    var automaticListening: Boolean
+        get() = prefs.getBoolean("automatic_listening", false)
+        set(value) = prefs.edit().putBoolean("automatic_listening", value).apply()
+
+    var backgroundServerId: Int?
+        get() = prefs.getInt("background_server_id", -1).takeIf { it >= 0 }
+        set(value) = prefs.edit().putInt("background_server_id", value ?: -1).apply()
+
     var sensitivity: Float
         get() = prefs.getFloat(KEY_SENSITIVITY, DEFAULT_SENSITIVITY).coerceIn(0.0f, 1.0f)
         set(value) {

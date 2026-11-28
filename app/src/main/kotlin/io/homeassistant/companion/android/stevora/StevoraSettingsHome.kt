@@ -112,9 +112,12 @@ internal fun StevoraSettingsHome(
                 accountVerified = false
                 admin = false
             }
-            val user = id?.let { manager.webSocketRepository(it).getCurrentUser() }
+            val repository = id?.let { manager.webSocketRepository(it) }
+            val user = repository?.getCurrentUser()
+            val adminAllowed = (user?.isAdmin == true || user?.isOwner == true) &&
+                repository?.stevoraManagerCommand("stevora/admin/capabilities", emptyMap()) != null
             verifiedServer = id
-            admin = user?.isAdmin == true || user?.isOwner == true
+            admin = adminAllowed
             accountVerified = user != null
             accountName = user?.name ?: "—"
         } catch (e: CancellationException) {
@@ -359,11 +362,12 @@ private fun StevoraNativeSettingsSection(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
-    val manager = remember(context) {
-        EntryPointAccessors.fromApplication(
-            context.applicationContext, StevoraServerEntryPoint::class.java,
-        ).serverManager()
+    val services = remember(context) {
+        EntryPointAccessors.fromApplication(context.applicationContext, StevoraServerEntryPoint::class.java)
     }
+    val manager = services.serverManager()
+    val assistant = services.defaultAssistantManager()
+    val voicePreferences = remember(context) { StevoraVoicePreferences(context) }
     fun tr(a: String, b: String) = if (bg) a else b
     fun openSystem(action: String, packageUri: Boolean = false) {
         try {
@@ -381,6 +385,17 @@ private fun StevoraNativeSettingsSection(
         }
     }
     val scope = rememberCoroutineScope()
+    var automaticVoice by remember { mutableStateOf(voicePreferences.automaticListening) }
+    var backgroundVoice by remember { mutableStateOf(false) }
+    var defaultAssistant by remember { mutableStateOf(false) }
+    val voiceService = io.homeassistant.companion.android.assist.service.AssistVoiceInteractionService.Companion
+    LifecycleResumeEffect(section, assistant) {
+        if (section == "voice") {
+            defaultAssistant = assistant.isDefaultAssistant()
+            backgroundVoice = defaultAssistant && voicePreferences.backgroundServerId != null
+        }
+        onPauseOrDispose { }
+    }
     var server by remember { mutableStateOf<io.homeassistant.companion.android.database.server.Server?>(null) }
     var localUrl by remember { mutableStateOf("") }
     var remoteUrl by remember { mutableStateOf("") }
@@ -648,16 +663,68 @@ private fun StevoraNativeSettingsSection(
                         Text(tr("Разреши микрофона", "Allow microphone"))
                     }
                 }
+                StevoraSectionHeading("Hey Stevora", tr("Автоматично слушане", "Automatic listening"))
+                SettingsInfo(tr("Системен гласов асистент", "System voice assistant"),
+                    if (defaultAssistant) tr("STEVORA е избрана", "STEVORA is selected")
+                    else tr("Избери STEVORA в настройките на Android.", "Select STEVORA in Android settings."))
+                OutlinedButton(onClick = {
+                    try {
+                        context.startActivity(assistant.getSetDefaultAssistantIntent())
+                    } catch (_: android.content.ActivityNotFoundException) {
+                        openSystem(Settings.ACTION_SETTINGS)
+                    }
+                }) { Text(tr("Настройки на Android", "Android settings")) }
+                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    Text(tr("Слушай автоматично в Assist", "Listen automatically in Assist"), color = muted)
+                    Switch(checked = automaticVoice, enabled = automaticVoice || (defaultAssistant && micAllowed && trained),
+                        onCheckedChange = { enabled ->
+                            voicePreferences.automaticListening = enabled
+                            automaticVoice = enabled
+                            if (!enabled && voicePreferences.backgroundServerId != null) {
+                                voicePreferences.backgroundServerId = null
+                                backgroundVoice = false
+                                voiceService.stopListening(context)
+                            }
+                        })
+                }
+                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    Text(tr("Слушай и във фон", "Listen in background"), color = muted)
+                    Switch(checked = backgroundVoice,
+                        enabled = backgroundVoice || (automaticVoice && defaultAssistant && micAllowed && trained &&
+                            server != null && notificationsAllowed && recording == null && playing == null && !training),
+                        onCheckedChange = { enabled ->
+                            if (!enabled) {
+                                voicePreferences.backgroundServerId = null
+                                backgroundVoice = false
+                                voiceService.stopListening(context)
+                            } else {
+                                val id = server?.id ?: return@Switch
+                                if (!assistant.isDefaultAssistant() ||
+                                    context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
+                                ) return@Switch
+                                voicePreferences.backgroundServerId = id
+                                backgroundVoice = true
+                                voiceService.startListening(context)
+                            }
+                        })
+                }
+                if (!notificationsAllowed) {
+                    OutlinedButton(onClick = { notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS) }) {
+                        Text(tr("Разреши известията за слушане", "Allow listening notifications"))
+                    }
+                }
+                Text(tr("При включване Android може да слуша и при заключен екран. Статусът е в известията.",
+                    "When enabled, Android may listen while locked. Listening status is shown in notifications."), color = muted)
                 StevoraSectionHeading("Hey Stevora", tr("Запиши поне три образеца. Кажи „Hey Stevora“ веднъж във всеки.", "Record at least three samples. Say “Hey Stevora” once in each."))
                 SettingsInfo(tr("Гласови образци", "Voice samples"), "$sampleCount / 20")
                 Button(
-                    enabled = micAllowed && !training && playing == null && (recording != null || sampleCount < 20),
+                    enabled = micAllowed && !backgroundVoice && !training && playing == null && (recording != null || sampleCount < 20),
                     onClick = { if (recording != null) stopRecording() else startRecording() },
                 ) { Text(if (recording != null) tr("Спри и запази", "Stop and save") else tr("Запиши образец", "Record sample")) }
                 clips.forEachIndexed { index, file ->
                     Text(tr("Образец", "Sample") + " " + (index + 1), color = muted)
                     Row {
-                        OutlinedButton(enabled = recording == null && !training, onClick = {
+                        OutlinedButton(enabled = !backgroundVoice && recording == null && !training, onClick = {
                             val stopping = playing == file
                             stopPlayback()
                             if (!stopping) try {
@@ -669,19 +736,19 @@ private fun StevoraNativeSettingsSection(
                                 audio.prepare(); playing = file; audio.start()
                             } catch (_: Exception) { stopPlayback(); saveStatus = tr("Записът не се отваря", "Could not play sample") }
                         }) { Text(if (playing == file) tr("Спри", "Stop") else tr("Прослушай", "Play")) }
-                        OutlinedButton(enabled = recording == null && !training, onClick = {
+                        OutlinedButton(enabled = !backgroundVoice && recording == null && !training, onClick = {
                             if (playing == file) stopPlayback()
                             if (!file.delete()) saveStatus = tr("Записът не бе изтрит", "Could not delete sample")
                             refreshCount()
                         }) { Text(tr("Изтрий", "Delete")) }
                     }
                 }
-                Button(enabled = sampleCount >= 3 && recording == null && playing == null && !training, onClick = {
+                Button(enabled = sampleCount >= 3 && !backgroundVoice && recording == null && playing == null && !training, onClick = {
                     training = true
                     scope.launch {
                         try {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { StevoraPhraseModel.train(sampleFolder) }
-                            saveStatus = tr("Готово. Избери „Слушай за Hey Stevora“ в AI.", "Ready. Choose “Listen for Hey Stevora” in AI.")
+                            saveStatus = tr("Готово. Включи автоматичното слушане от тази страница.", "Ready. Enable automatic listening on this page.")
                         } catch (e: CancellationException) { throw e }
                         catch (_: Exception) { saveStatus = tr("Провери записите. Използвай кратки, ясни произнасяния.", "Review the clips. Use short, clear phrases.") }
                         finally { refreshCount(); training = false }

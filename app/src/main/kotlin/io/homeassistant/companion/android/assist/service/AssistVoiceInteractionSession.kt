@@ -33,6 +33,8 @@ class AssistVoiceInteractionSession(context: Context) : VoiceInteractionSession(
         // We use the activity because it already has all the Assist logic implemented
         val intent = AssistActivity.newInstance(
             context = context,
+            serverId = args?.getInt(AssistVoiceInteractionService.EXTRA_STEVORA_SERVER, -1) ?: -1,
+            pipelineId = args?.getString(AssistVoiceInteractionService.EXTRA_STEVORA_PIPELINE),
             wakeWordPhrase = wakeWord,
             fromSystemAssistant = true,
         ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
