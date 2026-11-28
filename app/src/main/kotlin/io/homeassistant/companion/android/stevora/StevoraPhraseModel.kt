@@ -136,12 +136,17 @@ internal object StevoraPhraseModel {
     fun ready(dir: File) = runCatching { read(dir) }.isSuccess
 
     @SuppressLint("MissingPermission")
-    suspend fun listen(dir: File) {
+    suspend fun listen(dir: File, onRecording: suspend () -> Unit = {}) {
         val profile = read(dir)
         val bufferSize = max(4096, AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT))
-        val mic = AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize)
+        // Use the same capture source as the enrollment samples.
+        val mic = AudioRecord(MediaRecorder.AudioSource.MIC, rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize)
         try {
+            check(mic.state == AudioRecord.STATE_INITIALIZED) { "Microphone initialization failed" }
             mic.startRecording()
+            check(mic.recordingState == AudioRecord.RECORDSTATE_RECORDING) { "Microphone did not start recording" }
+            android.util.Log.i("StevoraWake", "Microphone recording started")
+            onRecording()
             val frame = ShortArray(window)
             val phrase = ShortArray(rate * 4)
             var used = 0
@@ -164,7 +169,10 @@ internal object StevoraPhraseModel {
                     quiet = if (speech) 0 else quiet + 1
                     if (quiet >= 14 || used == phrase.size) {
                         val v = runCatching { features(phrase.copyOf(used)) }.getOrNull()
-                        if (v != null && profile.vectors.map { distance(v, it) }.sorted().take(2).average() <= profile.threshold) return
+                        if (v != null && profile.vectors.map { distance(v, it) }.sorted().take(2).average() <= profile.threshold) {
+                            android.util.Log.i("StevoraWake", "Local phrase matched")
+                            return
+                        }
                         used = 0
                         quiet = 0
                     }

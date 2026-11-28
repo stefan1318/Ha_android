@@ -210,13 +210,24 @@ class AssistVoiceInteractionService : VoiceInteractionService() {
     private fun startStevoraListening(serverId: Int) {
         stevoraListening = serviceScope.launch {
             val samples = File(filesDir, "stevora/voice-samples")
-            if (!isServiceReady || !isActiveService(this@AssistVoiceInteractionService) ||
-                !stevoraVoice.automaticListening || !NotificationManagerCompat.from(this@AssistVoiceInteractionService).areNotificationsEnabled() ||
-                serverManager.getServer()?.id != serverId ||
-                !withContext(Dispatchers.IO) { StevoraPhraseModel.ready(samples) }
-            ) return@launch
+            val unavailable = when {
+                !isServiceReady || !isActiveService(this@AssistVoiceInteractionService) -> "system assistant inactive"
+                !stevoraVoice.automaticListening -> "automatic listening disabled"
+                !NotificationManagerCompat.from(this@AssistVoiceInteractionService).areNotificationsEnabled() -> "notifications disabled"
+                serverManager.getServer()?.id != serverId -> "configured home is not active"
+                !withContext(Dispatchers.IO) { StevoraPhraseModel.ready(samples) } -> "local voice profile unavailable"
+                else -> null
+            }
+            if (unavailable != null) {
+                android.util.Log.w("StevoraWake", "Background listener not started: $unavailable")
+                return@launch
+            }
             val socket = serverManager.webSocketRepository(serverId)
-            val pipeline = socket.resolveStevoraPipeline()?.takeIf { it.sttEngine != null } ?: return@launch
+            val pipeline = socket.resolveStevoraPipeline()?.takeIf { it.sttEngine != null }
+            if (pipeline == null) {
+                android.util.Log.w("StevoraWake", "Background listener not started: no authorized STT pipeline")
+                return@launch
+            }
             if (stevoraVoice.backgroundServerId != serverId || serverManager.getServer()?.id != serverId) return@launch
             try {
                 startForegroundWithNotification(StevoraConfiguration.WAKE_PHRASE)
@@ -231,7 +242,7 @@ class AssistVoiceInteractionService : VoiceInteractionService() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Timber.w(e, "STEVORA background listening stopped")
+                android.util.Log.w("StevoraWake", "Background microphone stopped: ${e.javaClass.simpleName}")
             } finally {
                 stopForegroundCompat()
             }

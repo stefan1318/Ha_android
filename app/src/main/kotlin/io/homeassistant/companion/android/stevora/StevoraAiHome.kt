@@ -220,22 +220,49 @@ internal fun StevoraAiHome(
         }
         if (listenStatus.isNotEmpty()) Text(listenStatus, color = Color.White)
         LaunchedEffect(awake, routeServer, pipelineId, pipelineHasStt, busy) {
-            val id = routeServer ?: return@LaunchedEffect
-            val selected = pipelineId ?: return@LaunchedEffect
+            if (!awake || busy || !preferences.automaticListening) return@LaunchedEffect
+            val id = routeServer
+            val selected = pipelineId
             val assistant = services.defaultAssistantManager()
-            if (!awake || busy || !pipelineHasStt || !preferences.automaticListening ||
-                !assistant.isDefaultAssistant() ||
+            if (id == null || selected == null || !pipelineHasStt) {
+                listenStatus = if (bg) "Няма достъпен Assist pipeline с разпознаване на реч."
+                    else "No Assist pipeline with speech recognition is available."
+                return@LaunchedEffect
+            }
+            if (!assistant.isDefaultAssistant() ||
                 context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
-            ) return@LaunchedEffect
+            ) {
+                listenStatus = if (bg) "Провери системния асистент и разрешението за микрофона."
+                    else "Check the system assistant and microphone permission."
+                return@LaunchedEffect
+            }
             try {
                 val systemAssist = services.assistConfigManager()
-                if (preferences.backgroundServerId != null || systemAssist.isWakeWordEnabled()) return@LaunchedEffect
+                if (preferences.backgroundServerId != null) {
+                    listenStatus = if (bg) "Фоновият режим управлява микрофона. Провери известието за слушане."
+                        else "Background mode controls the microphone. Check the listening notification."
+                    return@LaunchedEffect
+                }
+                if (systemAssist.isWakeWordEnabled()) {
+                    listenStatus = if (bg) "Друг системен детектор за фраза е включен."
+                        else "Another system wake-word detector is enabled."
+                    return@LaunchedEffect
+                }
                 val ready = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { StevoraPhraseModel.ready(voiceFolder) }
-                if (!ready) return@LaunchedEffect
-                listening = true
-                listenStatus = if (bg) "Микрофонът слуша локално за „Hey Stevora“."
-                    else "Microphone listening locally for “Hey Stevora”."
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { StevoraPhraseModel.listen(voiceFolder) }
+                if (!ready) {
+                    listenStatus = if (bg) "Няма валиден гласов профил. Обучи го в Настройки → Hey Stevora."
+                        else "No valid voice profile. Train it in Settings → Hey Stevora."
+                    return@LaunchedEffect
+                }
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    StevoraPhraseModel.listen(voiceFolder) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            listening = true
+                            listenStatus = if (bg) "Микрофонът слуша локално за „Hey Stevora“."
+                                else "Microphone listening locally for “Hey Stevora”."
+                        }
+                    }
+                }
                 val sameRoute = manager.getServer()?.id == id &&
                     manager.webSocketRepository(id).resolveStevoraPipeline()?.id == selected
                 if (sameRoute && awake && preferences.automaticListening && assistant.isDefaultAssistant() &&
