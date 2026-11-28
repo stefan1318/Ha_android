@@ -20,7 +20,7 @@ internal object StevoraPhraseModel {
     fun samples(dir: File) = dir.listFiles().orEmpty().filter { it.isFile && it.extension == "m4a" && it.name.startsWith("sample_") }.sortedBy { it.name }
     private fun model(dir: File) = File(dir, "phrase-v1.bin")
     private fun fingerprint(files: List<File>) = files.joinToString("|") { "${it.name}/${it.length()}/${it.lastModified()}" }
-    private data class Profile(val threshold: Double, val vectors: List<FloatArray>)
+    private data class Profile(val vectors: List<FloatArray>)
 
     private fun decode(file: File): ShortArray {
         val extractor = MediaExtractor()
@@ -104,14 +104,38 @@ internal object StevoraPhraseModel {
         }
     }
 
-    private fun distance(a: FloatArray, b: FloatArray) = a.indices.sumOf { (a[it] - b[it]).toDouble().pow(2) } / frames
+    private fun distance(a: FloatArray, b: FloatArray): Double {
+        // Allow a small offset in the phrase boundary without accepting
+        // arbitrary rearrangements of its acoustic frames.
+        return (-2..2).minOf { shift ->
+            val start = max(0, -shift)
+            val end = min(frames, frames - shift)
+            var sum = 0.0
+            for (frame in start until end) {
+                for (band in 0 until bands) {
+                    val delta = a[frame * bands + band] - b[(frame + shift) * bands + band]
+                    sum += delta.toDouble() * delta
+                }
+            }
+            sum / (end - start) + abs(shift) * 0.025
+        }
+    }
+
+    private fun score(vector: FloatArray, templates: List<FloatArray>): Double =
+        templates.map { distance(vector, it) }.sorted().take(2).average()
+
+    private fun threshold(vectors: List<FloatArray>): Double {
+        val heldOutScores = vectors.mapIndexed { index, vector ->
+            score(vector, vectors.filterIndexed { candidate, _ -> index != candidate })
+        }.sorted()
+        return (heldOutScores[heldOutScores.size / 2] * 1.20).coerceIn(0.16, 0.66)
+    }
     fun train(dir: File) {
         val files = samples(dir)
         require(files.size in 3..20)
         val signature = fingerprint(files)
         val vectors = files.map { features(decode(it)) }
-        val nearest = vectors.indices.map { i -> vectors.indices.filter { it != i }.minOf { j -> distance(vectors[i], vectors[j]) } }.sorted()
-        val threshold = (nearest[nearest.size / 2] * 1.25).coerceIn(0.16, 0.66)
+        val threshold = threshold(vectors)
         require(fingerprint(samples(dir)) == signature)
         val atomic = AtomicFile(model(dir))
         val stream = atomic.startWrite()
@@ -128,16 +152,18 @@ internal object StevoraPhraseModel {
 
     private fun read(dir: File): Profile = DataInputStream(AtomicFile(model(dir)).openRead()).use { input ->
         require(input.readUTF() == fingerprint(samples(dir)))
-        val limit = input.readDouble()
+        input.readDouble()
         val count = input.readInt()
         require(count in 3..20)
-        Profile(limit, List(count) { FloatArray(frames * bands) { input.readFloat() } })
+        Profile(List(count) { FloatArray(frames * bands) { input.readFloat() } })
     }
     fun ready(dir: File) = runCatching { read(dir) }.isSuccess
 
     @SuppressLint("MissingPermission")
     suspend fun listen(dir: File, onRecording: suspend () -> Unit = {}) {
         val profile = read(dir)
+        // Recalibrate legacy profiles against the matcher used for live speech.
+        val cutoff = threshold(profile.vectors)
         val bufferSize = max(4096, AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT))
         // Use the same capture source as the enrollment samples.
         val mic = AudioRecord(MediaRecorder.AudioSource.MIC, rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize)
@@ -149,6 +175,9 @@ internal object StevoraPhraseModel {
             onRecording()
             val frame = ShortArray(window)
             val phrase = ShortArray(rate * 4)
+            val preRoll = ShortArray(window * 5)
+            var preRollFrames = 0
+            var preRollCursor = 0
             var used = 0
             var quiet = 0
             var ambient = 70.0
@@ -162,16 +191,36 @@ internal object StevoraPhraseModel {
                 }
                 val level = rms(frame, 0)
                 val speech = level > max(120.0, ambient * 2.6)
-                if (!speech && used == 0) ambient = 0.95 * ambient + 0.05 * level
+                if (!speech && used == 0) {
+                    ambient = 0.95 * ambient + 0.05 * level
+                    frame.copyInto(preRoll, preRollCursor * window)
+                    preRollCursor = (preRollCursor + 1) % 5
+                    preRollFrames = min(preRollFrames + 1, 5)
+                    continue
+                }
+                if (used == 0) {
+                    repeat(preRollFrames) { index ->
+                        val offset = ((preRollCursor - preRollFrames + index + 5) % 5) * window
+                        preRoll.copyInto(phrase, used, offset, offset + window)
+                        used += window
+                    }
+                    preRollFrames = 0
+                }
                 if (speech || used > 0) {
                     frame.copyInto(phrase, used)
                     used += window
                     quiet = if (speech) 0 else quiet + 1
-                    if (quiet >= 14 || used == phrase.size) {
-                        val v = runCatching { features(phrase.copyOf(used)) }.getOrNull()
-                        if (v != null && profile.vectors.map { distance(v, it) }.sorted().take(2).average() <= profile.threshold) {
-                            android.util.Log.i("StevoraWake", "Local phrase matched")
-                            return
+                    if (quiet >= 18 || used == phrase.size) {
+                        val vector = runCatching { features(phrase.copyOf(used)) }.getOrNull()
+                        if (vector != null) {
+                            val candidate = score(vector, profile.vectors)
+                            android.util.Log.i("StevoraWake", "Phrase candidate: score=${(candidate * 1000).toInt()}, cutoff=${(cutoff * 1000).toInt()}")
+                            if (candidate <= cutoff) {
+                                android.util.Log.i("StevoraWake", "Local phrase matched")
+                                return
+                            }
+                        } else {
+                            android.util.Log.i("StevoraWake", "Phrase candidate did not meet acoustic segment requirements")
                         }
                         used = 0
                         quiet = 0
