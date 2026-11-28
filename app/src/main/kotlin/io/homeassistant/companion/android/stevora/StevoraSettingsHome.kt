@@ -362,11 +362,13 @@ private fun StevoraNativeSettingsSection(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
-    val manager = remember(context) {
-        EntryPointAccessors.fromApplication(
-            context.applicationContext, StevoraServerEntryPoint::class.java,
-        ).serverManager()
+    val services = remember(context) {
+        EntryPointAccessors.fromApplication(context.applicationContext, StevoraServerEntryPoint::class.java)
     }
+    val manager = services.serverManager()
+    val assistant = services.defaultAssistantManager()
+    val assistConfig = services.assistConfigManager()
+    val voicePreferences = remember(context) { StevoraVoicePreferences(context) }
     fun tr(a: String, b: String) = if (bg) a else b
     fun openSystem(action: String, packageUri: Boolean = false) {
         try {
@@ -384,6 +386,26 @@ private fun StevoraNativeSettingsSection(
         }
     }
     val scope = rememberCoroutineScope()
+    var automaticVoice by remember { mutableStateOf(voicePreferences.automaticListening) }
+    var backgroundVoice by remember { mutableStateOf(false) }
+    var defaultAssistant by remember { mutableStateOf(false) }
+    var backgroundModel by remember {
+        mutableStateOf<io.homeassistant.companion.android.assist.wakeword.MicroWakeWordModelConfig?>(null)
+    }
+    var voiceSaving by remember { mutableStateOf(false) }
+    var voiceError by remember { mutableStateOf("") }
+    LifecycleResumeEffect(section, assistant) {
+        if (section == "voice") defaultAssistant = assistant.isDefaultAssistant()
+        onPauseOrDispose { }
+    }
+    LaunchedEffect(section, defaultAssistant) {
+        if (section != "voice") return@LaunchedEffect
+        backgroundModel = assistConfig.getAvailableModels().firstOrNull {
+            it.wakeWord.equals(StevoraConfiguration.WAKE_WORD_MODEL_NAME, ignoreCase = true)
+        }
+        backgroundVoice = defaultAssistant && backgroundModel != null && assistConfig.isWakeWordEnabled() &&
+            assistConfig.getSelectedWakeWordModel() == backgroundModel
+    }
     var server by remember { mutableStateOf<io.homeassistant.companion.android.database.server.Server?>(null) }
     var localUrl by remember { mutableStateOf("") }
     var remoteUrl by remember { mutableStateOf("") }
@@ -651,6 +673,69 @@ private fun StevoraNativeSettingsSection(
                         Text(tr("Разреши микрофона", "Allow microphone"))
                     }
                 }
+                StevoraSectionHeading("Hey Stevora", tr("Автоматично слушане", "Automatic listening"))
+                SettingsInfo(tr("Системен гласов асистент", "System voice assistant"),
+                    if (defaultAssistant) tr("STEVORA е избрана", "STEVORA is selected")
+                    else tr("Избери STEVORA в настройките на Android.", "Select STEVORA in Android settings."))
+                OutlinedButton(onClick = {
+                    try {
+                        context.startActivity(assistant.getSetDefaultAssistantIntent())
+                    } catch (_: android.content.ActivityNotFoundException) {
+                        openSystem(Settings.ACTION_SETTINGS)
+                    }
+                }) { Text(tr("Настройки на Android", "Android settings")) }
+                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    Text(tr("Слушай автоматично в Assist", "Listen automatically in Assist"), color = muted)
+                    Switch(checked = automaticVoice, enabled = !voiceSaving && (automaticVoice || (defaultAssistant && micAllowed && trained)),
+                        onCheckedChange = { enabled ->
+                            if (!enabled && backgroundVoice) {
+                                scope.launch {
+                                    voiceSaving = true
+                                    try {
+                                        assistConfig.setWakeWordEnabled(false)
+                                        backgroundVoice = false
+                                        automaticVoice = false
+                                        voicePreferences.automaticListening = false
+                                    } catch (e: CancellationException) { throw e }
+                                    catch (_: Exception) { voiceError = tr("Слушането не бе спряно.", "Listening could not be stopped.") }
+                                    finally { voiceSaving = false }
+                                }
+                            } else {
+                                automaticVoice = enabled
+                                voicePreferences.automaticListening = enabled
+                            }
+                        })
+                }
+                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    Text(tr("Слушай и във фон", "Listen in background"), color = muted)
+                    Switch(checked = backgroundVoice,
+                        enabled = !voiceSaving && (backgroundVoice ||
+                            (automaticVoice && defaultAssistant && micAllowed && backgroundModel != null)),
+                        onCheckedChange = { enabled ->
+                            scope.launch {
+                                voiceSaving = true
+                                voiceError = ""
+                                try {
+                                    if (enabled) {
+                                        val model = backgroundModel ?: return@launch
+                                        if (!assistant.isDefaultAssistant() ||
+                                            context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
+                                        ) return@launch
+                                        assistConfig.setSelectedWakeWordModel(model)
+                                    }
+                                    assistConfig.setWakeWordEnabled(enabled)
+                                    backgroundVoice = enabled
+                                } catch (e: CancellationException) { throw e }
+                                catch (_: Exception) { voiceError = tr("Режимът не бе променен.", "Listening mode could not be changed.") }
+                                finally { voiceSaving = false }
+                            }
+                        })
+                }
+                if (backgroundModel == null) {
+                    Text(tr("Фоновият режим изисква пакетиран модел за „Hey Stevora“.",
+                        "Background mode requires a packaged “Hey Stevora” model."), color = muted)
+                }
+                if (voiceError.isNotEmpty()) Text(voiceError, color = muted)
                 StevoraSectionHeading("Hey Stevora", tr("Запиши поне три образеца. Кажи „Hey Stevora“ веднъж във всеки.", "Record at least three samples. Say “Hey Stevora” once in each."))
                 SettingsInfo(tr("Гласови образци", "Voice samples"), "$sampleCount / 20")
                 Button(
@@ -684,7 +769,7 @@ private fun StevoraNativeSettingsSection(
                     scope.launch {
                         try {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { StevoraPhraseModel.train(sampleFolder) }
-                            saveStatus = tr("Готово. Избери „Слушай за Hey Stevora“ в AI.", "Ready. Choose “Listen for Hey Stevora” in AI.")
+                            saveStatus = tr("Готово. Включи автоматичното слушане от тази страница.", "Ready. Enable automatic listening on this page.")
                         } catch (e: CancellationException) { throw e }
                         catch (_: Exception) { saveStatus = tr("Провери записите. Използвай кратки, ясни произнасяния.", "Review the clips. Use short, clear phrases.") }
                         finally { refreshCount(); training = false }

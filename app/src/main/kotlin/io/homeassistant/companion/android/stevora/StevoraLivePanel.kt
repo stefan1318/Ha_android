@@ -107,6 +107,8 @@ private fun hvacLabel(mode: String, bgLanguage: Boolean): String = when (mode) {
 internal interface StevoraServerEntryPoint {
     fun languagesManager(): io.homeassistant.companion.android.settings.language.LanguagesManager
     fun serverManager(): ServerManager
+    fun defaultAssistantManager(): io.homeassistant.companion.android.settings.assist.DefaultAssistantManager
+    fun assistConfigManager(): io.homeassistant.companion.android.settings.assist.AssistConfigManager
 }
 
 /**

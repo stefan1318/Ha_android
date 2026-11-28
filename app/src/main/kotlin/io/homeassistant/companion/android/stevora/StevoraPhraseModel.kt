@@ -136,7 +136,7 @@ internal object StevoraPhraseModel {
     fun ready(dir: File) = runCatching { read(dir) }.isSuccess
 
     @SuppressLint("MissingPermission")
-    suspend fun listen(dir: File): Boolean {
+    suspend fun listen(dir: File) {
         val profile = read(dir)
         val bufferSize = max(4096, AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT))
         val mic = AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize)
@@ -147,8 +147,7 @@ internal object StevoraPhraseModel {
             var used = 0
             var quiet = 0
             var ambient = 70.0
-            val deadline = android.os.SystemClock.elapsedRealtime() + 30000
-            while (android.os.SystemClock.elapsedRealtime() < deadline) {
+            while (true) {
                 currentCoroutineContext().ensureActive()
                 var filled = 0
                 while (filled < window) {
@@ -165,13 +164,12 @@ internal object StevoraPhraseModel {
                     quiet = if (speech) 0 else quiet + 1
                     if (quiet >= 14 || used == phrase.size) {
                         val v = runCatching { features(phrase.copyOf(used)) }.getOrNull()
-                        if (v != null && profile.vectors.map { distance(v, it) }.sorted().take(2).average() <= profile.threshold) return true
+                        if (v != null && profile.vectors.map { distance(v, it) }.sorted().take(2).average() <= profile.threshold) return
                         used = 0
                         quiet = 0
                     }
                 }
             }
-            return false
         } finally {
             runCatching { mic.stop() }
             mic.release()

@@ -1,5 +1,7 @@
 package io.homeassistant.companion.android.stevora
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -49,9 +51,11 @@ internal fun StevoraAiHome(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current.applicationContext
-    val manager = remember(context) {
-        EntryPointAccessors.fromApplication(context, StevoraServerEntryPoint::class.java).serverManager()
+    val services = remember(context) {
+        EntryPointAccessors.fromApplication(context, StevoraServerEntryPoint::class.java)
     }
+    val manager = services.serverManager()
+    val preferences = remember(context) { StevoraVoicePreferences(context) }
     val scope = rememberCoroutineScope()
     var input by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
@@ -59,13 +63,10 @@ internal fun StevoraAiHome(
     val voiceFolder = remember(context) { java.io.File(context.filesDir, "stevora/voice-samples") }
     var listening by remember { mutableStateOf(false) }
     var listenStatus by remember { mutableStateOf("") }
-    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
-    androidx.compose.runtime.DisposableEffect(lifecycle) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) listening = false
-        }
-        lifecycle.addObserver(observer)
-        onDispose { lifecycle.removeObserver(observer) }
+    var awake by remember { mutableStateOf(false) }
+    androidx.lifecycle.compose.LifecycleResumeEffect(services) {
+        awake = true
+        onPauseOrDispose { awake = false }
     }
     var routeServer by remember { mutableStateOf<Int?>(null) }
     var pipelineId by remember { mutableStateOf<String?>(null) }
@@ -78,6 +79,7 @@ internal fun StevoraAiHome(
 
     LaunchedEffect(manager, refreshPipelines) {
         try {
+            routeServer = null
             pipelineId = null
             pipelineHasStt = false
             val server = manager.getServer()
@@ -196,7 +198,7 @@ internal fun StevoraAiHome(
                 },
             ) { Text(if (busy) "Sending…" else "Send") }
             OutlinedButton(
-                enabled = pipelineId != null && pipelineHasStt && !busy,
+                enabled = pipelineId != null && pipelineHasStt && !busy && !listening,
                 onClick = {
                     val selected = pipelineId ?: return@OutlinedButton
                     scope.launch {
@@ -216,25 +218,40 @@ internal fun StevoraAiHome(
                 },
             ) { Text("Voice Assist") }
         }
-        if (remember(voiceFolder) { StevoraPhraseModel.ready(voiceFolder) }) {
-            OutlinedButton(enabled = !busy && pipelineHasStt && pipelineId != null, onClick = { listening = !listening }) {
-                Text(if (listening) (if (bg) "Спри слушането" else "Stop listening")
-                    else (if (bg) "Слушай за Hey Stevora" else "Listen for Hey Stevora"))
-            }
-            if (listenStatus.isNotEmpty()) Text(listenStatus, color = Color.White)
-            LaunchedEffect(listening, routeServer, pipelineId) {
-                val id = routeServer ?: return@LaunchedEffect
-                val selected = pipelineId ?: return@LaunchedEffect
-                if (!listening) return@LaunchedEffect
-                try {
-                    listenStatus = if (bg) "Кажи „Hey Stevora“ (до 30 секунди)." else "Say “Hey Stevora” within 30 seconds."
-                    val match = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { StevoraPhraseModel.listen(voiceFolder) }
-                    if (match && manager.getServer()?.id == id && manager.webSocketRepository(id).resolveStevoraPipeline()?.id == selected) {
-                        listenStatus = ""; onStartConversation(id, selected)
-                    } else listenStatus = if (bg) "Няма разпозната фраза." else "No matching phrase heard."
-                } catch (e: CancellationException) { throw e }
-                catch (_: Exception) { listenStatus = if (bg) "Провери достъпа до микрофона и образците." else "Check microphone access and samples." }
-                finally { listening = false }
+        if (listenStatus.isNotEmpty()) Text(listenStatus, color = Color.White)
+        LaunchedEffect(awake, routeServer, pipelineId, pipelineHasStt, busy) {
+            val id = routeServer ?: return@LaunchedEffect
+            val selected = pipelineId ?: return@LaunchedEffect
+            val assistant = services.defaultAssistantManager()
+            if (!awake || busy || !pipelineHasStt || !preferences.automaticListening ||
+                !assistant.isDefaultAssistant() ||
+                context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
+            ) return@LaunchedEffect
+            try {
+                val systemAssist = services.assistConfigManager()
+                if (systemAssist.isWakeWordEnabled()) return@LaunchedEffect
+                val ready = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { StevoraPhraseModel.ready(voiceFolder) }
+                if (!ready) return@LaunchedEffect
+                listening = true
+                listenStatus = if (bg) "Микрофонът слуша локално за „Hey Stevora“."
+                    else "Microphone listening locally for “Hey Stevora”."
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { StevoraPhraseModel.listen(voiceFolder) }
+                val sameRoute = manager.getServer()?.id == id &&
+                    manager.webSocketRepository(id).resolveStevoraPipeline()?.id == selected
+                if (sameRoute && awake && preferences.automaticListening && assistant.isDefaultAssistant() &&
+                    manager.getServer()?.id == id
+                ) {
+                    listenStatus = ""
+                    onStartConversation(id, selected)
+                }
+            } catch (e: CancellationException) {
+                listenStatus = ""
+                throw e
+            } catch (_: Exception) {
+                listenStatus = if (bg) "Провери достъпа до микрофона и образците."
+                    else "Check microphone access and samples."
+            } finally {
+                listening = false
             }
         }
         OutlinedButton(onClick = onBack) { Text("Home") }
