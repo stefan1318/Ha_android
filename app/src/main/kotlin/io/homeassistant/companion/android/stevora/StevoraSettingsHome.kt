@@ -367,7 +367,6 @@ private fun StevoraNativeSettingsSection(
     }
     val manager = services.serverManager()
     val assistant = services.defaultAssistantManager()
-    val assistConfig = services.assistConfigManager()
     val voicePreferences = remember(context) { StevoraVoicePreferences(context) }
     fun tr(a: String, b: String) = if (bg) a else b
     fun openSystem(action: String, packageUri: Boolean = false) {
@@ -389,22 +388,13 @@ private fun StevoraNativeSettingsSection(
     var automaticVoice by remember { mutableStateOf(voicePreferences.automaticListening) }
     var backgroundVoice by remember { mutableStateOf(false) }
     var defaultAssistant by remember { mutableStateOf(false) }
-    var backgroundModel by remember {
-        mutableStateOf<io.homeassistant.companion.android.assist.wakeword.MicroWakeWordModelConfig?>(null)
-    }
-    var voiceSaving by remember { mutableStateOf(false) }
-    var voiceError by remember { mutableStateOf("") }
+    val voiceService = io.homeassistant.companion.android.assist.service.AssistVoiceInteractionService.Companion
     LifecycleResumeEffect(section, assistant) {
-        if (section == "voice") defaultAssistant = assistant.isDefaultAssistant()
-        onPauseOrDispose { }
-    }
-    LaunchedEffect(section, defaultAssistant) {
-        if (section != "voice") return@LaunchedEffect
-        backgroundModel = assistConfig.getAvailableModels().firstOrNull {
-            it.wakeWord.equals(StevoraConfiguration.WAKE_WORD_MODEL_NAME, ignoreCase = true)
+        if (section == "voice") {
+            defaultAssistant = assistant.isDefaultAssistant()
+            backgroundVoice = defaultAssistant && voicePreferences.backgroundServerId != null
         }
-        backgroundVoice = defaultAssistant && backgroundModel != null && assistConfig.isWakeWordEnabled() &&
-            assistConfig.getSelectedWakeWordModel() == backgroundModel
+        onPauseOrDispose { }
     }
     var server by remember { mutableStateOf<io.homeassistant.companion.android.database.server.Server?>(null) }
     var localUrl by remember { mutableStateOf("") }
@@ -686,66 +676,55 @@ private fun StevoraNativeSettingsSection(
                 }) { Text(tr("Настройки на Android", "Android settings")) }
                 Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                     Text(tr("Слушай автоматично в Assist", "Listen automatically in Assist"), color = muted)
-                    Switch(checked = automaticVoice, enabled = !voiceSaving && (automaticVoice || (defaultAssistant && micAllowed && trained)),
+                    Switch(checked = automaticVoice, enabled = automaticVoice || (defaultAssistant && micAllowed && trained),
                         onCheckedChange = { enabled ->
-                            if (!enabled && backgroundVoice) {
-                                scope.launch {
-                                    voiceSaving = true
-                                    try {
-                                        assistConfig.setWakeWordEnabled(false)
-                                        backgroundVoice = false
-                                        automaticVoice = false
-                                        voicePreferences.automaticListening = false
-                                    } catch (e: CancellationException) { throw e }
-                                    catch (_: Exception) { voiceError = tr("Слушането не бе спряно.", "Listening could not be stopped.") }
-                                    finally { voiceSaving = false }
-                                }
-                            } else {
-                                automaticVoice = enabled
-                                voicePreferences.automaticListening = enabled
+                            voicePreferences.automaticListening = enabled
+                            automaticVoice = enabled
+                            if (!enabled && voicePreferences.backgroundServerId != null) {
+                                voicePreferences.backgroundServerId = null
+                                backgroundVoice = false
+                                voiceService.stopListening(context)
                             }
                         })
                 }
                 Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                     Text(tr("Слушай и във фон", "Listen in background"), color = muted)
                     Switch(checked = backgroundVoice,
-                        enabled = !voiceSaving && (backgroundVoice ||
-                            (automaticVoice && defaultAssistant && micAllowed && backgroundModel != null)),
+                        enabled = backgroundVoice || (automaticVoice && defaultAssistant && micAllowed && trained &&
+                            server != null && notificationsAllowed && recording == null && playing == null && !training),
                         onCheckedChange = { enabled ->
-                            scope.launch {
-                                voiceSaving = true
-                                voiceError = ""
-                                try {
-                                    if (enabled) {
-                                        val model = backgroundModel ?: return@launch
-                                        if (!assistant.isDefaultAssistant() ||
-                                            context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
-                                        ) return@launch
-                                        assistConfig.setSelectedWakeWordModel(model)
-                                    }
-                                    assistConfig.setWakeWordEnabled(enabled)
-                                    backgroundVoice = enabled
-                                } catch (e: CancellationException) { throw e }
-                                catch (_: Exception) { voiceError = tr("Режимът не бе променен.", "Listening mode could not be changed.") }
-                                finally { voiceSaving = false }
+                            if (!enabled) {
+                                voicePreferences.backgroundServerId = null
+                                backgroundVoice = false
+                                voiceService.stopListening(context)
+                            } else {
+                                val id = server?.id ?: return@Switch
+                                if (!assistant.isDefaultAssistant() ||
+                                    context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
+                                ) return@Switch
+                                voicePreferences.backgroundServerId = id
+                                backgroundVoice = true
+                                voiceService.startListening(context)
                             }
                         })
                 }
-                if (backgroundModel == null) {
-                    Text(tr("Фоновият режим изисква пакетиран модел за „Hey Stevora“.",
-                        "Background mode requires a packaged “Hey Stevora” model."), color = muted)
+                if (!notificationsAllowed) {
+                    OutlinedButton(onClick = { notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS) }) {
+                        Text(tr("Разреши известията за слушане", "Allow listening notifications"))
+                    }
                 }
-                if (voiceError.isNotEmpty()) Text(voiceError, color = muted)
+                Text(tr("При включване Android може да слуша и при заключен екран. Статусът е в известията.",
+                    "When enabled, Android may listen while locked. Listening status is shown in notifications."), color = muted)
                 StevoraSectionHeading("Hey Stevora", tr("Запиши поне три образеца. Кажи „Hey Stevora“ веднъж във всеки.", "Record at least three samples. Say “Hey Stevora” once in each."))
                 SettingsInfo(tr("Гласови образци", "Voice samples"), "$sampleCount / 20")
                 Button(
-                    enabled = micAllowed && !training && playing == null && (recording != null || sampleCount < 20),
+                    enabled = micAllowed && !backgroundVoice && !training && playing == null && (recording != null || sampleCount < 20),
                     onClick = { if (recording != null) stopRecording() else startRecording() },
                 ) { Text(if (recording != null) tr("Спри и запази", "Stop and save") else tr("Запиши образец", "Record sample")) }
                 clips.forEachIndexed { index, file ->
                     Text(tr("Образец", "Sample") + " " + (index + 1), color = muted)
                     Row {
-                        OutlinedButton(enabled = recording == null && !training, onClick = {
+                        OutlinedButton(enabled = !backgroundVoice && recording == null && !training, onClick = {
                             val stopping = playing == file
                             stopPlayback()
                             if (!stopping) try {
@@ -757,14 +736,14 @@ private fun StevoraNativeSettingsSection(
                                 audio.prepare(); playing = file; audio.start()
                             } catch (_: Exception) { stopPlayback(); saveStatus = tr("Записът не се отваря", "Could not play sample") }
                         }) { Text(if (playing == file) tr("Спри", "Stop") else tr("Прослушай", "Play")) }
-                        OutlinedButton(enabled = recording == null && !training, onClick = {
+                        OutlinedButton(enabled = !backgroundVoice && recording == null && !training, onClick = {
                             if (playing == file) stopPlayback()
                             if (!file.delete()) saveStatus = tr("Записът не бе изтрит", "Could not delete sample")
                             refreshCount()
                         }) { Text(tr("Изтрий", "Delete")) }
                     }
                 }
-                Button(enabled = sampleCount >= 3 && recording == null && playing == null && !training, onClick = {
+                Button(enabled = sampleCount >= 3 && !backgroundVoice && recording == null && playing == null && !training, onClick = {
                     training = true
                     scope.launch {
                         try {

@@ -229,7 +229,7 @@ internal fun StevoraAiHome(
             ) return@LaunchedEffect
             try {
                 val systemAssist = services.assistConfigManager()
-                if (systemAssist.isWakeWordEnabled()) return@LaunchedEffect
+                if (preferences.backgroundServerId != null || systemAssist.isWakeWordEnabled()) return@LaunchedEffect
                 val ready = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { StevoraPhraseModel.ready(voiceFolder) }
                 if (!ready) return@LaunchedEffect
                 listening = true
