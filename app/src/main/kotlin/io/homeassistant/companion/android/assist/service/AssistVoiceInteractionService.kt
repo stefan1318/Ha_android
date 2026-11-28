@@ -30,6 +30,7 @@ import io.homeassistant.companion.android.common.data.servers.ServerManager
 import io.homeassistant.companion.android.stevora.StevoraConfiguration
 import io.homeassistant.companion.android.stevora.StevoraPhraseModel
 import io.homeassistant.companion.android.stevora.StevoraVoicePreferences
+import io.homeassistant.companion.android.stevora.resolveStevoraPipeline
 import java.io.File
 import io.homeassistant.companion.android.common.util.CHANNEL_ASSIST_LISTENING
 import io.homeassistant.companion.android.common.util.SdkVersion
@@ -196,7 +197,9 @@ class AssistVoiceInteractionService : VoiceInteractionService() {
             if (stevoraListening?.isCompleted == false) return@launch
             wakeWordListener.stop()
             if (serverId != null) {
-                if (stevoraListening?.isCompleted != false) startStevoraListening(serverId)
+                if (stevoraListening?.isCompleted != false && stevoraVoice.backgroundServerId == serverId) {
+                    startStevoraListening(serverId)
+                }
             } else {
                 val model = loadWakeWordModel()
                 wakeWordListener.start(this, model)
